@@ -68,10 +68,18 @@ func move_along_path(path: Array):
 
 	$AnimatedSprite2D.play("move")
 
-	for tile_coord in path:
+	for i in range(path.size()):
+		var tile_coord = path[i]
+		var from_tile: Vector2i
+		if i == 0:
+			from_tile = tile_pos
+		else:
+			from_tile = path[i - 1]
+
+		_set_facing(from_tile, tile_coord)
+
 		var local_pos = tilemap.map_to_local(tile_coord)
 		var world_pos = tilemap.to_global(local_pos) + t_size / 2
-
 		tween.tween_property(self, "global_position", world_pos, 0.2)
 		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile_coord))
 
@@ -107,3 +115,12 @@ func update_xp_bar():
 
 func die():
 	queue_free()
+
+func _set_facing(from: Vector2i, to: Vector2i) -> void:
+	var delta = to - from
+	var sprite = $AnimatedSprite2D
+
+	if delta.x > 0:
+		sprite.flip_h = true   # moving right → face right (flip left art)
+	elif delta.x < 0:
+		sprite.flip_h = false  # moving left → face left (default)
