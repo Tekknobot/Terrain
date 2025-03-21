@@ -22,30 +22,122 @@ var highlighted_tiles: Array[Vector2i] = []
 var grid_actual_width: int
 var grid_actual_height: int
 
+const TILE_WATER = 6
+const TILE_SANDSTONE = 10
+const TILE_DIRT = 7
+const TILE_GRASS = 8
+const TILE_SNOW = 9
+const TILE_ICE = 11
+
+const INTERSECTION = 12
+const DOWN_RIGHT_ROAD = 14
+const DOWN_LEFT_ROAD = 13
+
+var base_tiles: Dictionary = {}
+var noise := FastNoiseLite.new()
+
+@export var day_duration := 10.0  # Seconds per full day-night cycle
+var day_phase := 0.0  # Ranges from 0.0 to 1.0
+
 func _ready():
+	noise.seed = randi()
+	noise.frequency = 0.08  # Controls how large/small terrain patches are
+	noise.fractal_octaves = 4
+	noise.fractal_gain = 0.4
+	noise.fractal_lacunarity = 2.0
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	
 	generate_grid()
 	setup_camera()
 	spawn_units()
 	setup_astar()  # Setup AStar grid using update_astar_grid()
 	start_turn()
 
+func _process(delta):
+	# Update day phase (0.0 to 1.0)
+	day_phase += delta / day_duration
+	if day_phase > 1.0:
+		day_phase -= 1.0  # Loop
+
+	update_day_night_tint()
+
+func update_day_night_tint():
+	# Simulate light intensity (min 0.4 at night, max 1.0 during the day)
+	var brightness := 0.7 + 0.3 * sin(PI * 2 * day_phase)
+
+	# Slight bluish tint at night (more subtle)
+	var tint := Color(
+		brightness,
+		brightness,
+		brightness + (1.0 - brightness) * 0.1
+	)
+
+	set_layer_modulate(0, tint)
+
 
 ### **Generate Grid with Water Division**
 func generate_grid():
-	# Use exported grid_width and grid_height for initial layout.
-	var water_start = grid_height / 2 - water_rows / 2  
-	var water_end = water_start + water_rows  
-	tile_size = Vector2(get_tileset().tile_size)
-	
-	print("Tile size: ", tile_size, " water_start: ", water_start, " water_end: ", water_end)
-	
+	var tile_size = Vector2(get_tileset().tile_size)
+
 	for x in range(grid_width):
 		for y in range(grid_height):
-			if y >= water_start and y < water_end:
-				set_cell(0, Vector2i(x, y), water_tile_id, Vector2i(0, 0))
-			else:
-				set_cell(0, Vector2i(x, y), land_tile_id, Vector2i(0, 0))
+			var tile_pos = Vector2i(x, y)
+			var n = noise.get_noise_2d(float(x), float(y))  # returns value from -1 to 1
 
+			var tile_type := TILE_GRASS  # default fallback
+
+			# Terrain thresholds based on noise value
+			if n < -0.6:
+				tile_type = TILE_WATER
+			elif n < -0.2:
+				tile_type = TILE_SANDSTONE
+			elif n < 0.1:
+				tile_type = TILE_DIRT
+			elif n < 0.4:
+				tile_type = TILE_GRASS
+			elif n < 0.7:
+				tile_type = TILE_SNOW
+			else:
+				tile_type = TILE_ICE
+
+			set_cell(0, tile_pos, tile_type, Vector2i(0, 0))
+			base_tiles[tile_pos] = tile_type
+	
+	# 🛣 Add roads after terrain
+	generate_roads()
+	
+func generate_roads():
+	var picked_horizontal_odd_y = []
+	var picked_vertical_odd_x = []
+
+	# Randomly pick 2-4 roads
+	for i in range(2):
+		var horizontal_y = get_unique_random_odd(grid_height, picked_horizontal_odd_y)
+		var vertical_x = get_unique_random_odd(grid_width, picked_vertical_odd_x)
+
+		draw_road(Vector2i(0, horizontal_y), Vector2i(1, 0), DOWN_RIGHT_ROAD)  # Horizontal
+		draw_road(Vector2i(vertical_x, 0), Vector2i(0, 1), DOWN_LEFT_ROAD)     # Vertical
+
+func draw_road(start: Vector2i, direction: Vector2i, road_tile_id: int):
+	var pos = start
+	while pos.x >= 0 and pos.x < grid_width and pos.y >= 0 and pos.y < grid_height:
+		var tile_id = get_cell_source_id(0, pos)
+		if tile_id == DOWN_LEFT_ROAD or tile_id == DOWN_RIGHT_ROAD:
+			set_cell(0, pos, INTERSECTION, Vector2i(0, 0))
+		else:
+			set_cell(0, pos, road_tile_id, Vector2i(0, 0))
+		pos += direction
+
+func get_unique_random_odd(max_val: int, used: Array) -> int:
+	var tries = 0
+	while tries < 20:
+		var val = randi_range(1, max_val - 2)
+		if val % 2 == 1 and not used.has(val):
+			used.append(val)
+			return val
+		tries += 1
+	return 1  # fallback
 
 ### **Setup Camera**
 func setup_camera():
@@ -128,7 +220,7 @@ func advance_turn():
 func highlight_path(path: Array[Vector2i]):
 	clear_movement_highlight()
 	for tile in path:
-		set_cell(0, tile, highlight_tile_id, Vector2i(0, 0))
+		set_cell(1, tile, highlight_tile_id, Vector2i(0, 0))
 	highlighted_tiles = path.duplicate()
 
 func move_unit(unit, target_tile: Vector2i):
@@ -234,14 +326,13 @@ func highlight_movement_range(unit):
 			# Use the ignore helper so the selected unit doesn't block its own path.
 			if distance <= unit.movement_range and is_valid_spawn_ignore(unit, target_tile):
 				highlighted_tiles.append(target_tile)
-				set_cell(0, target_tile, highlight_tile_id, Vector2i(0, 0))
+				set_cell(1, target_tile, highlight_tile_id, Vector2i(0, 0))
 	print("Highlighted tiles: ", highlighted_tiles)
 
 func clear_movement_highlight():
 	for tile in highlighted_tiles:
-		set_cell(0, tile, land_tile_id, Vector2i(0, 0))
+		set_cell(1, tile, -1, Vector2i(0, 0))  # ❌ this is outdated
 	highlighted_tiles.clear()
-
 
 ### **Utility Functions**
 func is_water_tile(tile: Vector2i) -> bool:

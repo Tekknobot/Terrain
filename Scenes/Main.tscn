@@ -1,20 +1,28 @@
-[gd_scene load_steps=30 format=3 uid="uid://npnv1wvwmhj3"]
+[gd_scene load_steps=46 format=3 uid="uid://npnv1wvwmhj3"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_2cdww"]
 [ext_resource type="Script" path="res://Scripts/BattleGrid.gd" id="1_juvca"]
 [ext_resource type="Texture2D" uid="uid://56t0bjdw3rny" path="res://Sprites/Tiles_UI/tile_hover_black.png" id="2_bm8h6"]
+[ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://Sprites/Terrain/sandstone.png" id="3_c04i0"]
 [ext_resource type="Texture2D" uid="uid://dyigrwo5qmh4a" path="res://Sprites/Tiles_UI/tile_hover_blue.png" id="3_igwkr"]
 [ext_resource type="Texture2D" uid="uid://6xil7xbbe3vx" path="res://Sprites/Tiles_UI/tile_hover_red.png" id="4_5oiu3"]
+[ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://Sprites/Terrain/ice.png" id="4_xtfnf"]
+[ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://Sprites/Terrain/roads/16.png" id="5_o2svg"]
 [ext_resource type="Texture2D" uid="uid://rktlakqso06f" path="res://Sprites/Tiles_UI/tile_hover_white.png" id="5_yeuw1"]
+[ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://Sprites/Terrain/roads/17.png" id="6_cb528"]
 [ext_resource type="Texture2D" uid="uid://d2hi70r47mggn" path="res://Sprites/Tiles_UI/tile_walkable.png" id="6_ln81q"]
 [ext_resource type="Texture2D" uid="uid://eh6ocjhc4lti" path="res://Sprites/Terrain/water.png" id="7_kwlmw"]
+[ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://Sprites/Terrain/roads/18.png" id="7_yuo6w"]
 [ext_resource type="Script" path="res://Scripts/HoverTile.gd" id="8_51jtd"]
 [ext_resource type="PackedScene" uid="uid://bpsujbhwy03a0" path="res://Scenes/Meks_Scenes/PLAYER/M1.scn" id="9_cq62f"]
 [ext_resource type="PackedScene" uid="uid://ci0nvbknkouk5" path="res://Scenes/Meks_Scenes/CPU/M1.scn" id="9_tx01l"]
 [ext_resource type="PackedScene" uid="uid://bnqjqpd5lkacg" path="res://Scenes/Meks_Scenes/PLAYER/M2.scn" id="10_ijfy0"]
 [ext_resource type="PackedScene" uid="uid://isp3h3mc30kr" path="res://Scenes/Meks_Scenes/CPU/M2.scn" id="10_jnxcy"]
+[ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://Sprites/Terrain/dirt.png" id="10_o812q"]
 [ext_resource type="PackedScene" uid="uid://bmuido3r5ktn4" path="res://Scenes/Meks_Scenes/PLAYER/R1.scn" id="11_1jvt7"]
+[ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://Sprites/Terrain/grass_default.png" id="11_4k0nf"]
 [ext_resource type="PackedScene" uid="uid://d0nuwcj38jovf" path="res://Scenes/Meks_Scenes/CPU/R1.scn" id="11_kslvh"]
+[ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://Sprites/Terrain/grass_snow.png" id="12_d2xdu"]
 [ext_resource type="PackedScene" uid="uid://d4kyifny6a844" path="res://Scenes/Meks_Scenes/PLAYER/R3.scn" id="12_g6pgr"]
 [ext_resource type="PackedScene" uid="uid://ljo4wh1814ie" path="res://Scenes/Meks_Scenes/CPU/R3.scn" id="12_igjmq"]
 [ext_resource type="PackedScene" uid="uid://kjjhlcxrti0l" path="res://Scenes/Meks_Scenes/CPU/S2.scn" id="13_mmtes"]
@@ -29,6 +37,40 @@ texture_region_size = Vector2i(32, 32)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_hs0mf"]
 texture = ExtResource("2_bm8h6")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_k7s50"]
+texture = ExtResource("3_c04i0")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ajarr"]
+texture = ExtResource("4_xtfnf")
+texture_region_size = Vector2i(32, 32)
+0:0/animation_speed = 12.0
+0:0/animation_frame_0/duration = 1.0
+0:0/animation_frame_1/duration = 1.0
+0:0/animation_frame_2/duration = 1.0
+0:0/animation_frame_3/duration = 1.0
+0:0/animation_frame_4/duration = 1.0
+0:0/animation_frame_5/duration = 1.0
+0:0/animation_frame_6/duration = 1.0
+0:0/animation_frame_7/duration = 1.0
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_vxydb"]
+texture = ExtResource("5_o2svg")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_12spb"]
+texture = ExtResource("6_cb528")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_x0puf"]
+texture = ExtResource("7_yuo6w")
 texture_region_size = Vector2i(32, 32)
 0:0/0 = 0
 
@@ -96,6 +138,21 @@ texture_region_size = Vector2i(32, 32)
 6:3/0 = 0
 7:3/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_f6s4v"]
+texture = ExtResource("10_o812q")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bx0mv"]
+texture = ExtResource("11_4k0nf")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_dqpgp"]
+texture = ExtResource("12_d2xdu")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
 [sub_resource type="TileSet" id="TileSet_k2046"]
 tile_shape = 1
 tile_layout = 5
@@ -107,6 +164,14 @@ sources/3 = SubResource("TileSetAtlasSource_7lpf6")
 sources/4 = SubResource("TileSetAtlasSource_20dl0")
 sources/5 = SubResource("TileSetAtlasSource_w2t0e")
 sources/6 = SubResource("TileSetAtlasSource_f16c1")
+sources/7 = SubResource("TileSetAtlasSource_f6s4v")
+sources/8 = SubResource("TileSetAtlasSource_bx0mv")
+sources/9 = SubResource("TileSetAtlasSource_dqpgp")
+sources/10 = SubResource("TileSetAtlasSource_k7s50")
+sources/11 = SubResource("TileSetAtlasSource_ajarr")
+sources/12 = SubResource("TileSetAtlasSource_vxydb")
+sources/13 = SubResource("TileSetAtlasSource_12spb")
+sources/14 = SubResource("TileSetAtlasSource_x0puf")
 
 [node name="BattleGrid" type="Node2D"]
 
@@ -114,11 +179,14 @@ sources/6 = SubResource("TileSetAtlasSource_f16c1")
 y_sort_enabled = true
 tile_set = SubResource("TileSet_k2046")
 format = 2
+layer_1/name = "Layer1"
 script = ExtResource("1_juvca")
-grid_height = 23
+grid_width = 12
+grid_height = 24
 player_units = Array[PackedScene]([ExtResource("9_cq62f"), ExtResource("10_ijfy0"), ExtResource("11_1jvt7"), ExtResource("12_g6pgr"), ExtResource("13_nlsfu"), ExtResource("14_usaop")])
 enemy_units = Array[PackedScene]([ExtResource("9_tx01l"), ExtResource("10_jnxcy"), ExtResource("11_kslvh"), ExtResource("12_igjmq"), ExtResource("13_mmtes"), ExtResource("14_42888")])
 highlight_tile_id = 5
+day_duration = 100.0
 
 [node name="Sprite2D" type="Sprite2D" parent="." node_paths=PackedStringArray("tilemap")]
 script = ExtResource("8_51jtd")

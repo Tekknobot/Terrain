@@ -71,9 +71,24 @@ func choose_target_tile() -> Vector2i:
 		return Vector2i(-1, -1)
 
 	var start = tile_pos
-	var candidates := []
 
-	# Collect all valid tiles
+	# Step 1: Find the nearest player unit
+	var nearest_player_pos: Vector2i = Vector2i(-1, -1)
+	var min_distance = INF
+
+	for unit in tilemap.all_units:
+		if unit.is_player:
+			var dist = tilemap.manhattan_distance(start, unit.tile_pos)
+			if dist < min_distance:
+				min_distance = dist
+				nearest_player_pos = unit.tile_pos
+
+	if nearest_player_pos == Vector2i(-1, -1):
+		return Vector2i(-1, -1)  # No player found
+
+	# Step 2: Gather valid candidate tiles
+	var candidates: Array[Vector2i] = []
+
 	for x in range(start.x - movement_range, start.x + movement_range + 1):
 		for y in range(start.y - movement_range, start.y + movement_range + 1):
 			var target = Vector2i(x, y)
@@ -81,17 +96,19 @@ func choose_target_tile() -> Vector2i:
 			and tilemap.is_valid_spawn_ignore(self, target):
 				candidates.append(target)
 
-	# Shuffle to try random paths
-	candidates.shuffle()
+	# Step 3: Sort by distance to the nearest player
+	candidates.sort_custom(func(a, b):
+		return tilemap.manhattan_distance(a, nearest_player_pos) < tilemap.manhattan_distance(b, nearest_player_pos)
+	)
 
-	# Try a few to find one with a valid path
+	# Step 4: Try each candidate to find a valid path
 	for target in candidates:
 		tilemap.update_astar_grid_ignore(self)
 		var path = tilemap.astar.get_point_path(start, target)
 		if path.size() > 1:
 			return target  # Found a reachable tile
 
-	return Vector2i(-1, -1)  # None were reachable
+	return Vector2i(-1, -1)  # Nothing reachable
 
 
 func move_along_path(path: Array):
