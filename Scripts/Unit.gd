@@ -62,8 +62,13 @@ func move_along_path(path: Array):
 
 	var t_size = tilemap.get_tileset().tile_size
 	$AnimatedSprite2D.play("move")
+	
+	var previous_tile = tile_pos  # ← assigned here, before any movement
 
 	for tile in path:
+		# 🔥 Face the correct direction based on X‑movement
+		_set_facing(previous_tile, tile)
+		previous_tile = tile
 		var world = tilemap.map_to_local(tile)
 		tween.tween_property(self, "global_position", world, 0.2)
 		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
@@ -105,7 +110,15 @@ func die():
 
 func _set_facing(from: Vector2i, to: Vector2i) -> void:
 	var delta = to - from
+
+	# Horizontal flip (left/right)
 	if delta.x > 0:
 		$AnimatedSprite2D.flip_h = true
 	elif delta.x < 0:
 		$AnimatedSprite2D.flip_h = false
+
+	# Vertical flip (up/down)
+	if delta.y > 0:
+		$AnimatedSprite2D.flip_h = false   # moving down → normal
+	elif delta.y < 0:
+		$AnimatedSprite2D.flip_h = true    # moving up → flipped vertically
