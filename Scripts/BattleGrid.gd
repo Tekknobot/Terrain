@@ -39,6 +39,8 @@ var noise := FastNoiseLite.new()
 @export var day_duration := 10.0  # Seconds per full day-night cycle
 var day_phase := 0.0  # Ranges from 0.0 to 1.0
 
+@onready var ATTACK_SOUND = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
+
 func _ready():
 	noise.seed = randi()
 	noise.frequency = 0.08  # Controls how large/small terrain patches are
@@ -244,7 +246,7 @@ func move_unit(unit, target_tile: Vector2i):
 	# ✅ After move, check for adjacent enemy to attack
 	var attacked := await try_attack_adjacent(unit)
 
-	await get_tree().create_timer(0.5).timeout  # Slight pause
+	await get_tree().create_timer(0.1).timeout  # Slight pause
 	selected_unit = null
 	active_unit_index += 1
 	advance_turn()
@@ -268,6 +270,14 @@ func try_attack_adjacent(unit) -> bool:
 				var sprite = unit.get_node("AnimatedSprite2D")
 				if sprite:
 					sprite.play("attack")
+					
+					# 🔊 Play attack sound from existing AudioStreamPlayer2D
+					var tilemap = get_tree().get_current_scene().get_node("TileMap")
+					if tilemap.has_node("AudioStreamPlayer2D"):
+						var sound = tilemap.get_node("AudioStreamPlayer2D")
+						sound.stream = ATTACK_SOUND
+						sound.global_position = unit.global_position  # Optional: position it at attacker
+						sound.play()
 
 				target.take_damage(25)
 				target.flash_white()

@@ -188,6 +188,8 @@ enemy_units = Array[PackedScene]([ExtResource("9_tx01l"), ExtResource("10_jnxcy"
 highlight_tile_id = 5
 day_duration = 100.0
 
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
+
 [node name="Sprite2D" type="Sprite2D" parent="." node_paths=PackedStringArray("tilemap")]
 script = ExtResource("8_51jtd")
 tilemap = NodePath("../TileMap")
