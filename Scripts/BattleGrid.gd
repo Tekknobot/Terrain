@@ -98,17 +98,27 @@ func start_turn():
 
 func advance_turn():
 	if active_unit_index >= all_units.size():
-		player_turn = !player_turn  
+		player_turn = !player_turn
 		active_unit_index = 0
 		print("Turn changed! Player Turn:", player_turn)
-	selected_unit = null
-	clear_movement_highlight()
-	
-	for unit in all_units:
-		if unit.is_player == player_turn:
-			selected_unit = unit
-			highlight_movement_range(unit)
-			return  
+
+		# If it’s now the enemy’s turn, let them all move immediately
+		if not player_turn:
+			for unit in all_units:
+				if not unit.is_player:
+					# Highlight AI unit’s movement range
+					highlight_movement_range(unit)
+					
+					await get_tree().create_timer(1).timeout
+
+					# Command the unit to move
+					unit.start_turn()
+
+					# Clear highlights so next unit can show theirs
+					clear_movement_highlight()
+					await get_tree().create_timer(2).timeout
+			player_turn = true
+			print("AI finished. Back to player turn.")
 
 func move_unit(unit, target_tile: Vector2i):
 	# Force the grid to ignore the moving unit itself

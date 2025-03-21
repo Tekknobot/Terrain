@@ -13,6 +13,8 @@ var movement_range := 3
 
 var tile_pos: Vector2i
 
+signal movement_finished
+
 func _ready():
 	update_tile_pos_from_world()
 	update_z_index()
@@ -46,10 +48,21 @@ func ai_move():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		return
-	var offset = Vector2i(randi_range(-movement_range, movement_range), randi_range(-movement_range, movement_range))
-	var target = tile_pos + offset
-	if tilemap.is_valid_spawn(target):
-		tilemap.move_unit(self, target)
+
+	var start = tile_pos
+	var candidates := []
+	for x in range(start.x - movement_range, start.x + movement_range + 1):
+		for y in range(start.y - movement_range, start.y + movement_range + 1):
+			var target = Vector2i(x, y)
+			if tilemap.manhattan_distance(start, target) <= movement_range \
+			   and tilemap.is_valid_spawn_ignore(self, target):
+				candidates.append(target)
+
+	if candidates.size() > 0:
+		var choice = candidates[randi() % candidates.size()]
+		tilemap.move_unit(self, choice)
+	else:
+		print(unit_type, "has no valid move.")
 
 func move_along_path(path: Array):
 	if path.is_empty():
@@ -74,6 +87,8 @@ func move_along_path(path: Array):
 		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
 
 	await tween.finished
+	emit_signal("movement_finished")
+	
 	$AnimatedSprite2D.play("default")
 	tilemap.update_astar_grid()
 
