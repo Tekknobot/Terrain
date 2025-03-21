@@ -2,11 +2,11 @@ extends Node2D
 
 @export var is_player: bool = true  
 @export var unit_type: String = "Soldier"  
-var health: int = 100
-var max_health: int = 100
-var xp: int = 0
-var max_xp: int = 100
-var movement_range: int = 3  
+var health := 100
+var max_health := 100
+var xp := 0
+var max_xp := 100
+var movement_range := 3  
 
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI
@@ -14,9 +14,7 @@ var movement_range: int = 3
 var tile_pos: Vector2i
 
 func _ready():
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap:
-		tile_pos = tilemap.local_to_map(global_position)
+	update_tile_pos_from_world()
 	update_z_index()
 	update_health_bar()
 	update_xp_bar()
@@ -26,7 +24,7 @@ func set_team(player_team: bool):
 	if is_player:
 		modulate = Color(1, 1, 1)
 	else:
-		modulate = Color(1, 110.0/255.0, 1)
+		modulate = Color(1, 110/255.0, 1)
 
 func update_z_index():
 	z_index = int(position.y)
@@ -34,25 +32,24 @@ func update_z_index():
 func _process(delta):
 	update_z_index()
 
-### TURN & MOVEMENT HANDLING
+### TURN & MOVEMENT ###
 func start_turn():
-	print(unit_type + " is now active!")
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap:
-		tilemap.highlight_movement_range(self)  # Trigger tile highlight
+	if tilemap != null:
+		tilemap.highlight_movement_range(self)
 	if is_player:
-		print("Player, select a tile to move!")
+		print(unit_type + " — select a tile")
 	else:
 		ai_move()
 
 func ai_move():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap:
-		var current_tile = tilemap.local_to_map(global_position)
-		var random_offset = Vector2i(randi_range(-movement_range, movement_range), randi_range(-movement_range, movement_range))
-		var target_tile = current_tile + random_offset
-		if tilemap.is_valid_spawn(target_tile):
-			tilemap.move_unit(self, target_tile)
+	if tilemap == null:
+		return
+	var offset = Vector2i(randi_range(-movement_range, movement_range), randi_range(-movement_range, movement_range))
+	var target = tile_pos + offset
+	if tilemap.is_valid_spawn(target):
+		tilemap.move_unit(self, target)
 
 func move_along_path(path: Array):
 	if path.is_empty():
@@ -61,44 +58,34 @@ func move_along_path(path: Array):
 	var tween = create_tween()
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
-		print("TileMap not found!")
 		return
 
-	var t_size: Vector2 = tilemap.get_tileset().tile_size
-
+	var t_size = tilemap.get_tileset().tile_size
 	$AnimatedSprite2D.play("move")
 
-	for i in range(path.size()):
-		var tile_coord = path[i]
-		var from_tile: Vector2i
-		if i == 0:
-			from_tile = tile_pos
-		else:
-			from_tile = path[i - 1]
+	for tile in path:
+		var world_position: Vector2 = tilemap.map_to_local(tile) + tilemap.get_tileset().tile_size * 0.5
+		tween.tween_property(self, "global_position", world_position, 0.2)
+		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
 
-		_set_facing(from_tile, tile_coord)
-
-		var local_pos = tilemap.map_to_local(tile_coord)
-		var world_pos = tilemap.to_global(local_pos) + t_size / 2
-		tween.tween_property(self, "global_position", world_pos, 0.2)
-		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile_coord))
-
-	await tween.finished	
-	
+	await tween.finished
 	$AnimatedSprite2D.play("default")
-
 	tilemap.update_astar_grid()
-	print("Finished moving along path.")
 
 func _update_tile_pos(new_tile: Vector2i) -> void:
 	tile_pos = new_tile
 
+### TILE_POS SYNC ###
+func update_tile_pos_from_world():
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap != null:
+		tile_pos = tilemap.local_to_map(global_position)
 
-### HEALTH & XP MECHANICS
+### HEALTH & XP ###
 func take_damage(amount: int):
 	health = max(health - amount, 0)
 	update_health_bar()
-	if health <= 0:
+	if health == 0:
 		die()
 
 func gain_xp(amount: int):
@@ -106,11 +93,11 @@ func gain_xp(amount: int):
 	update_xp_bar()
 
 func update_health_bar():
-	if health_bar:
+	if health_bar != null:
 		health_bar.value = float(health) / max_health * 100
 
 func update_xp_bar():
-	if xp_bar:
+	if xp_bar != null:
 		xp_bar.value = float(xp) / max_xp * 100
 
 func die():
@@ -118,9 +105,7 @@ func die():
 
 func _set_facing(from: Vector2i, to: Vector2i) -> void:
 	var delta = to - from
-	var sprite = $AnimatedSprite2D
-
 	if delta.x > 0:
-		sprite.flip_h = true   # moving right → face right (flip left art)
+		$AnimatedSprite2D.flip_h = true
 	elif delta.x < 0:
-		sprite.flip_h = false  # moving left → face left (default)
+		$AnimatedSprite2D.flip_h = false

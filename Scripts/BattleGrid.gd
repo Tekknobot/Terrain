@@ -71,7 +71,7 @@ func update_astar_grid() -> void:
 	astar.size = Vector2i(grid_actual_width, grid_actual_height)
 	astar.cell_size = Vector2(1, 1)
 	astar.default_compute_heuristic = 1
-	astar.diagonal_mode = 1
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.update()  # Clear previous configuration
 	
 	for x in range(grid_actual_width):
@@ -110,35 +110,26 @@ func advance_turn():
 			highlight_movement_range(unit)
 			return  
 
-
 func move_unit(unit, target_tile: Vector2i):
-	if not is_valid_spawn(target_tile):
+	# Rebuild AStar so the moving unit’s own tile is free
+	update_astar_grid_ignore(unit)
+
+	# Use the unit’s built‑in tile_pos directly
+	var start_tile: Vector2i = unit.tile_pos
+
+	if not is_within_bounds(start_tile):
+		print("⚠ Start out of bounds:", start_tile)
 		return
 
-	update_astar_grid()
+	# Refresh AStar but ignore this unit as an obstacle
+	update_astar_grid_ignore(unit)
 
-	var candidate_starts := []
-	for start_tile in get_surrounding_cells(unit.tile_pos):
-		if is_within_bounds(start_tile) and is_valid_spawn(start_tile):
-			var path = astar.get_point_path(start_tile, target_tile)
-			if path.size() > 1:
-				candidate_starts.append({"start": start_tile, "path": path})
-
-	if candidate_starts.is_empty():
-		print("⚠ No valid path found to ", target_tile)
+	var path = astar.get_point_path(start_tile, target_tile)
+	if path.size() <= 1:
+		print("⚠ No valid path found from ", start_tile, " to ", target_tile)
 	else:
-		candidate_starts.sort_custom(func(a, b):
-			return a["path"].size() < b["path"].size()
-		)
-		var best = candidate_starts[0]
-		print("Pathfinding from ", best["start"], " → ", target_tile, " (length=", best["path"].size(), ")")
-
-		# Offset every step one tile west
-		var offset_path := []
-		for tile in best["path"]:
-			var tile_i = Vector2i(tile.x, tile.y)
-			offset_path.append(tile_i + Vector2i(-1, 0))
-		unit.move_along_path(offset_path)
+		print("Path found:", path)
+		unit.move_along_path(path)
 
 	selected_unit = null
 	active_unit_index += 1
@@ -153,7 +144,7 @@ func update_astar_grid_ignore(selected: Node) -> void:
 	astar.size = Vector2i(grid_actual_width, grid_actual_height)
 	astar.cell_size = Vector2(1, 1)
 	astar.default_compute_heuristic = 1
-	astar.diagonal_mode = 1
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.update()  # Clear previous configuration
 	
 	# Compute the tile for the selected unit (its center)
