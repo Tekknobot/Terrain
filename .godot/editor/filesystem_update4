@@ -3,3 +3,15 @@ res://Scenes/Meks_Scenes/PLAYER/M1.scn
 res://Scripts/BattleGrid.gd
 res://Scripts/Unit.gd
 res://Scenes/VFX/Explosion.tscn
+res://Scripts/HealthBar.gd
+res://Scenes/Meks_Scenes/PLAYER/R3.scn
+res://Scenes/Meks_Scenes/CPU/M1.scn
+res://Scenes/Meks_Scenes/CPU/M2.scn
+res://Scenes/Meks_Scenes/CPU/R1.scn
+res://Scenes/Meks_Scenes/CPU/R3.scn
+res://Scenes/Meks_Scenes/CPU/S2.scn
+res://Scenes/Meks_Scenes/CPU/S3.scn
+res://Scenes/Meks_Scenes/PLAYER/M2.scn
+res://Scenes/Meks_Scenes/PLAYER/R1.scn
+res://Scenes/Meks_Scenes/PLAYER/S2.scn
+res://Scenes/Meks_Scenes/PLAYER/S3.scn
