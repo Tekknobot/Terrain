@@ -2,3 +2,4 @@ res://Scenes/Main.tscn
 res://Scenes/Meks_Scenes/PLAYER/M1.scn
 res://Scripts/BattleGrid.gd
 res://Scripts/Unit.gd
+res://Scenes/VFX/Explosion.tscn

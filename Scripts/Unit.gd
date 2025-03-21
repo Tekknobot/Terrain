@@ -15,6 +15,8 @@ var tile_pos: Vector2i
 
 signal movement_finished
 
+@onready var EXPLOSION_SCENE = preload("res://Scenes/VFX/Explosion.tscn")  # Adjust the path
+
 func _ready():
 	update_tile_pos_from_world()
 	update_z_index()
@@ -171,6 +173,14 @@ func die():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap and tilemap.all_units.has(self):
 		tilemap.all_units.erase(self)
+
+	# 💥 Spawn explosion before destroying the unit
+	var explosion = EXPLOSION_SCENE.instantiate()
+	explosion.global_position = global_position + Vector2(0, -8)  # Optional Y-offset for nice effect
+	tilemap.add_child(explosion)
+
+	# Optional: Play a sound, animation, or set explosion lifespan
+
 	queue_free()
 
 func _set_facing(from: Vector2i, to: Vector2i) -> void:
