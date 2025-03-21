@@ -42,9 +42,10 @@ func start_turn():
 	if is_player:
 		print(unit_type + " — select a tile")
 	else:
-		ai_move()
+		await ai_move()  # ← Add await here
 
-func ai_move():
+
+func ai_move() -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		return
@@ -60,9 +61,38 @@ func ai_move():
 
 	if candidates.size() > 0:
 		var choice = candidates[randi() % candidates.size()]
-		tilemap.move_unit(self, choice)
+		await tilemap.move_unit(self, choice)  # ← await the movement!
 	else:
 		print(unit_type, "has no valid move.")
+		
+func choose_target_tile() -> Vector2i:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap == null:
+		return Vector2i(-1, -1)
+
+	var start = tile_pos
+	var candidates := []
+
+	# Collect all valid tiles
+	for x in range(start.x - movement_range, start.x + movement_range + 1):
+		for y in range(start.y - movement_range, start.y + movement_range + 1):
+			var target = Vector2i(x, y)
+			if tilemap.manhattan_distance(start, target) <= movement_range \
+			and tilemap.is_valid_spawn_ignore(self, target):
+				candidates.append(target)
+
+	# Shuffle to try random paths
+	candidates.shuffle()
+
+	# Try a few to find one with a valid path
+	for target in candidates:
+		tilemap.update_astar_grid_ignore(self)
+		var path = tilemap.astar.get_point_path(start, target)
+		if path.size() > 1:
+			return target  # Found a reachable tile
+
+	return Vector2i(-1, -1)  # None were reachable
+
 
 func move_along_path(path: Array):
 	if path.is_empty():

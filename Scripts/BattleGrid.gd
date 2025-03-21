@@ -97,28 +97,39 @@ func start_turn():
 	advance_turn()
 
 func advance_turn():
-	if active_unit_index >= all_units.size():
+	var team_units = all_units.filter(func(u): return u.is_player != player_turn)
+
+	if active_unit_index >= team_units.size():
 		player_turn = !player_turn
 		active_unit_index = 0
 		print("Turn changed! Player Turn:", player_turn)
 
-		# If it’s now the enemy’s turn, let them all move immediately
 		if not player_turn:
-			for unit in all_units:
-				if not unit.is_player:
-					# Highlight AI unit’s movement range
-					highlight_movement_range(unit)
-					
-					await get_tree().create_timer(1).timeout
+			var enemy_units = all_units.filter(func(u): return not u.is_player)
+			for unit in enemy_units:
+				var start_tile = unit.tile_pos  # Current position
+				var target_tile = unit.choose_target_tile()
+				if target_tile == Vector2i(-1, -1):
+					continue
+				# Get and highlight the actual path
+				update_astar_grid_ignore(unit)
+				var path = astar.get_point_path(start_tile, target_tile)
 
-					# Command the unit to move
-					unit.start_turn()
-
-					# Clear highlights so next unit can show theirs
+				if path.size() > 1:
+					highlight_path(path)
+					await get_tree().create_timer(0.4).timeout
+					move_unit(unit, target_tile)
+					await unit.movement_finished
 					clear_movement_highlight()
-					await get_tree().create_timer(2).timeout
-			player_turn = true
-			print("AI finished. Back to player turn.")
+					await get_tree().create_timer(0.2).timeout
+					
+	selected_unit = null
+
+func highlight_path(path: Array[Vector2i]):
+	clear_movement_highlight()
+	for tile in path:
+		set_cell(0, tile, highlight_tile_id, Vector2i(0, 0))
+	highlighted_tiles = path.duplicate()
 
 func move_unit(unit, target_tile: Vector2i):
 	# Force the grid to ignore the moving unit itself
@@ -139,6 +150,7 @@ func move_unit(unit, target_tile: Vector2i):
 		unit.move_along_path(path)
 	selected_unit = null
 	active_unit_index += 1
+	await get_tree().create_timer(1).timeout
 	advance_turn()
 
 func update_astar_grid_ignore(selected: Node) -> void:
