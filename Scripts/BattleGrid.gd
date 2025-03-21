@@ -239,11 +239,48 @@ func move_unit(unit, target_tile: Vector2i):
 		print("⚠ No path found from", start_tile, "→", target_tile)
 	else:
 		print("Path:", path)
-		unit.move_along_path(path)
+		await unit.move_along_path(path)  # 🟢 Await move first!
+
+	# ✅ After move, check for adjacent enemy to attack
+	var attacked := await try_attack_adjacent(unit)
+
+	await get_tree().create_timer(0.5).timeout  # Slight pause
 	selected_unit = null
 	active_unit_index += 1
-	await get_tree().create_timer(1).timeout
 	advance_turn()
+
+func try_attack_adjacent(unit) -> bool:
+	var directions = [
+		Vector2i(1, 0), Vector2i(-1, 0),
+		Vector2i(0, 1), Vector2i(0, -1)
+	]
+
+	for dir in directions:
+		var neighbor_tile = unit.tile_pos + dir
+		for target in all_units:
+			if target != unit and target.is_player != unit.is_player and target.tile_pos == neighbor_tile:
+				print("⚔ Attack triggered between", unit.unit_type, "and", target.unit_type)
+
+				var sprite = unit.get_node("AnimatedSprite2D")
+				if sprite:
+					sprite.play("attack")
+
+				target.take_damage(25)
+				target.flash_white()
+
+				# Optional: push the target back
+				var push_tile = target.tile_pos + dir
+				if is_within_bounds(push_tile) and not is_tile_occupied(push_tile) and not is_water_tile(push_tile):
+					var world_pos = map_to_local(push_tile)
+					var tween = create_tween()
+					tween.tween_property(target, "global_position", world_pos, 0.2)
+					target.tile_pos = push_tile
+				
+				await get_tree().create_timer(0.5).timeout
+				sprite.play("default")
+					
+				return true
+	return false
 
 func update_astar_grid_ignore(selected: Node) -> void:
 	var used_rect = get_used_rect()

@@ -168,6 +168,9 @@ func update_xp_bar():
 		xp_bar.value = float(xp) / max_xp * 100
 
 func die():
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap and tilemap.all_units.has(self):
+		tilemap.all_units.erase(self)
 	queue_free()
 
 func _set_facing(from: Vector2i, to: Vector2i) -> void:
@@ -184,3 +187,20 @@ func _set_facing(from: Vector2i, to: Vector2i) -> void:
 		$AnimatedSprite2D.flip_h = false   # moving down → normal
 	elif delta.y < 0:
 		$AnimatedSprite2D.flip_h = true    # moving up → flipped vertically
+
+func flash_white():
+	var sprite = $AnimatedSprite2D
+	if sprite == null:
+		return
+
+	var flash_tween = create_tween()
+
+	for i in range(6):  # Repeat the flash pattern 3 times
+		# Flash full white
+		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.05)
+		# Transparent white
+		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1, 0.0), 0.05)
+		# Black
+		flash_tween.tween_property(sprite, "modulate", Color(0, 0, 0), 0.05)
+		# Back to normal
+		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.05)
