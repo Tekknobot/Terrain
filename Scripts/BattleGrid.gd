@@ -261,6 +261,10 @@ func try_attack_adjacent(unit) -> bool:
 			if target != unit and target.is_player != unit.is_player and target.tile_pos == neighbor_tile:
 				print("⚔ Attack triggered between", unit.unit_type, "and", target.unit_type)
 
+				# Flip the attacker to face the direction of attack
+				if unit.has_method("_set_facing"):
+					unit._set_facing(unit.tile_pos, neighbor_tile)
+
 				var sprite = unit.get_node("AnimatedSprite2D")
 				if sprite:
 					sprite.play("attack")
@@ -277,7 +281,9 @@ func try_attack_adjacent(unit) -> bool:
 					target.tile_pos = push_tile
 				
 				await get_tree().create_timer(0.5).timeout
-				sprite.play("default")
+
+				if sprite:
+					sprite.play("default")
 					
 				return true
 	return false
