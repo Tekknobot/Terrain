@@ -191,33 +191,52 @@ func start_turn():
 	advance_turn()
 
 func advance_turn():
-	var team_units = all_units.filter(func(u): return u.is_player != player_turn)
+	# 🔄 Always refilter to get live units
+	var team_units = all_units.filter(func(u): return u.is_player == player_turn)
 
+	# ⚠ If no units left for current team, switch turn
+	if team_units.is_empty():
+		player_turn = !player_turn
+		advance_turn()  # 🔁 Immediately start other team's turn
+		return
+
+	# ❗ Safeguard active_unit_index
 	if active_unit_index >= team_units.size():
 		player_turn = !player_turn
 		active_unit_index = 0
 		print("Turn changed! Player Turn:", player_turn)
+		advance_turn()
+		return
 
-		if not player_turn:
-			var enemy_units = all_units.filter(func(u): return not u.is_player)
-			for unit in enemy_units:
-				var start_tile = unit.tile_pos  # Current position
-				var target_tile = unit.choose_target_tile()
-				if target_tile == Vector2i(-1, -1):
-					continue
-				# Get and highlight the actual path
-				update_astar_grid_ignore(unit)
-				var path = astar.get_point_path(start_tile, target_tile)
+	var unit = team_units[active_unit_index]
 
-				if path.size() > 1:
-					highlight_path(path)
-					await get_tree().create_timer(0.4).timeout
-					move_unit(unit, target_tile)
-					await unit.movement_finished
-					clear_movement_highlight()
-					await get_tree().create_timer(0.2).timeout
-					
-	selected_unit = null
+	# 👇 Defensive check: skip if unit has been freed
+	if !is_instance_valid(unit):
+		active_unit_index += 1
+		advance_turn()
+		return
+
+	if not player_turn:
+		var start_tile = unit.tile_pos
+		var target_tile = unit.choose_target_tile()
+		if target_tile == Vector2i(-1, -1):
+			active_unit_index += 1
+			advance_turn()
+			return
+
+		update_astar_grid_ignore(unit)
+		var path = astar.get_point_path(start_tile, target_tile)
+
+		if path.size() > 1:
+			highlight_path(path)
+			await get_tree().create_timer(0.4).timeout
+			move_unit(unit, target_tile)
+			await unit.movement_finished
+			clear_movement_highlight()
+			await get_tree().create_timer(0.2).timeout
+		else:
+			active_unit_index += 1
+			advance_turn()
 
 func highlight_path(path: Array[Vector2i]):
 	clear_movement_highlight()
@@ -226,10 +245,7 @@ func highlight_path(path: Array[Vector2i]):
 	highlighted_tiles = path.duplicate()
 
 func move_unit(unit, target_tile: Vector2i):
-	# Force the grid to ignore the moving unit itself
 	update_astar_grid_ignore(unit)
-
-	# Use the unit’s stored tile_pos as the true start
 	var start_tile: Vector2i = unit.tile_pos
 
 	if not is_within_bounds(start_tile):
@@ -241,14 +257,16 @@ func move_unit(unit, target_tile: Vector2i):
 		print("⚠ No path found from", start_tile, "→", target_tile)
 	else:
 		print("Path:", path)
-		await unit.move_along_path(path)  # 🟢 Await move first!
+		await unit.move_along_path(path)
 
-	# ✅ After move, check for adjacent enemy to attack
 	var attacked := await try_attack_adjacent(unit)
 
-	await get_tree().create_timer(0.1).timeout  # Slight pause
-	selected_unit = null
-	active_unit_index += 1
+	await get_tree().create_timer(0.1).timeout
+
+	# ✅ Advance turn only if unit is still valid
+	if is_instance_valid(unit):
+		active_unit_index += 1
+
 	advance_turn()
 
 func try_attack_adjacent(unit) -> bool:

@@ -172,14 +172,19 @@ func update_xp_bar():
 func die():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap and tilemap.all_units.has(self):
+		var index = tilemap.all_units.find(self)
+
+		# ⚠️ Adjust active_unit_index if needed
+		if not is_player and index <= tilemap.active_unit_index:
+			tilemap.active_unit_index -= 1
+
 		tilemap.all_units.erase(self)
 
-	# 💥 Spawn explosion before destroying the unit
-	var explosion = EXPLOSION_SCENE.instantiate()
-	explosion.global_position = global_position + Vector2(0, -8)  # Optional Y-offset for nice effect
-	tilemap.add_child(explosion)
-
-	# Optional: Play a sound, animation, or set explosion lifespan
+		# 💥 Play explosion effect (optional)
+		var EXPLOSION_SCENE = preload("res://Scenes/VFX/Explosion.tscn")  # Adjust path
+		var explosion = EXPLOSION_SCENE.instantiate()
+		explosion.position = global_position + Vector2(0, -8)  # Optional offset
+		tilemap.add_child(explosion)
 
 	queue_free()
 
