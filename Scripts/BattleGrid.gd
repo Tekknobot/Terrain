@@ -111,26 +111,22 @@ func advance_turn():
 			return  
 
 func move_unit(unit, target_tile: Vector2i):
-	# Rebuild AStar so the moving unit’s own tile is free
+	# Force the grid to ignore the moving unit itself
 	update_astar_grid_ignore(unit)
 
-	# Use the unit’s built‑in tile_pos directly
+	# Use the unit’s stored tile_pos as the true start
 	var start_tile: Vector2i = unit.tile_pos
 
 	if not is_within_bounds(start_tile):
 		print("⚠ Start out of bounds:", start_tile)
 		return
 
-	# Refresh AStar but ignore this unit as an obstacle
-	update_astar_grid_ignore(unit)
-
 	var path = astar.get_point_path(start_tile, target_tile)
 	if path.size() <= 1:
-		print("⚠ No valid path found from ", start_tile, " to ", target_tile)
+		print("⚠ No path found from", start_tile, "→", target_tile)
 	else:
-		print("Path found:", path)
+		print("Path:", path)
 		unit.move_along_path(path)
-
 	selected_unit = null
 	active_unit_index += 1
 	advance_turn()

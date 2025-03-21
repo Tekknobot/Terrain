@@ -64,8 +64,8 @@ func move_along_path(path: Array):
 	$AnimatedSprite2D.play("move")
 
 	for tile in path:
-		var world_position: Vector2 = tilemap.map_to_local(tile) + tilemap.get_tileset().tile_size * 0.5
-		tween.tween_property(self, "global_position", world_position, 0.2)
+		var world = tilemap.map_to_local(tile)
+		tween.tween_property(self, "global_position", world, 0.2)
 		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
 
 	await tween.finished
