@@ -281,7 +281,6 @@ func try_attack_adjacent(unit) -> bool:
 			if target != unit and target.is_player != unit.is_player and target.tile_pos == neighbor_tile:
 				print("⚔ Attack triggered between", unit.unit_type, "and", target.unit_type)
 
-				# Flip the attacker to face the direction of attack
 				if unit.has_method("_set_facing"):
 					unit._set_facing(unit.tile_pos, neighbor_tile)
 
@@ -289,32 +288,44 @@ func try_attack_adjacent(unit) -> bool:
 				if sprite:
 					sprite.play("attack")
 					
-					# 🔊 Play attack sound from existing AudioStreamPlayer2D
 					var tilemap = get_tree().get_current_scene().get_node("TileMap")
 					if tilemap.has_node("AudioStreamPlayer2D"):
 						var sound = tilemap.get_node("AudioStreamPlayer2D")
 						sound.stream = ATTACK_SOUND
-						sound.global_position = unit.global_position  # Optional: position it at attacker
+						sound.global_position = unit.global_position
 						sound.play()
 
 				target.take_damage(25)
 				target.flash_white()
 
-				# Optional: push the target back
 				var push_tile = target.tile_pos + dir
-				if is_within_bounds(push_tile) and not is_tile_occupied(push_tile) and not is_water_tile(push_tile):
+				if is_within_bounds(push_tile) and not is_water_tile(push_tile):
+					var other_unit = get_unit_at_tile(push_tile)
 					var world_pos = map_to_local(push_tile)
 					var tween = create_tween()
 					tween.tween_property(target, "global_position", world_pos, 0.2)
-					target.tile_pos = push_tile
-				
+					await tween.finished  # 🕒 wait for push animation to finish
+
+					if other_unit:
+						print("💥 Push collision! Both", target.unit_type, "and", other_unit.unit_type, "die.")
+						target.die()
+						other_unit.die()
+					else:
+						target.tile_pos = push_tile  # Update only if not dead
+
 				await get_tree().create_timer(0.5).timeout
 
 				if sprite:
 					sprite.play("default")
-					
+
 				return true
 	return false
+
+func get_unit_at_tile(tile: Vector2i) -> Node:
+	for unit in all_units:
+		if unit.tile_pos == tile:
+			return unit
+	return null
 
 func update_astar_grid_ignore(selected: Node) -> void:
 	var used_rect = get_used_rect()
