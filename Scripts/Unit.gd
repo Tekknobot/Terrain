@@ -9,6 +9,9 @@ var max_xp := 100
 var movement_range := 2  
 var attack_range := 3 
 
+var has_moved := false
+
+
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI
 
@@ -36,7 +39,7 @@ func update_z_index():
 
 func _process(delta):
 	update_z_index()
-
+	
 ### TURN & MOVEMENT ###
 func start_turn():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -49,6 +52,10 @@ func start_turn():
 
 
 func ai_move() -> void:
+	if has_moved:
+		print(unit_type, "already moved this turn.")
+		return
+			
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		return
@@ -65,6 +72,7 @@ func ai_move() -> void:
 	if candidates.size() > 0:
 		var choice = candidates[randi() % candidates.size()]
 		await tilemap.move_unit(self, choice)  # ← await the movement!
+		has_moved = true
 	else:
 		print(unit_type, "has no valid move.")
 		
@@ -115,6 +123,10 @@ func choose_target_tile() -> Vector2i:
 
 
 func move_along_path(path: Array):
+	if has_moved:
+		print(unit_type, "already moved this turn.")
+		return
+			
 	if path.is_empty():
 		return
 
@@ -137,6 +149,7 @@ func move_along_path(path: Array):
 		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
 
 	await tween.finished
+	has_moved = true
 	emit_signal("movement_finished")
 	
 	$AnimatedSprite2D.play("default")

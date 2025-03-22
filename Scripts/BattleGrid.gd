@@ -212,10 +212,8 @@ func advance_turn() -> void:
 		skip_increment = false
 		return
 
-	player_turn = !player_turn
-	active_unit_index = 0
-	print("Turn switched. Player turn? ", player_turn)
-	await advance_turn()
+	# 🔁 All units have moved → End turn here
+	end_turn()
 
 
 func handle_enemy_action(unit) -> void:
@@ -504,6 +502,9 @@ func clear_attack_highlight(tile_id: int = 3):
 
 ### **Highlight Movement Range**
 func highlight_movement_range(unit):
+	if unit.has_moved:
+		print(unit.unit_type, "already moved this turn.")
+		return	
 	clear_movement_highlight()
 	var start_tile = tile_to_map(unit.global_position)
 	for x in range(grid_actual_width):
@@ -589,3 +590,17 @@ func get_unit_tile(world_position: Vector2) -> Vector2i:
 	var local_pos: Vector2 = to_local(world_position)
 	# Divide by tile_size and round to the nearest integer.
 	return Vector2i(round(local_pos.x / tile_size.x), round(local_pos.y / tile_size.y))
+
+func end_turn():
+	print("Ending turn. Switching teams...")
+
+	# Flip turn first
+	player_turn = !player_turn
+
+	# Reset has_moved only for units on the new team
+	for unit in all_units:
+		if unit.is_player == player_turn:
+			unit.has_moved = false
+
+	active_unit_index = 0
+	await advance_turn()
