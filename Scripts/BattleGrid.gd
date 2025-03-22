@@ -40,6 +40,7 @@ var noise := FastNoiseLite.new()
 var day_phase := 0.0  # Ranges from 0.0 to 1.0
 
 @onready var ATTACK_SOUND = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
+const UnitAction = preload("res://Scripts/UnitAction.gd")
 
 func _ready():
 	noise.seed = randi()
@@ -191,52 +192,93 @@ func start_turn():
 	advance_turn()
 
 func advance_turn():
-	# 🔄 Always refilter to get live units
-	var team_units = all_units.filter(func(u): return u.is_player == player_turn)
-
-	# ⚠ If no units left for current team, switch turn
-	if team_units.is_empty():
-		player_turn = !player_turn
-		advance_turn()  # 🔁 Immediately start other team's turn
-		return
-
-	# ❗ Safeguard active_unit_index
-	if active_unit_index >= team_units.size():
+	while true:
+		var units = all_units.filter(func(u): return u.is_player == player_turn)
+		if active_unit_index < units.size():
+			var unit = units[active_unit_index]
+			if not is_instance_valid(unit):
+				active_unit_index += 1
+				continue
+			if player_turn:
+				selected_unit = unit
+				clear_movement_highlight()
+				return  # wait for player action
+			else:
+				var action = decide_enemy_action(unit)
+				if action:
+					if action.type == "move":
+						update_astar_grid_ignore(unit)
+						var path = astar.get_point_path(unit.tile_pos, action.target)
+						if path.size() > 1:
+							highlight_path(path)
+							await get_tree().create_timer(0.4).timeout
+							await move_unit(unit, action.target)
+							await unit.movement_finished
+							clear_movement_highlight()
+					else:
+						await try_attack_tile(unit, action.target)
+				active_unit_index += 1
+				await get_tree().create_timer(0.2).timeout
+				continue
+		# finished this side
 		player_turn = !player_turn
 		active_unit_index = 0
-		print("Turn changed! Player Turn:", player_turn)
-		advance_turn()
-		return
+		print("Turn switched. Player turn? ", player_turn)
+		continue
 
-	var unit = team_units[active_unit_index]
+func nearest_player_tile(unit) -> Vector2i:
+	var best_tile = Vector2i(-1, -1)
+	var best_dist = INF
+	for other in all_units:
+		if other.is_player:
+			var dist = manhattan_distance(unit.tile_pos, other.tile_pos)
+			if dist < best_dist:
+				best_dist = dist
+				best_tile = other.tile_pos
+	return best_tile
 
-	# 👇 Defensive check: skip if unit has been freed
-	if !is_instance_valid(unit):
-		active_unit_index += 1
-		advance_turn()
-		return
+func try_attack_tile(unit, tile: Vector2i) -> void:
+	var enemy = get_unit_at_tile(tile)
+	if enemy:
+		unit._set_facing(unit.tile_pos, tile)
+		enemy.take_damage(25)
+		enemy.flash_white()
 
-	if not player_turn:
-		var start_tile = unit.tile_pos
-		var target_tile = unit.choose_target_tile()
-		if target_tile == Vector2i(-1, -1):
-			active_unit_index += 1
-			advance_turn()
-			return
 
+func decide_enemy_action(unit) -> UnitAction:
+	var start = unit.tile_pos
+	var best_action: UnitAction = null
+
+	# Include staying in place as an option
+	var reachable = unit.get_reachable_tiles()
+	reachable.append(start)
+
+	for target in reachable:
 		update_astar_grid_ignore(unit)
-		var path = astar.get_point_path(start_tile, target_tile)
+		var path = astar.get_point_path(start, target)
+		if path.size() == 0:
+			continue
 
-		if path.size() > 1:
-			highlight_path(path)
-			await get_tree().create_timer(0.4).timeout
-			move_unit(unit, target_tile)
-			await unit.movement_finished
-			clear_movement_highlight()
-			await get_tree().create_timer(0.2).timeout
-		else:
-			active_unit_index += 1
-			advance_turn()
+		# Base score: closer to nearest player is better
+		var score = -manhattan_distance(target, nearest_player_tile(unit)) * 10
+
+		# Check if moving here enables an attack
+		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var adj = target + dir
+			var enemy = get_unit_at_tile(adj)
+			if enemy and enemy.is_player:
+				var attack_action = UnitAction.new("attack", adj)
+				attack_action.score = score + (100 - enemy.health) + 50
+				if best_action == null or attack_action.score > best_action.score:
+					best_action = attack_action
+
+		# Otherwise consider just moving
+		var move_action = UnitAction.new("move", target, path)
+		move_action.score = score
+		if best_action == null or move_action.score > best_action.score:
+			best_action = move_action
+
+	return best_action
 
 func highlight_path(path: Array[Vector2i]):
 	clear_movement_highlight()

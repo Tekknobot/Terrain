@@ -219,3 +219,27 @@ func flash_white():
 		flash_tween.tween_property(sprite, "modulate", Color(0, 0, 0), 0.05)
 		# Back to normal
 		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.05)
+
+# Returns all map‑coordinates this unit could legally move to this turn
+func get_reachable_tiles() -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap == null:
+		return tiles
+
+	var frontier = [tile_pos]
+	var visited = {tile_pos: 0}
+
+	while frontier.size() > 0:
+		var cur = frontier.pop_front()
+		var dist = visited[cur]
+		if dist >= movement_range:
+			continue
+
+		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var nxt = cur + dir
+			if not visited.has(nxt) and tilemap.is_valid_spawn_ignore(self, nxt):
+				visited[nxt] = dist + 1
+				frontier.append(nxt)
+				tiles.append(nxt)
+	return tiles
