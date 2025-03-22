@@ -41,6 +41,7 @@ var day_phase := 0.0  # Ranges from 0.0 to 1.0
 
 @onready var ATTACK_SOUND = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
 const UnitAction = preload("res://Scripts/UnitAction.gd")
+var skip_increment: bool = false
 
 func _ready():
 	noise.seed = randi()
@@ -191,40 +192,42 @@ func start_turn():
 	active_unit_index = 0  
 	advance_turn()
 
-func advance_turn():
-	while true:
-		var units = all_units.filter(func(u): return u.is_player == player_turn)
-		if active_unit_index < units.size():
-			var unit = units[active_unit_index]
-			if not is_instance_valid(unit):
-				active_unit_index += 1
-				continue
-			if player_turn:
-				selected_unit = unit
-				clear_movement_highlight()
-				return  # wait for player action
-			else:
-				var action = decide_enemy_action(unit)
-				if action:
-					if action.type == "move":
-						update_astar_grid_ignore(unit)
-						var path = astar.get_point_path(unit.tile_pos, action.target)
-						if path.size() > 1:
-							highlight_path(path)
-							await get_tree().create_timer(0.4).timeout
-							await move_unit(unit, action.target)
-							await unit.movement_finished
-							clear_movement_highlight()
-					else:
-						await try_attack_tile(unit, action.target)
-				active_unit_index += 1
-				await get_tree().create_timer(0.2).timeout
-				continue
-		# finished this side
-		player_turn = !player_turn
-		active_unit_index = 0
-		print("Turn switched. Player turn? ", player_turn)
-		continue
+func advance_turn() -> void:
+	var units = all_units.filter(func(u): return u.is_player == player_turn)
+
+	if active_unit_index < units.size():
+		var unit = units[active_unit_index]
+		if player_turn:
+			selected_unit = unit
+			clear_movement_highlight()
+			return
+		await handle_enemy_action(unit)
+
+		# Only bump index here if move_unit DIDN’T already do it
+		if not skip_increment:
+			active_unit_index += 1
+		skip_increment = false
+		return
+
+	player_turn = !player_turn
+	active_unit_index = 0
+	print("Turn switched. Player turn? ", player_turn)
+	await advance_turn()
+
+
+func handle_enemy_action(unit) -> void:
+	var action = decide_enemy_action(unit)
+	if action:
+		if action.type == "move":
+			update_astar_grid_ignore(unit)
+			var path = astar.get_point_path(unit.tile_pos, action.target)
+			if path.size() > 1:
+				highlight_path(path)
+				await move_unit(unit, action.target)  # path stays visible during movement
+		else:
+			await try_attack_tile(unit, action.target)
+
+	await get_tree().create_timer(0.3).timeout  # pause before next enemy
 
 func nearest_player_tile(unit) -> Vector2i:
 	var best_tile = Vector2i(-1, -1)
@@ -301,6 +304,20 @@ func move_unit(unit, target_tile: Vector2i):
 		print("Path:", path)
 		await unit.move_along_path(path)
 
+		# 🚨 Guard against dead/freed unit
+		if not is_instance_valid(unit):
+			return
+
+		# Only then continue
+		var attacked := await try_attack_adjacent(unit)
+		await get_tree().create_timer(0.1).timeout
+
+		if is_instance_valid(unit):
+			active_unit_index += 1
+			skip_increment = true
+		advance_turn()
+		
+
 	var attacked := await try_attack_adjacent(unit)
 
 	await get_tree().create_timer(0.1).timeout
@@ -308,8 +325,9 @@ func move_unit(unit, target_tile: Vector2i):
 	# ✅ Advance turn only if unit is still valid
 	if is_instance_valid(unit):
 		active_unit_index += 1
-
+		skip_increment = true
 	advance_turn()
+
 
 func try_attack_adjacent(unit) -> bool:
 	var directions = [

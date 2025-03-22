@@ -140,6 +140,7 @@ func move_along_path(path: Array):
 	
 	$AnimatedSprite2D.play("default")
 	tilemap.update_astar_grid()
+	tilemap.clear_movement_highlight()
 
 func _update_tile_pos(new_tile: Vector2i) -> void:
 	tile_pos = new_tile
