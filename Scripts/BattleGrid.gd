@@ -278,14 +278,14 @@ func nearest_player_tile(unit) -> Vector2i:
 
 func try_attack_tile(unit, tile: Vector2i) -> void:
 	var enemy = get_unit_at_tile(tile)
-	if enemy:
+	if enemy:	
+		# ✅ Play attack sound
 		$AudioStreamPlayer2D.stream = ATTACK_SOUND
-		$AudioStreamPlayer2D.play()
-		
+		$AudioStreamPlayer2D.play()	
+				
 		unit._set_facing(unit.tile_pos, tile)
 		enemy.take_damage(25)
 		enemy.flash_white()
-
 
 func decide_enemy_action(unit) -> UnitAction:
 	var start = unit.tile_pos
@@ -376,6 +376,10 @@ func try_attack_adjacent(unit) -> bool:
 				var sprite = unit.get_node("AnimatedSprite2D")
 				if sprite:
 					sprite.play("attack")
+					
+					# ✅ Play attack sound
+					$AudioStreamPlayer2D.stream = ATTACK_SOUND
+					$AudioStreamPlayer2D.play()						
 
 				target.take_damage(25)
 				target.flash_white()
