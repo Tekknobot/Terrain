@@ -46,6 +46,9 @@ var skip_increment: bool = false
 const MISSILE_SCENE := preload("res://Prefabs/Missile.tscn")
 const EXPLOSION_SCENE := preload("res://Scenes/VFX/Explosion.tscn")
 
+var attack_source_unit = null
+var attack_range_tiles: Array[Vector2i] = []
+
 func _ready():
 	noise.seed = randi()
 	noise.frequency = 0.08  # Controls how large/small terrain patches are
@@ -155,7 +158,7 @@ func setup_camera():
 	# Center camera on the grid.
 	var grid_center: Vector2 = map_to_local(Vector2i(grid_width / 2, grid_height / 2)) + tile_size / 2.0
 	camera.position = grid_center
-	camera.zoom = Vector2(6, 6)
+	camera.zoom = Vector2(7, 7)
 	print("Camera position: ", camera.position, " zoom: ", camera.zoom)
 
 
@@ -435,16 +438,57 @@ func update_astar_grid_ignore(selected: Node) -> void:
 
 ### **Input Handling (Click Selection & Movement)**
 func _input(event):
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		# Use to_local() to convert global mouse position to local space.
+	if event is InputEventMouseButton and event.pressed:
 		var local_mouse_pos: Vector2 = to_local(get_global_mouse_position())
-		# Apply the offset for selection.
 		local_mouse_pos.y += 8
-		print("Local mouse pos (with offset): ", local_mouse_pos)
 		var clicked_tile: Vector2i = local_to_map(local_mouse_pos)
-		print("Clicked tile (after conversion): ", clicked_tile)
-		if is_within_bounds(clicked_tile):
+
+		if not is_within_bounds(clicked_tile):
+			return
+
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			# 🟦 RIGHT CLICK: Try to highlight attack range of player unit
+			for unit in all_units:
+				if unit.is_player == player_turn and unit.tile_pos == clicked_tile:
+					print("Right-clicked player unit:", unit.unit_type)
+					highlight_attack_range(unit.tile_pos, unit.attack_range, 3)
+					attack_range_tiles = attack_highlighted_tiles.duplicate()
+					attack_source_unit = unit
+					return
+
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			# 🟥 LEFT CLICK: If in attack mode, try to attack
+			if attack_source_unit and clicked_tile in attack_range_tiles:
+				var enemy = get_unit_at_tile(clicked_tile)
+				if enemy and not enemy.is_player:
+					print("Attacking enemy at:", clicked_tile)
+					await launch_player_missile_attack(attack_source_unit, enemy)
+					clear_attack_highlight()
+					attack_range_tiles.clear()
+					attack_source_unit = null
+					return
+
+			# 🟨 Not in attack mode → fall back to normal selection/movement
 			handle_tile_selection(clicked_tile)
+
+func launch_player_missile_attack(source, target):
+	var missile = MISSILE_SCENE.instantiate()
+	get_tree().root.get_child(0).add_child(missile)
+
+	var start_local = map_to_local(source.tile_pos) + tile_size * 0.5
+	var end_local = map_to_local(target.tile_pos) + tile_size * 0.5
+	missile.set_target(start_local, end_local)
+	await missile.finished
+
+	var explosion = EXPLOSION_SCENE.instantiate()
+	explosion.global_position = to_global(end_local)
+	add_child(explosion)
+
+	if is_instance_valid(target):
+		target.take_damage(40)
+		target.flash_white()
+
+	await get_tree().create_timer(0.1).timeout
 
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_actual_width and tile.y >= 0 and tile.y < grid_actual_height
