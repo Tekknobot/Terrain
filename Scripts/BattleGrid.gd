@@ -300,16 +300,6 @@ func decide_enemy_action(unit) -> UnitAction:
 
 		var score = -manhattan_distance(target, nearest_player_tile(unit)) * 10
 
-		# Melee
-		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
-			var adj = target + dir
-			var enemy = get_unit_at_tile(adj)
-			if enemy and enemy.is_player:
-				var attack_action = UnitAction.new("attack", adj)
-				attack_action.score = score + (100 - enemy.health) + 50
-				if best_action == null or attack_action.score > best_action.score:
-					best_action = attack_action
-
 		# Ranged
 		for other in all_units:
 			if other.is_player:
