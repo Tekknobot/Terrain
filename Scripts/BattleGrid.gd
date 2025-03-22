@@ -446,29 +446,65 @@ func _input(event):
 		if not is_within_bounds(clicked_tile):
 			return
 
+		# 🔴 Right Click = Toggle Attack Mode
 		if event.button_index == MOUSE_BUTTON_RIGHT:
-			# 🟦 RIGHT CLICK: Try to highlight attack range of player unit
 			for unit in all_units:
-				if unit.is_player == player_turn and unit.tile_pos == clicked_tile:
-					print("Right-clicked player unit:", unit.unit_type)
+				if unit.is_player == player_turn and unit.tile_pos == clicked_tile and not unit.has_moved:
+					
+					# If same unit is already in attack mode → cancel
+					if attack_source_unit == unit:
+						print("Cancelled attack mode.")
+						clear_attack_highlight()
+						attack_range_tiles.clear()
+						attack_source_unit = null
+						return
+
+					# Otherwise, enter attack mode
+					print("Entered attack mode for:", unit.unit_type)
+					selected_unit = null  # cancel movement mode
+					clear_movement_highlight()
+					clear_attack_highlight()
+
 					highlight_attack_range(unit.tile_pos, unit.attack_range, 3)
 					attack_range_tiles = attack_highlighted_tiles.duplicate()
 					attack_source_unit = unit
 					return
 
+		# 🟡 Left Click = Confirm Attack / Movement Mode / Deselect
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			# 🟥 LEFT CLICK: If in attack mode, try to attack
-			if attack_source_unit and clicked_tile in attack_range_tiles:
-				var enemy = get_unit_at_tile(clicked_tile)
-				if enemy and not enemy.is_player:
-					print("Attacking enemy at:", clicked_tile)
-					await launch_player_missile_attack(attack_source_unit, enemy)
-					clear_attack_highlight()
-					attack_range_tiles.clear()
+			
+			# If in attack mode
+			if attack_source_unit:
+
+				# Left-click same unit to switch to movement mode
+				if clicked_tile == attack_source_unit.tile_pos:
+					print("Switching from attack to movement mode for:", attack_source_unit.unit_type)
+					selected_unit = attack_source_unit
 					attack_source_unit = null
+					attack_range_tiles.clear()
+					clear_attack_highlight()
+					highlight_movement_range(selected_unit)
 					return
 
-			# 🟨 Not in attack mode → fall back to normal selection/movement
+				# Left-click valid target in range → attack
+				if clicked_tile in attack_range_tiles:
+					var enemy = get_unit_at_tile(clicked_tile)
+					if enemy and not enemy.is_player:
+						print("Attacking enemy at:", clicked_tile)
+						await launch_player_missile_attack(attack_source_unit, enemy)
+						attack_source_unit = null
+						attack_range_tiles.clear()
+						clear_attack_highlight()
+						return
+
+				# Left-clicked outside range → cancel attack mode
+				print("Clicked outside attack range. Cancelled attack mode.")
+				attack_source_unit = null
+				attack_range_tiles.clear()
+				clear_attack_highlight()
+				return
+
+			# Else: handle regular selection/movement
 			handle_tile_selection(clicked_tile)
 
 func launch_player_missile_attack(source, target):
