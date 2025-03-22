@@ -6,8 +6,8 @@ var health := 100
 var max_health := 100
 var xp := 0
 var max_xp := 100
-var movement_range := 3  
-var attack_range := 6 
+var movement_range := 2  
+var attack_range := 3 
 
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI

@@ -155,7 +155,7 @@ func setup_camera():
 	# Center camera on the grid.
 	var grid_center: Vector2 = map_to_local(Vector2i(grid_width / 2, grid_height / 2)) + tile_size / 2.0
 	camera.position = grid_center
-	camera.zoom = Vector2(5, 5)
+	camera.zoom = Vector2(7, 7)
 	print("Camera position: ", camera.position, " zoom: ", camera.zoom)
 
 
