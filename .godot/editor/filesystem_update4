@@ -17,3 +17,5 @@ res://Scenes/Meks_Scenes/PLAYER/S2.scn
 res://Scenes/Meks_Scenes/PLAYER/S3.scn
 res://Scripts/HoverTile.gd
 res://Scripts/UnitAction.gd
+res://Prefabs/Missile.tscn
+res://Scripts/Missile.gd

@@ -195,6 +195,6 @@ script = ExtResource("8_51jtd")
 tilemap = NodePath("../TileMap")
 highlight_texture = ExtResource("1_2cdww")
 
-[node name="Line2D" type="Line2D" parent="."]
+[node name="MissileTrail" type="Line2D" parent="."]
 width = 1.0
 antialiased = true

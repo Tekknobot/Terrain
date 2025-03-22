@@ -43,6 +43,10 @@ var day_phase := 0.0  # Ranges from 0.0 to 1.0
 const UnitAction = preload("res://Scripts/UnitAction.gd")
 var skip_increment: bool = false
 
+const RANGED_RANGE := 9
+const MISSILE_SCENE := preload("res://Prefabs/Missile.tscn")
+const EXPLOSION_SCENE := preload("res://Scenes/VFX/Explosion.tscn")
+
 func _ready():
 	noise.seed = randi()
 	noise.frequency = 0.08  # Controls how large/small terrain patches are
@@ -223,11 +227,30 @@ func handle_enemy_action(unit) -> void:
 			var path = astar.get_point_path(unit.tile_pos, action.target)
 			if path.size() > 1:
 				highlight_path(path)
-				await move_unit(unit, action.target)  # path stays visible during movement
+				await move_unit(unit, action.target)
+
+		elif action.type == "ranged":
+			var missile = MISSILE_SCENE.instantiate()
+			get_tree().root.get_child(0).add_child(missile)
+
+			var start_local = map_to_local(unit.tile_pos)
+			var end_local   = map_to_local(action.target)
+			missile.set_target(start_local, end_local)
+			await missile.finished
+
+			var explosion = EXPLOSION_SCENE.instantiate()
+			explosion.global_position = to_global(end_local)
+			add_child(explosion)
+
+			var victim = get_unit_at_tile(action.target)
+			if victim:
+				victim.take_damage(40)
+				victim.flash_white()
+
 		else:
 			await try_attack_tile(unit, action.target)
 
-	await get_tree().create_timer(0.3).timeout  # pause before next enemy
+	await get_tree().create_timer(0.3).timeout
 
 func nearest_player_tile(unit) -> Vector2i:
 	var best_tile = Vector2i(-1, -1)
@@ -252,7 +275,6 @@ func decide_enemy_action(unit) -> UnitAction:
 	var start = unit.tile_pos
 	var best_action: UnitAction = null
 
-	# Include staying in place as an option
 	var reachable = unit.get_reachable_tiles()
 	reachable.append(start)
 
@@ -262,10 +284,9 @@ func decide_enemy_action(unit) -> UnitAction:
 		if path.size() == 0:
 			continue
 
-		# Base score: closer to nearest player is better
 		var score = -manhattan_distance(target, nearest_player_tile(unit)) * 10
 
-		# Check if moving here enables an attack
+		# Melee
 		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
 			var adj = target + dir
 			var enemy = get_unit_at_tile(adj)
@@ -275,7 +296,24 @@ func decide_enemy_action(unit) -> UnitAction:
 				if best_action == null or attack_action.score > best_action.score:
 					best_action = attack_action
 
-		# Otherwise consider just moving
+		# Ranged
+		for other in all_units:
+			if other.is_player:
+				var delta = other.tile_pos - target
+				if delta.x == 0 or delta.y == 0:
+					var dist = abs(delta.x + delta.y)
+
+					# Only consider if unit can reach the firing position and hit the target
+					if dist >= 2 and dist <= RANGED_RANGE:
+						# Make sure target tile is within unit's movement + attack range
+						if manhattan_distance(start, target) <= unit.movement_range:
+							var ranged_action = UnitAction.new("ranged", other.tile_pos)
+							ranged_action.score = score + 60 + (100 - other.health)
+							if best_action == null or ranged_action.score > best_action.score:
+								best_action = ranged_action
+
+
+		# Movement
 		var move_action = UnitAction.new("move", target, path)
 		move_action.score = score
 		if best_action == null or move_action.score > best_action.score:
@@ -304,20 +342,6 @@ func move_unit(unit, target_tile: Vector2i):
 		print("Path:", path)
 		await unit.move_along_path(path)
 
-		# 🚨 Guard against dead/freed unit
-		if not is_instance_valid(unit):
-			return
-
-		# Only then continue
-		var attacked := await try_attack_adjacent(unit)
-		await get_tree().create_timer(0.1).timeout
-
-		if is_instance_valid(unit):
-			active_unit_index += 1
-			skip_increment = true
-		advance_turn()
-		
-
 	var attacked := await try_attack_adjacent(unit)
 
 	await get_tree().create_timer(0.1).timeout
@@ -330,48 +354,35 @@ func move_unit(unit, target_tile: Vector2i):
 
 
 func try_attack_adjacent(unit) -> bool:
-	var directions = [
-		Vector2i(1, 0), Vector2i(-1, 0),
-		Vector2i(0, 1), Vector2i(0, -1)
-	]
+	var directions = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
 
 	for dir in directions:
-		var neighbor_tile = unit.tile_pos + dir
+		var neighbor = unit.tile_pos + dir
 		for target in all_units:
-			if target != unit and target.is_player != unit.is_player and target.tile_pos == neighbor_tile:
-				print("⚔ Attack triggered between", unit.unit_type, "and", target.unit_type)
-
+			if target != unit and target.is_player != unit.is_player and target.tile_pos == neighbor:
 				if unit.has_method("_set_facing"):
-					unit._set_facing(unit.tile_pos, neighbor_tile)
+					unit._set_facing(unit.tile_pos, neighbor)
 
 				var sprite = unit.get_node("AnimatedSprite2D")
 				if sprite:
 					sprite.play("attack")
-					
-					var tilemap = get_tree().get_current_scene().get_node("TileMap")
-					if tilemap.has_node("AudioStreamPlayer2D"):
-						var sound = tilemap.get_node("AudioStreamPlayer2D")
-						sound.stream = ATTACK_SOUND
-						sound.global_position = unit.global_position
-						sound.play()
 
 				target.take_damage(25)
 				target.flash_white()
 
 				var push_tile = target.tile_pos + dir
 				if is_within_bounds(push_tile) and not is_water_tile(push_tile):
-					var other_unit = get_unit_at_tile(push_tile)
-					var world_pos = map_to_local(push_tile)
+					var other = get_unit_at_tile(push_tile)
 					var tween = create_tween()
-					tween.tween_property(target, "global_position", world_pos, 0.2)
-					await tween.finished  # 🕒 wait for push animation to finish
+					tween.tween_property(target, "global_position", map_to_local(push_tile), 0.2)
+					await tween.finished
 
-					if other_unit:
-						print("💥 Push collision! Both", target.unit_type, "and", other_unit.unit_type, "die.")
-						target.die()
-						other_unit.die()
-					else:
-						target.tile_pos = push_tile  # Update only if not dead
+					if is_instance_valid(target):
+						if other and is_instance_valid(other):
+							target.die()
+							other.die()
+						else:
+							target.tile_pos = push_tile
 
 				await get_tree().create_timer(0.5).timeout
 
@@ -380,6 +391,7 @@ func try_attack_adjacent(unit) -> bool:
 
 				return true
 	return false
+
 
 func get_unit_at_tile(tile: Vector2i) -> Node:
 	for unit in all_units:

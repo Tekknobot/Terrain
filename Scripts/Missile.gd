@@ -1,5 +1,7 @@
 extends Node2D
 
+signal finished
+
 @export var missile_speed: float = 2.0
 @export var pixel_size: int = 2  # Ensures pixel-perfect snapping
 
@@ -7,67 +9,83 @@ var start_pos: Vector2 = Vector2.ZERO
 var end_pos: Vector2 = Vector2.ZERO
 var control_point: Vector2 = Vector2.ZERO
 var progress: float = 0.0
-var is_ready: bool = false  # Ensures missile starts only after target is set
+var is_ready: bool = false
 
-@onready var sprite: Sprite2D = $Sprite2D  # Reference to the missile sprite
-var line_renderer: Line2D  # Reference to global Line2D in scene
+@onready var sprite: Sprite2D = $Sprite2D
+var line_renderer: Line2D = null
 
 func _ready():
-	visible = false  # Hide until `set_target()` is called
-	progress = 0.0  # Ensure movement starts fresh
+	visible = false
+	progress = 0.0
 
-	# Find Line2D in the scene under the root node
-	var root = get_tree().root.get_child(0)  # Assuming it's a direct child of the main scene
-	line_renderer = root.find_child("Line2D", true, false)
+	var scene = get_tree().get_current_scene()
+	line_renderer = scene.get_node("MissileTrail")
 
 	if line_renderer:
-		line_renderer.clear_points()  # Reset line for new missile
-		line_renderer.width = pixel_size  # Ensure line width fits pixel art scale
-		# Apply a pixel texture
+		line_renderer.clear_points()
+		line_renderer.visible = true
+
+		# Use the average Y of start and end to sort depth
+		var avg_y = (start_pos.y + end_pos.y) / 2
+		line_renderer.z_index = int(avg_y)
+		line_renderer.z_as_relative = false  # Use global z, not relative to parent
+
+		line_renderer.clear_points()
+		line_renderer.visible = false
+		line_renderer.width = pixel_size  # Match pixel size
+
 		line_renderer.texture = preload("res://Textures/missile.png")
-		line_renderer.texture_mode = Line2D.LINE_TEXTURE_TILE  # Repeat texture for pixelated effect
+		line_renderer.texture_mode = Line2D.LINE_TEXTURE_TILE
+		line_renderer.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		
+		# Optional visual tuning:
+		line_renderer.joint_mode = Line2D.LINE_JOINT_BEVEL
+		line_renderer.begin_cap_mode = Line2D.LINE_CAP_NONE
+		line_renderer.end_cap_mode = Line2D.LINE_CAP_NONE
+
 	else:
-		print("Error: Could not find Line2D in the scene. Missile trail will not render.")
+		print("❌ Could not find Line2D in scene. No trail will render.")
+
 
 func _process(delta):
 	if is_ready and progress < 1.0:
 		progress += missile_speed * delta
-		var new_position = bezier_point(progress)  # Calculate new position
-		position = new_position.snapped(Vector2(pixel_size, pixel_size))  # Snap to pixel grid
-		update_rotation()  # Rotate missile towards movement direction
+		var new_position = bezier_point(progress)
+		global_position = new_position.snapped(Vector2(pixel_size, pixel_size))
+		update_rotation()
 
-		# Ensure the existing `Line2D` updates properly
 		if line_renderer:
-			line_renderer.add_point(position.snapped(Vector2(pixel_size, pixel_size)))  # Snap to pixels
+			line_renderer.add_point(global_position)  # This will stay in world space
+	elif is_ready and progress >= 1.0:
+		is_ready = false
+		if line_renderer:
+			line_renderer.visible = false  # 🔻 hide trail after impact
+		emit_signal("finished")
+		queue_free()
 
-	else:
-		if is_ready:
-			queue_free()  # Remove missile when it reaches target
+	z_index = int(global_position.y)
+	z_as_relative = false
 
 func bezier_point(t: float) -> Vector2:
-	# Quadratic Bezier curve calculation
 	var p0 = start_pos
 	var p1 = control_point
 	var p2 = end_pos
 	return (1 - t) * (1 - t) * p0 + 2 * (1 - t) * t * p1 + t * t * p2
 
 func update_rotation():
-	if progress < 1.0:
-		var next_pos = bezier_point(min(progress + 0.05, 1.0))  # Look slightly ahead
-		var direction = next_pos - position
-		sprite.rotation = direction.angle()
+	var next_pos = bezier_point(min(progress + 0.05, 1.0))
+	var direction = next_pos - global_position
+	sprite.rotation = direction.angle()
 
 func set_target(start: Vector2, target: Vector2):
 	start_pos = start
 	end_pos = target
-	control_point = (start_pos + end_pos) / 2 + Vector2(0, -200)  # Arcing upwards
+	control_point = (start + target) / 2 + Vector2(0, -200)
 
-	position = start_pos  # Ensure it starts in the correct place
-	visible = true  # Make the missile visible only after setup
-	is_ready = true  # Now it's safe to move
+	global_position = start_pos
+	visible = true
+	is_ready = true
 
-	# Ensure `Line2D` updates with the missile movement
 	if line_renderer:
-		line_renderer.clear_points()  # Reset trail for new missile
-	else:
-		print("Error: Line2D not found in scene.")
+		line_renderer.clear_points()
+		line_renderer.visible = true  # ✅ show trail
