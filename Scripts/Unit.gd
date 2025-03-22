@@ -6,8 +6,8 @@ var health := 100
 var max_health := 100
 var xp := 0
 var max_xp := 100
-var movement_range := 2  
-var attack_range := 3 
+@export var movement_range := 2  
+@export var attack_range := 3 
 
 var has_moved := false
 

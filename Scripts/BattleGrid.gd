@@ -155,7 +155,7 @@ func setup_camera():
 	# Center camera on the grid.
 	var grid_center: Vector2 = map_to_local(Vector2i(grid_width / 2, grid_height / 2)) + tile_size / 2.0
 	camera.position = grid_center
-	camera.zoom = Vector2(7, 7)
+	camera.zoom = Vector2(6, 6)
 	print("Camera position: ", camera.position, " zoom: ", camera.zoom)
 
 
@@ -341,25 +341,30 @@ func move_unit(unit, target_tile: Vector2i):
 
 	if not is_within_bounds(start_tile):
 		print("⚠ Start out of bounds:", start_tile)
+		active_unit_index += 1
+		skip_increment = true
+		advance_turn()
 		return
 
 	var path = astar.get_point_path(start_tile, target_tile)
 	if path.size() <= 1:
 		print("⚠ No path found from", start_tile, "→", target_tile)
+		active_unit_index += 1
+		skip_increment = true
+		advance_turn()
+		return
 	else:
 		print("Path:", path)
 		await unit.move_along_path(path)
 
 	var attacked := await try_attack_adjacent(unit)
-
 	await get_tree().create_timer(0.1).timeout
 
-	# ✅ Advance turn only if unit is still valid
 	if is_instance_valid(unit):
 		active_unit_index += 1
 		skip_increment = true
-	advance_turn()
 
+	advance_turn()
 
 func try_attack_adjacent(unit) -> bool:
 	var directions = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
@@ -462,7 +467,7 @@ func handle_tile_selection(clicked_tile: Vector2i):
 		return  
 	
 	for unit in all_units:
-		if tile_to_map(unit.global_position) == clicked_tile and unit.is_player == player_turn:
+		if unit.tile_pos == clicked_tile and unit.is_player == player_turn:
 			selected_unit = unit
 			clear_movement_highlight()
 			highlight_movement_range(unit)
