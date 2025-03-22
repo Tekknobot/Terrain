@@ -43,7 +43,6 @@ var day_phase := 0.0  # Ranges from 0.0 to 1.0
 const UnitAction = preload("res://Scripts/UnitAction.gd")
 var skip_increment: bool = false
 
-const RANGED_RANGE := 9
 const MISSILE_SCENE := preload("res://Prefabs/Missile.tscn")
 const EXPLOSION_SCENE := preload("res://Scenes/VFX/Explosion.tscn")
 
@@ -230,14 +229,18 @@ func handle_enemy_action(unit) -> void:
 				await move_unit(unit, action.target)
 
 		elif action.type == "ranged":
+			highlight_attack_range(unit.tile_pos, unit.attack_range, 3)  # ✅ show range
+
 			var missile = MISSILE_SCENE.instantiate()
 			get_tree().root.get_child(0).add_child(missile)
 
-			var start_local = map_to_local(unit.tile_pos)
-			var end_local   = map_to_local(action.target)
+			var start_local = map_to_local(unit.tile_pos) + tile_size * 0.5
+			var end_local   = map_to_local(action.target) + tile_size * 0.5
 			missile.set_target(start_local, end_local)
 			await missile.finished
-
+			
+			clear_attack_highlight()  # ✅ clear attack range
+			
 			var explosion = EXPLOSION_SCENE.instantiate()
 			explosion.global_position = to_global(end_local)
 			add_child(explosion)
@@ -247,11 +250,21 @@ func handle_enemy_action(unit) -> void:
 				victim.take_damage(40)
 				victim.flash_white()
 
-		else:
+			if is_instance_valid(unit):
+				active_unit_index += 1
+				skip_increment = true
+
+			await get_tree().create_timer(0.1).timeout
+			clear_movement_highlight()  # remove attack highlights after launch
+			advance_turn()
+			return
+
+		elif action.type == "attack":
+			highlight_attack_range(unit.tile_pos, 1, 3)  # ✅ Melee range
 			await try_attack_tile(unit, action.target)
+			clear_attack_highlight()  # ✅ Clean up
 
-	await get_tree().create_timer(0.3).timeout
-
+	
 func nearest_player_tile(unit) -> Vector2i:
 	var best_tile = Vector2i(-1, -1)
 	var best_dist = INF
@@ -266,6 +279,9 @@ func nearest_player_tile(unit) -> Vector2i:
 func try_attack_tile(unit, tile: Vector2i) -> void:
 	var enemy = get_unit_at_tile(tile)
 	if enemy:
+		$AudioStreamPlayer2D.stream = ATTACK_SOUND
+		$AudioStreamPlayer2D.play()
+		
 		unit._set_facing(unit.tile_pos, tile)
 		enemy.take_damage(25)
 		enemy.flash_white()
@@ -299,19 +315,13 @@ func decide_enemy_action(unit) -> UnitAction:
 		# Ranged
 		for other in all_units:
 			if other.is_player:
-				var delta = other.tile_pos - target
-				if delta.x == 0 or delta.y == 0:
-					var dist = abs(delta.x + delta.y)
+				var dist = manhattan_distance(other.tile_pos, unit.tile_pos)
 
-					# Only consider if unit can reach the firing position and hit the target
-					if dist >= 2 and dist <= RANGED_RANGE:
-						# Make sure target tile is within unit's movement + attack range
-						if manhattan_distance(start, target) <= unit.movement_range:
-							var ranged_action = UnitAction.new("ranged", other.tile_pos)
-							ranged_action.score = score + 60 + (100 - other.health)
-							if best_action == null or ranged_action.score > best_action.score:
-								best_action = ranged_action
-
+				if dist >= 2 and dist <= unit.attack_range:
+					var ranged_action = UnitAction.new("ranged", other.tile_pos)
+					ranged_action.score = score + 60 + (100 - other.health)
+					if best_action == null or ranged_action.score > best_action.score:
+						best_action = ranged_action
 
 		# Movement
 		var move_action = UnitAction.new("move", target, path)
@@ -468,6 +478,25 @@ func handle_tile_selection(clicked_tile: Vector2i):
 		selected_unit = null
 		clear_movement_highlight()
 
+var attack_highlighted_tiles: Array[Vector2i] = []
+
+func highlight_attack_range(origin: Vector2i, range: int, tile_id: int):
+	clear_attack_highlight()
+
+	for x in range(origin.x - range, origin.x + range + 1):
+		for y in range(origin.y - range, origin.y + range + 1):
+			var tile = Vector2i(x, y)
+			if manhattan_distance(origin, tile) <= range and is_within_bounds(tile):
+				set_cell(1, tile, tile_id, Vector2i(0, 0))
+				attack_highlighted_tiles.append(tile)
+
+
+func clear_attack_highlight(tile_id: int = 3):
+	for x in range(grid_actual_width):
+		for y in range(grid_actual_height):
+			var tile = Vector2i(x, y)
+			if get_cell_source_id(1, tile) == tile_id:
+				set_cell(1, tile, -1, Vector2i(0, 0))
 
 ### **Highlight Movement Range**
 func highlight_movement_range(unit):
