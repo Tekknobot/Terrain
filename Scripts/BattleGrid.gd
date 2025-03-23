@@ -199,6 +199,11 @@ func start_turn():
 	advance_turn()
 
 func advance_turn() -> void:
+	# If everyone on this team has moved → end turn
+	if all_units_moved_for_current_team():
+		end_turn()
+		return
+			
 	var units = all_units.filter(func(u): return u.is_player == player_turn)
 
 	if active_unit_index < units.size():
@@ -264,6 +269,12 @@ func handle_enemy_action(unit) -> void:
 			highlight_attack_range(unit.tile_pos, 1, 3)  # ✅ Melee range
 			await try_attack_tile(unit, action.target)
 			clear_attack_highlight()  # ✅ Clean up
+
+	if action == null:
+		active_unit_index += 1
+		skip_increment = true
+		advance_turn()
+		return
 
 	
 func nearest_player_tile(unit) -> Vector2i:
@@ -525,6 +536,8 @@ func launch_player_missile_attack(source, target):
 		target.flash_white()
 
 	await get_tree().create_timer(0.1).timeout
+	source.has_moved = true
+	advance_turn()
 
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_actual_width and tile.y >= 0 and tile.y < grid_actual_height
@@ -679,3 +692,9 @@ func end_turn():
 
 	active_unit_index = 0
 	await advance_turn()
+
+func all_units_moved_for_current_team() -> bool:
+	for unit in all_units:
+		if unit.is_player == player_turn and not unit.has_moved:
+			return false
+	return true
