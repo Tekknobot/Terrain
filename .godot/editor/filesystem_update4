@@ -1,2 +1,3 @@
 res://Scenes/Main.tscn
 res://Scripts/BattleGrid.gd
+res://Scripts/Unit.gd

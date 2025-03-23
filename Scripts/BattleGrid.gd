@@ -325,13 +325,29 @@ func decide_enemy_action(unit) -> UnitAction:
 					if best_action == null or ranged_action.score > best_action.score:
 						best_action = ranged_action
 
-		# Movement
-		var move_action = UnitAction.new("move", target, path)
-		move_action.score = score
-		if best_action == null or move_action.score > best_action.score:
-			best_action = move_action
+		# Movement — skip if target ends adjacent to a friendly
+		if not _is_adjacent_to_friendly(unit, target):
+			var move_action = UnitAction.new("move", target, path)
+			move_action.score = score
+			if best_action == null or move_action.score > best_action.score:
+				best_action = move_action
 
 	return best_action
+
+func _is_adjacent_to_friendly(unit: Node, tile: Vector2i) -> bool:
+	var directions = [
+		Vector2i(1, 0),
+		Vector2i(-1, 0),
+		Vector2i(0, 1),
+		Vector2i(0, -1)
+	]
+	for dir in directions:
+		var neighbor = tile + dir
+		var other = get_unit_at_tile(neighbor)
+		if other and other.is_player == unit.is_player:
+			return true
+	return false
+
 
 func highlight_path(path: Array[Vector2i]):
 	clear_movement_highlight()
