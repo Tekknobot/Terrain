@@ -256,6 +256,12 @@ func handle_enemy_action(unit) -> void:
 				victim.take_damage(40)
 				victim.flash_white()
 
+				var dir = _cardinal_push_dir(unit.tile_pos, victim.tile_pos)
+				var push_tile = victim.tile_pos + dir
+				if is_within_bounds(push_tile) and not is_water_tile(push_tile) and not is_tile_occupied(push_tile):
+					victim.tile_pos = push_tile
+					victim.global_position = map_to_local(push_tile) + tile_size * 0.5
+
 			if is_instance_valid(unit):
 				active_unit_index += 1
 				skip_increment = true
@@ -550,6 +556,13 @@ func launch_player_missile_attack(source, target):
 	if is_instance_valid(target):
 		target.take_damage(40)
 		target.flash_white()
+		
+		var dir = _cardinal_push_dir(source.tile_pos, target.tile_pos)
+		var push_tile = target.tile_pos + dir
+		if is_within_bounds(push_tile) and not is_water_tile(push_tile) and not is_tile_occupied(push_tile):
+			target.tile_pos = push_tile
+			target.global_position = map_to_local(push_tile) + tile_size * 0.5
+		
 
 	await get_tree().create_timer(0.1).timeout
 	source.has_moved = true
@@ -714,3 +727,9 @@ func all_units_moved_for_current_team() -> bool:
 		if unit.is_player == player_turn and not unit.has_moved:
 			return false
 	return true
+
+func _cardinal_push_dir(from: Vector2i, to: Vector2i) -> Vector2i:
+	var delta = to - from
+	if abs(delta.x) > abs(delta.y):
+		return Vector2i(sign(delta.x), 0)
+	return Vector2i(0, sign(delta.y))
