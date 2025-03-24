@@ -1,3 +1,4 @@
 res://Scenes/Main.tscn
 res://Scenes/Meks_Scenes/CPU/M1.scn
 res://Scripts/BattleGrid.gd
+res://Scripts/HoverTile.gd

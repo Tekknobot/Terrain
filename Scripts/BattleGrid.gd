@@ -30,6 +30,10 @@ func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
 	_generate_map()
+
+	call_deferred("_post_map_generation")  # Wait until the next frame
+
+func _post_map_generation():
 	_spawn_teams()
 	_setup_camera()
 
@@ -91,44 +95,52 @@ func _get_unique_random_odd(limit: int, used: Array) -> int:
 	return 1
 
 func _spawn_teams():
-	_spawn_side(player_units, grid_height - 1, true)
-	_spawn_side(enemy_units, 0, false)
+	var used_tiles: Array[Vector2i] = []  # Shared for both teams
+	_spawn_side(player_units, grid_height - 1, true, used_tiles)
+	_spawn_side(enemy_units, 0, false, used_tiles)
 
-func _spawn_side(units: Array[PackedScene], row: int, is_player: bool):
+func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]):
 	var count = units.size()
 	if count == 0:
 		return
+
 	var spacing = float(grid_width) / float(count + 1)
+
 	for i in range(count):
 		var x = clamp(int(round(spacing * (i + 1))) - 1, 0, grid_width - 1)
-		_spawn_unit(units[i], Vector2i(x, row), is_player)
+		_spawn_unit(units[i], Vector2i(x, row), is_player, used_tiles)
 
-func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool):
-	var spawn_tile = _find_nearest_land(tile)
-	if spawn_tile == null:
-		print("⚠ No valid spawn tile found near ", tile)
+func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]):
+	var spawn_tile = _find_nearest_land(tile, used_tiles)
+
+	if spawn_tile == Vector2i(-1, -1):
+		print("⚠ No valid land tile found for unit near ", tile)
 		return
 
 	var unit = scene.instantiate()
 	unit.global_position = to_global(map_to_local(spawn_tile)) + tile_size * 0.5
 	unit.set_team(is_player)
+	unit.add_to_group("Units")
+	unit.tile_pos = spawn_tile  # optional tracking on unit
 	add_child(unit)
 
-func _find_nearest_land(start: Vector2i) -> Vector2i:
-	if not is_water_tile(start):
-		return start
+	used_tiles.append(spawn_tile)
 
-	var max_radius = max(grid_width, grid_height)
-	for r in range(1, max_radius):
-		for dx in range(-r, r + 1):
-			for dy in range(-r, r + 1):
-				if abs(dx) != r and abs(dy) != r:
-					continue
-				var pos = start + Vector2i(dx, dy)
-				if is_within_bounds(pos) and not is_water_tile(pos):
-					return pos
+func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
+	var direction := -1  # default = upward (for player units)
 
-	return Vector2i(-1, -1)  # sentinel meaning “no valid tile”
+	# if enemy side, move downward
+	if start.y == 0:
+		direction = 1
+
+	var pos := start
+	while is_within_bounds(pos):
+		if not is_water_tile(pos) and not used_tiles.has(pos):
+			return pos
+		pos.y += direction
+
+	push_warning("⚠ No valid land tile found in straight path from %s" % start)
+	return Vector2i(-1, -1)
 
 func is_water_tile(tile: Vector2i) -> bool:
 	return get_cell_source_id(0, tile) == water_tile_id
@@ -145,7 +157,7 @@ func get_unique_random_odd(limit: int, used: Array) -> int:
 	return 1
 
 func get_unit_at_tile(tile: Vector2i) -> Node:
-	for unit in get_tree().get_nodes_in_group("Unit"):
+	for unit in get_tree().get_nodes_in_group("Units"):  # ← plural!
 		if local_to_map(to_local(unit.global_position)) == tile:
 			return unit
 	return null
