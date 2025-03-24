@@ -573,26 +573,29 @@ func is_within_bounds(tile: Vector2i) -> bool:
 
 func handle_tile_selection(clicked_tile: Vector2i):
 	print("Handling tile selection for tile: ", clicked_tile)
-	
-	if selected_unit and tile_to_map(selected_unit.global_position) == clicked_tile:
+
+	# If re‑clicking the currently selected unit → do nothing
+	if selected_unit and selected_unit.tile_pos == clicked_tile:
 		print("Reselecting unit:", selected_unit.unit_type)
-		return  
-	
+		return
+
+	# Select a player unit if clicked
 	for unit in all_units:
 		if unit.tile_pos == clicked_tile and unit.is_player == player_turn:
 			selected_unit = unit
 			clear_movement_highlight()
 			highlight_movement_range(unit)
-			print("Unit selected:", unit.unit_type)
-			return  
-	
+			return
+
+	# If a unit is selected and you click on a highlighted (valid move) tile → move
 	if selected_unit and clicked_tile in highlighted_tiles:
 		print("Moving selected unit to: ", clicked_tile)
-		# Note: Do not adjust the tile offset here—use the true tile coordinate.
-		move_unit(selected_unit, clicked_tile)
+		await move_unit(selected_unit, clicked_tile)
 		selected_unit = null
 		clear_movement_highlight()
-	
+		return
+
+	# Otherwise clear selection
 	if not is_tile_occupied(clicked_tile):
 		selected_unit = null
 		clear_movement_highlight()
@@ -623,7 +626,7 @@ func highlight_movement_range(unit):
 		print(unit.unit_type, "already moved this turn.")
 		return	
 	clear_movement_highlight()
-	var start_tile = tile_to_map(unit.global_position)
+	var start_tile = unit.tile_pos
 	for x in range(grid_actual_width):
 		for y in range(grid_actual_height):
 			var target_tile = Vector2i(x, y)
@@ -645,7 +648,7 @@ func is_water_tile(tile: Vector2i) -> bool:
 
 func is_tile_occupied(tile: Vector2i) -> bool:
 	for unit in all_units:
-		if tile_to_map(unit.global_position) == tile:
+		if unit.tile_pos == tile:
 			return true
 	return false
 
@@ -655,7 +658,7 @@ func is_valid_spawn(tile: Vector2i) -> bool:
 # New helper: Ignore occupancy for the selected unit.
 func is_tile_occupied_ignore(selected: Node, tile: Vector2i) -> bool:
 	for unit in all_units:
-		if unit != selected and tile_to_map(unit.global_position) == tile:
+		if unit != selected and unit.tile_pos == tile:
 			return true
 	return false
 
