@@ -33,6 +33,11 @@ func _ready():
 
 	call_deferred("_post_map_generation")  # Wait until the next frame
 
+func _input(event):
+	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+		get_tree().reload_current_scene()
+		return
+
 func _post_map_generation():
 	_spawn_teams()
 	_setup_camera()
@@ -118,7 +123,7 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 		return
 
 	var unit = scene.instantiate()
-	unit.global_position = to_global(map_to_local(spawn_tile)) + tile_size * 0.5
+	unit.global_position = to_global(map_to_local(spawn_tile))
 	unit.set_team(is_player)
 	unit.add_to_group("Units")
 	unit.tile_pos = spawn_tile  # optional tracking on unit
