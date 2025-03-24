@@ -13,6 +13,7 @@ var has_moved := false
 
 
 @onready var health_bar = $HealthUI
+@onready var health_border = $HealthBorder
 @onready var xp_bar = $XPUI
 
 var tile_pos: Vector2i
@@ -29,10 +30,13 @@ func _ready():
 
 func set_team(player_team: bool):
 	is_player = player_team
-	if is_player:
-		modulate = Color(1, 1, 1)
-	else:
-		modulate = Color(1, 110/255.0, 1)
+	var sprite = get_node_or_null("AnimatedSprite2D")
+	if sprite:
+		if is_player:
+			sprite.modulate = Color(1,1,1)
+		else:
+			sprite.modulate = Color(1, 110/255.0, 1)
+
 
 func update_z_index():
 	z_index = int(position.y)
@@ -72,7 +76,7 @@ func ai_move() -> void:
 	if candidates.size() > 0:
 		var choice = candidates[randi() % candidates.size()]
 		await tilemap.move_unit(self, choice)  # ← await the movement!
-		has_moved = true
+		set_moved_state(true)
 	else:
 		print(unit_type, "has no valid move.")
 		
@@ -149,7 +153,7 @@ func move_along_path(path: Array):
 		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
 
 	await tween.finished
-	has_moved = true
+	set_moved_state(true)
 	emit_signal("movement_finished")
 	
 	$AnimatedSprite2D.play("default")
@@ -223,17 +227,15 @@ func flash_white():
 	if sprite == null:
 		return
 
-	var flash_tween = create_tween()
+	var original_color = sprite.modulate
 
-	for i in range(6):  # Repeat the flash pattern 3 times
-		# Flash full white
-		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.05)
-		# Transparent white
-		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1, 0.0), 0.05)
-		# Black
-		flash_tween.tween_property(sprite, "modulate", Color(0, 0, 0), 0.05)
-		# Back to normal
-		flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.05)
+	var flash_tween = create_tween()
+	for i in range(6):
+		flash_tween.tween_property(sprite, "modulate", Color(1,1,1), 0.05)
+		flash_tween.tween_property(sprite, "modulate", Color(1,1,1,0.0), 0.05)
+		flash_tween.tween_property(sprite, "modulate", Color(0,0,0), 0.05)
+		flash_tween.tween_property(sprite, "modulate", original_color, 0.05)
+
 
 # Returns all map‑coordinates this unit could legally move to this turn
 func get_reachable_tiles() -> Array[Vector2i]:
@@ -258,3 +260,22 @@ func get_reachable_tiles() -> Array[Vector2i]:
 				frontier.append(nxt)
 				tiles.append(nxt)
 	return tiles
+
+func set_moved_state(moved: bool) -> void:
+	has_moved = moved
+	var sprite = $AnimatedSprite2D
+	if not sprite:
+		return
+
+	if moved:
+		if is_player:
+			sprite.modulate = Color(0.4, 0.4, 0.4)  # grey tint when moved
+		else:
+			var base = Color(1, 110/255.0, 1)
+			sprite.modulate = Color(base.r * 0.4, base.g * 0.4, base.b * 0.4)		
+	else:
+		# Restore team tint
+		if is_player:
+			sprite.modulate = Color(1, 1, 1)
+		else:
+			sprite.modulate = Color(1, 110/255.0, 1)

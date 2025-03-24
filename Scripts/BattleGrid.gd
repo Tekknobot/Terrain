@@ -254,6 +254,8 @@ func handle_enemy_action(unit) -> void:
 			var explosion = EXPLOSION_SCENE.instantiate()
 			explosion.global_position = to_global(end_local)
 			add_child(explosion)
+			
+			unit.set_moved_state(true)
 
 			var victim = get_unit_at_tile(action.target)
 			if victim:
@@ -523,16 +525,15 @@ func _input(event):
 					highlight_movement_range(selected_unit)
 					return
 
-				# Left-click valid target in range → attack
+				# Left‑click valid target in range → attack
 				if clicked_tile in attack_range_tiles:
 					var enemy = get_unit_at_tile(clicked_tile)
 					if enemy and not enemy.is_player:
-						print("Attacking enemy at:", clicked_tile)
-						await launch_player_missile_attack(attack_source_unit, enemy)
-						attack_source_unit = null
-						attack_range_tiles.clear()
-						clear_attack_highlight()
-						return
+						# Only attack if enemy has an adjacent tile to the source within attack range
+						var dist = manhattan_distance(attack_source_unit.tile_pos, clicked_tile)
+						if dist <= attack_source_unit.attack_range:
+							await launch_player_missile_attack(attack_source_unit, enemy)
+
 
 				# Left-clicked outside range → cancel attack mode
 				print("Clicked outside attack range. Cancelled attack mode.")
@@ -569,7 +570,7 @@ func launch_player_missile_attack(source, target):
 		
 
 	await get_tree().create_timer(0.1).timeout
-	source.has_moved = true
+	source.set_moved_state(true)
 	advance_turn()
 
 func is_within_bounds(tile: Vector2i) -> bool:
@@ -706,7 +707,6 @@ func spawn_units():
 			var unit_scene = enemy_units[i].instantiate()
 			unit_scene.global_position = to_global(map_to_local(spawn_pos)) + tile_size / 2
 			unit_scene.set_team(false)
-			unit_scene.modulate = Color(1, 110.0 / 255.0, 1)
 			all_units.append(unit_scene)
 			add_child(unit_scene)
 			print("Spawned enemy unit at tile: ", spawn_pos)
@@ -725,8 +725,8 @@ func end_turn():
 
 	# Reset has_moved only for units on the new team
 	for unit in all_units:
-		if unit.is_player == player_turn:
-			unit.has_moved = false
+		unit.has_moved = false
+		unit.set_moved_state(false)
 
 	active_unit_index = 0
 	await advance_turn()
