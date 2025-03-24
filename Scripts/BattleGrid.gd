@@ -40,6 +40,8 @@ var noise := FastNoiseLite.new()
 var day_phase := 0.0  # Ranges from 0.0 to 1.0
 
 @onready var ATTACK_SOUND = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
+@onready var SELECT_SOUND = preload("res://Audio/SFX/Retro Beeep 06.wav")
+
 const UnitAction = preload("res://Scripts/UnitAction.gd")
 var skip_increment: bool = false
 
@@ -585,6 +587,8 @@ func handle_tile_selection(clicked_tile: Vector2i):
 	for unit in all_units:
 		if unit.tile_pos == clicked_tile and unit.is_player == player_turn:
 			selected_unit = unit
+			$AudioStreamPlayer2D.stream = SELECT_SOUND
+			$AudioStreamPlayer2D.play()	
 			clear_movement_highlight()
 			highlight_movement_range(unit)
 			return
