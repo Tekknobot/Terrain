@@ -104,14 +104,51 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool):
 		_spawn_unit(units[i], Vector2i(x, row), is_player)
 
 func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool):
-	# If water, replace it with grass
-	if get_cell_source_id(0, tile) == water_tile_id:
-		set_cell(0, tile, grass_tile_id, Vector2i.ZERO)
+	var spawn_tile = _find_nearest_land(tile)
+	if spawn_tile == null:
+		print("⚠ No valid spawn tile found near ", tile)
+		return
 
 	var unit = scene.instantiate()
-	unit.global_position = to_global(map_to_local(tile)) + tile_size * 0.5
+	unit.global_position = to_global(map_to_local(spawn_tile)) + tile_size * 0.5
 	unit.set_team(is_player)
 	add_child(unit)
+
+func _find_nearest_land(start: Vector2i) -> Vector2i:
+	if not is_water_tile(start):
+		return start
+
+	var max_radius = max(grid_width, grid_height)
+	for r in range(1, max_radius):
+		for dx in range(-r, r + 1):
+			for dy in range(-r, r + 1):
+				if abs(dx) != r and abs(dy) != r:
+					continue
+				var pos = start + Vector2i(dx, dy)
+				if is_within_bounds(pos) and not is_water_tile(pos):
+					return pos
+
+	return Vector2i(-1, -1)  # sentinel meaning “no valid tile”
+
+func is_water_tile(tile: Vector2i) -> bool:
+	return get_cell_source_id(0, tile) == water_tile_id
+
+func manhattan_distance(a: Vector2i, b: Vector2i) -> int:
+	return abs(a.x - b.x) + abs(a.y - b.y)
+
+func get_unique_random_odd(limit: int, used: Array) -> int:
+	for i in range(20):
+		var v = randi_range(1, limit - 2)
+		if v % 2 == 1 and not used.has(v):
+			used.append(v)
+			return v
+	return 1
+
+func get_unit_at_tile(tile: Vector2i) -> Node:
+	for unit in get_tree().get_nodes_in_group("Unit"):
+		if local_to_map(to_local(unit.global_position)) == tile:
+			return unit
+	return null
 
 func _is_tile_walkable(tile: Vector2i) -> bool:
 	return get_cell_source_id(0, tile) != water_tile_id
