@@ -199,6 +199,8 @@ func start_turn():
 	advance_turn()
 
 func advance_turn() -> void:
+	await get_tree().create_timer(0.1).timeout
+	
 	# If everyone on this team has moved → end turn
 	if all_units_moved_for_current_team():
 		end_turn()
