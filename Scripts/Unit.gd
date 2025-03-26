@@ -23,11 +23,13 @@ signal movement_finished
 @onready var EXPLOSION_SCENE = preload("res://Scenes/VFX/Explosion.tscn")  # Adjust the path
 
 func _ready():
-	update_tile_pos_from_world()
 	update_z_index()
 	update_health_bar()
 	update_xp_bar()
 
+func _process(delta):
+	update_z_index()
+	
 func set_team(player_team: bool):
 	is_player = player_team
 	var sprite = get_node_or_null("AnimatedSprite2D")
@@ -37,138 +39,10 @@ func set_team(player_team: bool):
 		else:
 			sprite.modulate = Color(1, 110/255.0, 1)
 
-
 func update_z_index():
 	z_index = int(position.y)
 
-func _process(delta):
-	update_z_index()
-	
-### TURN & MOVEMENT ###
-func start_turn():
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap != null:
-		tilemap.highlight_movement_range(self)
-	if is_player:
-		print(unit_type + " — select a tile")
-	else:
-		await ai_move()  # ← Add await here
-
-
-func ai_move() -> void:
-	if has_moved:
-		print(unit_type, "already moved this turn.")
-		return
 			
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap == null:
-		return
-
-	var start = tile_pos
-	var candidates := []
-	for x in range(start.x - movement_range, start.x + movement_range + 1):
-		for y in range(start.y - movement_range, start.y + movement_range + 1):
-			var target = Vector2i(x, y)
-			if tilemap.manhattan_distance(start, target) <= movement_range \
-			   and tilemap.is_valid_spawn_ignore(self, target):
-				candidates.append(target)
-
-	if candidates.size() > 0:
-		var choice = candidates[randi() % candidates.size()]
-		await tilemap.move_unit(self, choice)  # ← await the movement!
-		set_moved_state(true)
-	else:
-		print(unit_type, "has no valid move.")
-		
-func choose_target_tile() -> Vector2i:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap == null:
-		return Vector2i(-1, -1)
-
-	var start = tile_pos
-
-	# Step 1: Find the nearest player unit
-	var nearest_player_pos: Vector2i = Vector2i(-1, -1)
-	var min_distance = INF
-
-	for unit in tilemap.all_units:
-		if unit.is_player:
-			var dist = tilemap.manhattan_distance(start, unit.tile_pos)
-			if dist < min_distance:
-				min_distance = dist
-				nearest_player_pos = unit.tile_pos
-
-	if nearest_player_pos == Vector2i(-1, -1):
-		return Vector2i(-1, -1)  # No player found
-
-	# Step 2: Gather valid candidate tiles
-	var candidates: Array[Vector2i] = []
-
-	for x in range(start.x - movement_range, start.x + movement_range + 1):
-		for y in range(start.y - movement_range, start.y + movement_range + 1):
-			var target = Vector2i(x, y)
-			if tilemap.manhattan_distance(start, target) <= movement_range \
-			and tilemap.is_valid_spawn_ignore(self, target):
-				candidates.append(target)
-
-	# Step 3: Sort by distance to the nearest player
-	candidates.sort_custom(func(a, b):
-		return tilemap.manhattan_distance(a, nearest_player_pos) < tilemap.manhattan_distance(b, nearest_player_pos)
-	)
-
-	# Step 4: Try each candidate to find a valid path
-	for target in candidates:
-		tilemap.update_astar_grid_ignore(self)
-		var path = tilemap.astar.get_point_path(start, target)
-		if path.size() > 1:
-			return target  # Found a reachable tile
-
-	return Vector2i(-1, -1)  # Nothing reachable
-
-
-func move_along_path(path: Array):
-	if has_moved:
-		print(unit_type, "already moved this turn.")
-		return
-			
-	if path.is_empty():
-		return
-
-	var tween = create_tween()
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap == null:
-		return
-
-	var t_size = tilemap.get_tileset().tile_size
-	$AnimatedSprite2D.play("move")
-	
-	var previous_tile = tile_pos  # ← assigned here, before any movement
-
-	for tile in path:
-		# 🔥 Face the correct direction based on X‑movement
-		_set_facing(previous_tile, tile)
-		previous_tile = tile
-		var world = tilemap.map_to_local(tile)
-		tween.tween_property(self, "global_position", world, 0.2)
-		tween.tween_callback(Callable(self, "_update_tile_pos").bind(tile))
-
-	await tween.finished
-	set_moved_state(true)
-	emit_signal("movement_finished")
-	
-	$AnimatedSprite2D.play("default")
-	tilemap.update_astar_grid()
-	tilemap.clear_movement_highlight()
-
-func _update_tile_pos(new_tile: Vector2i) -> void:
-	tile_pos = new_tile
-
-### TILE_POS SYNC ###
-func update_tile_pos_from_world():
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap != null:
-		tile_pos = tilemap.local_to_map(global_position)
-
 ### HEALTH & XP ###
 func take_damage(amount: int):
 	health = max(health - amount, 0)
@@ -235,47 +109,3 @@ func flash_white():
 		flash_tween.tween_property(sprite, "modulate", Color(1,1,1,0.0), 0.05)
 		flash_tween.tween_property(sprite, "modulate", Color(0,0,0), 0.05)
 		flash_tween.tween_property(sprite, "modulate", original_color, 0.05)
-
-
-# Returns all map‑coordinates this unit could legally move to this turn
-func get_reachable_tiles() -> Array[Vector2i]:
-	var tiles: Array[Vector2i] = []
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap == null:
-		return tiles
-
-	var frontier = [tile_pos]
-	var visited = {tile_pos: 0}
-
-	while frontier.size() > 0:
-		var cur = frontier.pop_front()
-		var dist = visited[cur]
-		if dist >= movement_range:
-			continue
-
-		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
-			var nxt = cur + dir
-			if not visited.has(nxt) and tilemap.is_valid_spawn_ignore(self, nxt):
-				visited[nxt] = dist + 1
-				frontier.append(nxt)
-				tiles.append(nxt)
-	return tiles
-
-func set_moved_state(moved: bool) -> void:
-	has_moved = moved
-	var sprite = $AnimatedSprite2D
-	if not sprite:
-		return
-
-	if moved:
-		if is_player:
-			sprite.modulate = Color(0.4, 0.4, 0.4)  # grey tint when moved
-		else:
-			var base = Color(1, 110/255.0, 1)
-			sprite.modulate = Color(base.r * 0.4, base.g * 0.4, base.b * 0.4)		
-	else:
-		# Restore team tint
-		if is_player:
-			sprite.modulate = Color(1, 1, 1)
-		else:
-			sprite.modulate = Color(1, 110/255.0, 1)

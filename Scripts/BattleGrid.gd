@@ -37,7 +37,7 @@ var astar := AStarGrid2D.new()
 var grid_actual_width: int
 var grid_actual_height: int
 
-const MOVE_SPEED := 100.0  # pixels/sec
+const MOVE_SPEED := 75.0  # pixels/sec
 var current_path := []
 var moving := false
 
@@ -353,4 +353,4 @@ func _setup_camera():
 
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_width and tile.y >= 0 and tile.y < grid_height
- #
+ 
