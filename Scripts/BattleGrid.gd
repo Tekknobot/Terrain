@@ -49,21 +49,28 @@ func _ready():
 	call_deferred("_post_map_generation")  # Wait until the next frame
 
 func _input(event):
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 8)))
-		if selected_unit and highlighted_tiles.has(mouse_tile) and not showing_attack:
-			_move_selected_to(mouse_tile)
-		else:
-			_select_unit_at_mouse()
+	if event is InputEventMouseButton and event.pressed:
+		var mouse_tile = local_to_map(to_local(get_global_mouse_position() + Vector2(0, 8)))
+
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			# Left click → select or move (movement only)
+			if selected_unit and highlighted_tiles.has(mouse_tile) and showing_attack == false:
+				_move_selected_to(mouse_tile)
+			else:
+				_select_unit_at_mouse()
+		
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			# Right click → show attack range only, don't change selected unit
+			if selected_unit:
+				showing_attack = true
+				_show_range_for_selected_unit()
 
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		get_tree().reload_current_scene()
 
+
 func _select_unit_at_mouse():
-	# Clear previous highlights
-	for tile in highlighted_tiles:
-		set_cell(1, tile, _get_tile_id_from_noise(noise.get_noise_2d(tile.x, tile.y)))
-	highlighted_tiles.clear()
+	_clear_highlights()
 
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 8
@@ -71,25 +78,43 @@ func _select_unit_at_mouse():
 	var unit = get_unit_at_tile(tile)
 
 	if unit:
-		if unit == selected_unit:
-			showing_attack = not showing_attack
-		else:
-			selected_unit = unit
-			showing_attack = false
-
-		var range = 0
-		var tile_id = 0
-		if showing_attack:
-			range = selected_unit.attack_range
-			tile_id = attack_tile_id
-		else:
-			range = selected_unit.movement_range
-			tile_id = highlight_tile_id
-
-		_highlight_range(tile, range, tile_id)
+		selected_unit = unit
+		showing_attack = false
+		_show_range_for_selected_unit()
 	else:
 		selected_unit = null
 		showing_attack = false
+
+func _show_range_for_selected_unit():
+	var range = 0
+	var tile_id = 0
+
+	if showing_attack:
+		range = selected_unit.attack_range
+		tile_id = attack_tile_id
+	else:
+		range = selected_unit.movement_range
+		tile_id = highlight_tile_id
+
+	_highlight_range(selected_unit.tile_pos, range, tile_id)
+
+func _update_highlight_display():
+	# Clear old highlights
+	for tile in highlighted_tiles:
+		set_cell(1, tile, _get_tile_id_from_noise(noise.get_noise_2d(tile.x, tile.y)))
+	highlighted_tiles.clear()
+
+	var range = 0
+	var tile_id = 0
+
+	if showing_attack:
+		range = selected_unit.attack_range
+		tile_id = attack_tile_id
+	else:
+		range = selected_unit.movement_range
+		tile_id = highlight_tile_id
+
+	_highlight_range(selected_unit.tile_pos, range, tile_id)
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 	var frontier = [start]
@@ -159,9 +184,14 @@ func _physics_process(delta):
 
 			if current_path.is_empty():
 				moving = false
-				update_astar_grid()   # Refresh walkability now that the unit moved
-				_clear_highlights()   # Remove any leftover range tiles
+				update_astar_grid()
+				_clear_highlights()
 				sprite.play("default")
+
+				# ✅ Unit has finished moving — now run adjacency check
+				if selected_unit and selected_unit.has_method("check_adjacent_and_attack"):
+					selected_unit.check_adjacent_and_attack()
+
 
 
 func _clear_highlights():
