@@ -128,14 +128,19 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 		var dist = distances[current]
 
 		if dist > 0:
-			set_cell(1, current, tile_id, Vector2i.ZERO)
-			highlighted_tiles.append(current)
+			if not is_water_tile(current) and not is_tile_occupied(current):
+				set_cell(1, current, tile_id, Vector2i.ZERO)
+				highlighted_tiles.append(current)
+
 		if dist == max_dist:
 			continue
 
 		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
 			var neighbor = current + dir
-			if is_within_bounds(neighbor) and not distances.has(neighbor) and _is_tile_walkable(neighbor):
+			if is_within_bounds(neighbor) \
+			and not distances.has(neighbor) \
+			and _is_tile_walkable(neighbor) \
+			and not is_tile_occupied(neighbor):
 				distances[neighbor] = dist + 1
 				frontier.append(neighbor)
 
