@@ -162,7 +162,6 @@ sources/1 = SubResource("TileSetAtlasSource_hs0mf")
 sources/2 = SubResource("TileSetAtlasSource_u4qd2")
 sources/3 = SubResource("TileSetAtlasSource_7lpf6")
 sources/4 = SubResource("TileSetAtlasSource_20dl0")
-sources/5 = SubResource("TileSetAtlasSource_w2t0e")
 sources/6 = SubResource("TileSetAtlasSource_f16c1")
 sources/7 = SubResource("TileSetAtlasSource_f6s4v")
 sources/8 = SubResource("TileSetAtlasSource_bx0mv")
@@ -172,6 +171,7 @@ sources/11 = SubResource("TileSetAtlasSource_ajarr")
 sources/12 = SubResource("TileSetAtlasSource_vxydb")
 sources/13 = SubResource("TileSetAtlasSource_12spb")
 sources/14 = SubResource("TileSetAtlasSource_x0puf")
+sources/5 = SubResource("TileSetAtlasSource_w2t0e")
 
 [node name="BattleGrid" type="Node2D"]
 

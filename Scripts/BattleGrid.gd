@@ -26,6 +26,10 @@ const DOWN_LEFT_ROAD = 13
 var noise := FastNoiseLite.new()
 var tile_size: Vector2
 
+@export var highlight_tile_id := 5
+var selected_unit: Node2D = null
+var highlighted_tiles := []
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -34,9 +38,45 @@ func _ready():
 	call_deferred("_post_map_generation")  # Wait until the next frame
 
 func _input(event):
-	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_select_unit_at_mouse()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		get_tree().reload_current_scene()
-		return
+
+func _select_unit_at_mouse():
+	# Clear previous highlights
+	for tile in highlighted_tiles:
+		set_cell(1, tile, _get_tile_id_from_noise(noise.get_noise_2d(tile.x, tile.y)))
+	highlighted_tiles.clear()
+
+	var mouse_pos = get_global_mouse_position()
+	mouse_pos.y += 8
+	var tile = local_to_map(to_local(mouse_pos))
+	var unit = get_unit_at_tile(tile)
+
+	if unit:
+		selected_unit = unit
+		_highlight_movement_range(tile, unit.movement_range)
+
+func _highlight_movement_range(start: Vector2i, max_dist: int):
+	var frontier = [start]
+	var distances = {start: 0}
+
+	while frontier.size() > 0:
+		var current = frontier.pop_front()
+		var dist = distances[current]
+
+		if dist > 0:
+			set_cell(1, current, highlight_tile_id, Vector2i.ZERO)
+			highlighted_tiles.append(current)
+		if dist == max_dist:
+			continue
+
+		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var neighbor = current + dir
+			if is_within_bounds(neighbor) and not distances.has(neighbor) and _is_tile_walkable(neighbor):
+				distances[neighbor] = dist + 1
+				frontier.append(neighbor)
 
 func _post_map_generation():
 	_spawn_teams()
