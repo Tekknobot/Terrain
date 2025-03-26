@@ -6,6 +6,9 @@ var health := 100
 var max_health := 100
 var xp := 0
 var max_xp := 100
+
+var damage = 25
+
 @export var movement_range := 2  
 @export var attack_range := 3 
 
@@ -15,6 +18,7 @@ signal movement_finished
 
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI
+
 
 func _ready():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -63,9 +67,13 @@ func auto_attack_adjacent():
 				continue
 			if unit.tile_pos == check_pos and unit.is_player != is_player:
 				# Damage + visual
-				unit.take_damage(25)
+				unit.take_damage(damage)
 				unit.flash_white()
-
+				
+				var sprite = self.get_node("AnimatedSprite2D")
+				if sprite:
+					sprite.play("attack")
+				
 				# Calculate push position
 				var push_pos = unit.tile_pos + dir
 
@@ -115,13 +123,6 @@ func has_adjacent_enemy() -> bool:
 func display_attack_range(range: int):
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap._highlight_range(tile_pos, range, 3)
-
-func attack(target):
-	var damage = 25
-	target.take_damage(damage)
-	target.flash_white()
-	if target.health == 0:
-		gain_xp(50)
 
 ### HEALTH & XP ###
 func take_damage(amount):
