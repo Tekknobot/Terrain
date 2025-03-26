@@ -41,6 +41,9 @@ const MOVE_SPEED := 75.0  # pixels/sec
 var current_path := []
 var moving := false
 
+var attack_sound = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
+var beep_sound = preload("res://Audio/SFX/Retro Beeep 06.wav")  # Replace with your actual path
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -87,6 +90,8 @@ func _select_unit_at_mouse():
 	else:
 		selected_unit = null
 		showing_attack = false
+		
+	play_beep_sound(tile)	
 
 func _show_range_for_selected_unit():
 	var range = 0
@@ -398,4 +403,20 @@ func _setup_camera():
 
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_width and tile.y >= 0 and tile.y < grid_height
+
+func play_attack_sound(pos: Vector2):
+	var player := $AudioStreamPlayer2D
+	if player:
+		player.stop()
+		player.stream = attack_sound
+		player.global_position = pos
+		player.play()
+ 
+func play_beep_sound(pos: Vector2):
+	var player := $AudioStreamPlayer2D
+	if player:
+		player.stop()
+		player.stream = beep_sound
+		player.global_position = pos
+		player.play()
  

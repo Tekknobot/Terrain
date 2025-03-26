@@ -80,9 +80,17 @@ func auto_attack_adjacent():
 				# 🧱 Animate the attacker (only if target still exists)
 				var sprite = get_node("AnimatedSprite2D")
 				if sprite:
-					var should_flip = dir.x > 0
-					if dir.x != 0 and sprite.flip_h != should_flip:
-						sprite.flip_h = should_flip
+					# 🎵 Play attack sound BEFORE the animation
+					tilemap.play_attack_sound(global_position)
+
+					# Determine if we need to face right (i.e., attack direction is right)
+					var should_face_right = dir.x > 0
+
+					if dir.x != 0:
+						sprite.flip_h = dir.x > 0
+					elif dir.y != 0:
+						sprite.flip_h = true
+
 					sprite.play("attack")
 					await sprite.animation_finished
 					sprite.play("default")
@@ -141,7 +149,6 @@ func take_damage(amount: int) -> bool:
 		die()
 		return true  # 💀 Unit is dead
 	return false
-
 
 func gain_xp(amount):
 	xp = min(xp + amount, max_xp)
