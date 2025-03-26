@@ -179,6 +179,7 @@ sources/5 = SubResource("TileSetAtlasSource_w2t0e")
 y_sort_enabled = true
 tile_set = SubResource("TileSet_k2046")
 format = 2
+layer_0/modulate = Color(0.787759, 0.787759, 0.787759, 1)
 layer_1/name = "Layer1"
 script = ExtResource("1_juvca")
 grid_width = 12

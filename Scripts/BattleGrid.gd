@@ -33,6 +33,14 @@ var highlighted_tiles := []
 @export var attack_tile_id := 3
 var showing_attack := false
 
+var astar := AStarGrid2D.new()
+var grid_actual_width: int
+var grid_actual_height: int
+
+const MOVE_SPEED := 100.0  # pixels/sec
+var current_path := []
+var moving := false
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -42,7 +50,12 @@ func _ready():
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_select_unit_at_mouse()
+		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 8)))
+		if selected_unit and highlighted_tiles.has(mouse_tile) and not showing_attack:
+			_move_selected_to(mouse_tile)
+		else:
+			_select_unit_at_mouse()
+
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		get_tree().reload_current_scene()
 
@@ -118,9 +131,78 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				distances[neighbor] = dist + 1
 				frontier.append(neighbor)
 
+func _move_selected_to(target: Vector2i):
+	current_path = astar.get_point_path(selected_unit.tile_pos, target)
+	if current_path.is_empty():
+		return
+	moving = true
+
+func _physics_process(delta):
+	if moving:
+		var next_tile = current_path[0]
+		var world_pos = to_global(map_to_local(next_tile))
+		var dir = (world_pos - selected_unit.global_position).normalized()
+		selected_unit.global_position += dir * MOVE_SPEED * delta
+
+		if selected_unit.global_position.distance_to(world_pos) < 2:
+			selected_unit.global_position = world_pos
+			selected_unit.tile_pos = next_tile
+			current_path.remove_at(0)
+
+			if current_path.is_empty():
+				moving = false
+				update_astar_grid()   # Refresh walkability now that the unit moved
+				_clear_highlights()   # Remove any leftover range tiles
+
+
+func _clear_highlights():
+	# Restore all movement highlights
+	for pos in highlighted_tiles:
+		set_cell(1, pos, _get_tile_id_from_noise(noise.get_noise_2d(pos.x, pos.y)))
+	highlighted_tiles.clear()
+
 func _post_map_generation():
 	_spawn_teams()
 	_setup_camera()
+	update_astar_grid()
+
+### **Update A* Grid Dynamically**
+func update_astar_grid() -> void:
+	var tilemap: TileMap = self
+	var used_rect = tilemap.get_used_rect()
+	grid_actual_width = used_rect.size.x
+	grid_actual_height = used_rect.size.y
+	print("Updating AStar grid using used_rect: ", used_rect)
+	
+	astar.size = Vector2i(grid_actual_width, grid_actual_height)
+	astar.cell_size = Vector2(1, 1)
+	astar.default_compute_heuristic = 1
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	astar.update()  # Clear previous configuration
+	
+	for x in range(grid_actual_width):
+		for y in range(grid_actual_height):
+			var tile_position = Vector2i(x, y)
+			var tile_id = tilemap.get_cell_source_id(0, tile_position)
+			# Mark tile as solid if it's invalid, water, or occupied.
+			var is_solid: bool = (tile_id == -1 or tile_id == water_tile_id or is_tile_occupied(tile_position))
+			astar.set_point_solid(tile_position, is_solid)
+	
+	print("AStar grid updated with size:", grid_actual_width, "x", grid_actual_height)
+	
+func is_tile_occupied(tile: Vector2i) -> bool:
+	return get_unit_at_tile(tile) != null
+
+func _build_astar():
+	astar.clear()
+	astar.cell_size = tile_size
+	for x in range(grid_width):
+		for y in range(grid_height):
+			var pos = Vector2i(x, y)
+			if _is_tile_walkable(pos):
+				astar.add_cell(pos)
+	astar.connect_neighbors()
+
 
 func _setup_noise():
 	noise.seed = randi()
