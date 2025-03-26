@@ -4,3 +4,6 @@ res://Scenes/Main.tscn
 res://Scripts/Unit.gd
 res://Scripts/TurnManager.gd
 res://Scripts/BattleGrid.gd
+res://Scenes/Meks_Scenes/CPU/R1.scn
+res://Scenes/Meks_Scenes/PLAYER/R1.scn
+res://Scenes/Meks_Scenes/PLAYER/R3.scn

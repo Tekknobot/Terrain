@@ -72,10 +72,15 @@ func auto_attack_adjacent():
 				
 				var sprite = get_node("AnimatedSprite2D")
 				if sprite:
+					var should_flip = false
+
 					if dir.x != 0:
-						sprite.flip_h = dir.x > 0  # ← flip when attacking left
-					else:
-						sprite.flip_h = false      # vertical hits → no flip
+						should_flip = dir.x > 0  # right = flip true, left = false
+
+					# Only update flip_h if it's different
+					if dir.x != 0 and sprite.flip_h != should_flip:
+						sprite.flip_h = should_flip
+
 					sprite.play("attack")
 
 				# Calculate push position

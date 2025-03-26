@@ -51,7 +51,10 @@ func _ready():
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_tile = local_to_map(to_local(get_global_mouse_position() + Vector2(0, 8)))
-
+		
+		if moving == true:
+			return
+		
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			# Left click → select or move (movement only)
 			if selected_unit and highlighted_tiles.has(mouse_tile) and showing_attack == false:
