@@ -182,3 +182,4 @@ func _setup_camera():
 
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_width and tile.y >= 0 and tile.y < grid_height
+ #
