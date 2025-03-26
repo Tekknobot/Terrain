@@ -141,9 +141,17 @@ func _physics_process(delta):
 	if moving:
 		var next_tile = current_path[0]
 		var world_pos = to_global(map_to_local(next_tile))
+		
+		# Flip sprite based on horizontal movement
+		var sprite := selected_unit.get_node("AnimatedSprite2D")
+		sprite.play("move")
+		if world_pos.x > selected_unit.global_position.x:
+			sprite.flip_h = true  # moving right → face right
+		elif world_pos.x < selected_unit.global_position.x:
+			sprite.flip_h = false   # moving left → face left		
+			
 		var dir = (world_pos - selected_unit.global_position).normalized()
 		selected_unit.global_position += dir * MOVE_SPEED * delta
-
 		if selected_unit.global_position.distance_to(world_pos) < 2:
 			selected_unit.global_position = world_pos
 			selected_unit.tile_pos = next_tile
@@ -153,6 +161,7 @@ func _physics_process(delta):
 				moving = false
 				update_astar_grid()   # Refresh walkability now that the unit moved
 				_clear_highlights()   # Remove any leftover range tiles
+				sprite.play("default")
 
 
 func _clear_highlights():
