@@ -175,29 +175,36 @@ func _post_map_generation():
 	_setup_camera()
 	update_astar_grid()
 
-### **Update A* Grid Dynamically**
 func update_astar_grid() -> void:
-	var tilemap: TileMap = self
+	var tilemap = self
 	var used_rect = tilemap.get_used_rect()
 	grid_actual_width = used_rect.size.x
 	grid_actual_height = used_rect.size.y
-	print("Updating AStar grid using used_rect: ", used_rect)
-	
-	astar.size = Vector2i(grid_actual_width, grid_actual_height)
+
+	astar.clear()
 	astar.cell_size = Vector2(1, 1)
 	astar.default_compute_heuristic = 1
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
-	astar.update()  # Clear previous configuration
-	
+
+	# IMPORTANT: set grid size so neighbors get connected
+	astar.size = Vector2i(grid_actual_width, grid_actual_height)
+
+	# Create all walkable points
 	for x in range(grid_actual_width):
 		for y in range(grid_actual_height):
-			var tile_position = Vector2i(x, y)
-			var tile_id = tilemap.get_cell_source_id(0, tile_position)
-			# Mark tile as solid if it's invalid, water, or occupied.
-			var is_solid: bool = (tile_id == -1 or tile_id == water_tile_id or is_tile_occupied(tile_position))
-			astar.set_point_solid(tile_position, is_solid)
-	
-	print("AStar grid updated with size:", grid_actual_width, "x", grid_actual_height)
+			var pos = Vector2i(x, y)
+			var tile_id = tilemap.get_cell_source_id(0, pos)
+			if tile_id != -1 and tile_id != water_tile_id:
+				astar.set_point_solid(pos, false)
+
+	# Build neighbor links
+	astar.update()
+
+	# Block occupied tiles
+	for unit in get_tree().get_nodes_in_group("Units"):
+		astar.set_point_solid(unit.tile_pos, true)
+
+	print("AStar grid updated:", grid_actual_width, "x", grid_actual_height)
 	
 func is_tile_occupied(tile: Vector2i) -> bool:
 	return get_unit_at_tile(tile) != null

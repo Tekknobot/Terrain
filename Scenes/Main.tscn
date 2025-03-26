@@ -1,4 +1,4 @@
-[gd_scene load_steps=46 format=3 uid="uid://npnv1wvwmhj3"]
+[gd_scene load_steps=47 format=3 uid="uid://npnv1wvwmhj3"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_2cdww"]
 [ext_resource type="Script" path="res://Scripts/BattleGrid.gd" id="1_juvca"]
@@ -29,6 +29,7 @@
 [ext_resource type="PackedScene" uid="uid://dok7nyn6rfklj" path="res://Scenes/Meks_Scenes/PLAYER/S2.scn" id="13_nlsfu"]
 [ext_resource type="PackedScene" uid="uid://bedhvs5lsjiuk" path="res://Scenes/Meks_Scenes/CPU/S3.scn" id="14_42888"]
 [ext_resource type="PackedScene" uid="uid://f0axh6ymw2lc" path="res://Scenes/Meks_Scenes/PLAYER/S3.scn" id="14_usaop"]
+[ext_resource type="Script" path="res://Scripts/TurnManager.gd" id="30_njjnf"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_rcb67"]
 texture = ExtResource("1_2cdww")
@@ -197,3 +198,6 @@ highlight_texture = ExtResource("1_2cdww")
 [node name="MissileTrail" type="Line2D" parent="."]
 width = 1.0
 antialiased = true
+
+[node name="TurnManager" type="Node2D" parent="."]
+script = ExtResource("30_njjnf")
