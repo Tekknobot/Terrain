@@ -30,6 +30,9 @@ var tile_size: Vector2
 var selected_unit: Node2D = null
 var highlighted_tiles := []
 
+@export var attack_tile_id := 3
+var showing_attack := false
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -55,8 +58,45 @@ func _select_unit_at_mouse():
 	var unit = get_unit_at_tile(tile)
 
 	if unit:
-		selected_unit = unit
-		_highlight_movement_range(tile, unit.movement_range)
+		if unit == selected_unit:
+			showing_attack = not showing_attack
+		else:
+			selected_unit = unit
+			showing_attack = false
+
+		var range = 0
+		var tile_id = 0
+		if showing_attack:
+			range = selected_unit.attack_range
+			tile_id = attack_tile_id
+		else:
+			range = selected_unit.movement_range
+			tile_id = highlight_tile_id
+
+		_highlight_range(tile, range, tile_id)
+	else:
+		selected_unit = null
+		showing_attack = false
+
+func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
+	var frontier = [start]
+	var distances = { start: 0 }
+
+	while frontier.size() > 0:
+		var current = frontier.pop_front()
+		var dist = distances[current]
+
+		if dist > 0:
+			set_cell(1, current, tile_id, Vector2i.ZERO)
+			highlighted_tiles.append(current)
+		if dist == max_dist:
+			continue
+
+		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var neighbor = current + dir
+			if is_within_bounds(neighbor) and not distances.has(neighbor) and _is_tile_walkable(neighbor):
+				distances[neighbor] = dist + 1
+				frontier.append(neighbor)
 
 func _highlight_movement_range(start: Vector2i, max_dist: int):
 	var frontier = [start]
