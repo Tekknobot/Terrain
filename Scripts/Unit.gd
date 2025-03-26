@@ -55,51 +55,51 @@ func auto_attack_adjacent():
 	]
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var units = get_tree().get_nodes_in_group("Units")
+	var raw_units = get_tree().get_nodes_in_group("Units")
+	var units = []
+
+	# Snapshot all valid units up front
+	for u in raw_units:
+		if is_instance_valid(u):
+			units.append(u)
 
 	for dir in directions:
-		# Convert actual position → reliable tile_pos
 		var actual_pos = tilemap.local_to_map(tilemap.to_local(global_position))
 		var check_pos = actual_pos + dir
 
 		for unit in units:
-			if unit == self:
+			if not is_instance_valid(unit) or unit == self:
 				continue
 			if unit.tile_pos == check_pos and unit.is_player != is_player:
-				# Damage + visual
-				unit.take_damage(damage)
-				unit.flash_white()
-				
-				var sprite = get_node("AnimatedSprite2D")
-				if sprite:
-					var should_flip = false
-
-					if dir.x != 0:
-						should_flip = dir.x > 0  # right = flip true, left = false
-
-					# Only update flip_h if it's different
-					if dir.x != 0 and sprite.flip_h != should_flip:
-						sprite.flip_h = should_flip
-
-					sprite.play("attack")
-
-				# Calculate push position
 				var push_pos = unit.tile_pos + dir
 
-				# Optional debug
-				print("Trying to push", unit.unit_type, "from", unit.tile_pos, "to", push_pos)
+				# 🔥 Damage and detect if it dies BEFORE continuing
+				var died = unit.take_damage(damage)
+				unit.flash_white()
 
-				# Validate push destination
+				# 🧱 Animate the attacker (only if target still exists)
+				var sprite = get_node("AnimatedSprite2D")
+				if sprite:
+					var should_flip = dir.x > 0
+					if dir.x != 0 and sprite.flip_h != should_flip:
+						sprite.flip_h = should_flip
+					sprite.play("attack")
+					await sprite.animation_finished
+					sprite.play("default")
+
+				# 🎖 Grant XP only if it died
+				if died:
+					gain_xp(50)
+					continue  # ⛔ Unit is already dead and freed
+
+				# ➡ Try to push (only if unit is alive)
 				if tilemap.is_within_bounds(push_pos) \
-						and not tilemap.is_tile_occupied(push_pos) \
-						and tilemap._is_tile_walkable(push_pos):
+					and not tilemap.is_tile_occupied(push_pos) \
+					and tilemap._is_tile_walkable(push_pos):
 
 					unit.tile_pos = push_pos
 					unit.global_position = tilemap.to_global(tilemap.map_to_local(push_pos))
 
-				if unit.health == 0:
-					gain_xp(50)
-			
 				tilemap.update_astar_grid()
 
 func has_adjacent_enemy() -> bool:
@@ -134,11 +134,14 @@ func display_attack_range(range: int):
 	tilemap._highlight_range(tile_pos, range, 3)
 
 ### HEALTH & XP ###
-func take_damage(amount):
+func take_damage(amount: int) -> bool:
 	health = max(health - amount, 0)
 	update_health_bar()
 	if health == 0:
 		die()
+		return true  # 💀 Unit is dead
+	return false
+
 
 func gain_xp(amount):
 	xp = min(xp + amount, max_xp)
