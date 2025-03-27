@@ -7,3 +7,4 @@ res://Scenes/Meks_Scenes/CPU/R1.scn
 res://Scripts/BattleGrid.gd
 res://Scripts/Unit.gd
 res://Scripts/HoverTile.gd
+res://Scripts/Camera2D.gd

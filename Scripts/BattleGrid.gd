@@ -417,13 +417,18 @@ func _is_tile_walkable(tile: Vector2i) -> bool:
 
 func _setup_camera():
 	await get_tree().process_frame
+	
+	var camera_scene = preload("res://Scripts/Camera2D.gd")
 	var camera = Camera2D.new()
-	add_child(camera)
+	camera.set_script(camera_scene)
+	get_tree().get_current_scene().add_child(camera) # Camera at root scene now
 	camera.make_current()
+	
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
-	camera.position = to_global(map_to_local(center_tile))
+	camera.global_position = to_global(map_to_local(center_tile))
 	camera.zoom = Vector2(4, 4)
-	print("Camera centered at grid midpoint:", center_tile, "world:", camera.position)
+	
+	print("Camera centered at grid midpoint:", center_tile, "world:", camera.global_position)
 
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_width and tile.y >= 0 and tile.y < grid_height
