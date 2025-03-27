@@ -224,9 +224,8 @@ func _post_map_generation():
 		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
 	
 
-func update_astar_grid() -> void:
-	var tilemap = self
-	var used_rect = tilemap.get_used_rect()
+func update_astar_grid():
+	var used_rect = get_used_rect()
 	grid_actual_width = used_rect.size.x
 	grid_actual_height = used_rect.size.y
 
@@ -234,29 +233,25 @@ func update_astar_grid() -> void:
 	astar.cell_size = Vector2(1, 1)
 	astar.default_compute_heuristic = 1
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
-
-	# IMPORTANT: set grid size so neighbors get connected
 	astar.size = Vector2i(grid_actual_width, grid_actual_height)
 
-	# Create all walkable points
+	# Register all walkable tiles first
 	for x in range(grid_actual_width):
 		for y in range(grid_actual_height):
 			var pos = Vector2i(x, y)
-			var tile_id = tilemap.get_cell_source_id(0, pos)
-			if tile_id != -1 and tile_id != water_tile_id:
-				astar.set_point_solid(pos, false)
+			var tile_id = get_cell_source_id(0, pos)
 
-	# Build neighbor links
-	astar.update()
+			# Water = not walkable
+			var walkable = tile_id != water_tile_id
+			astar.set_point_solid(pos, not walkable)
 
-	# Don't block unit tiles yet — let pathfinding go through them for now
-	# We’ll handle pushing or blocking later.
-
-	print("AStar grid updated:", grid_actual_width, "x", grid_actual_height)
-	
-	print("✅ Map post-gen complete. All units:")
+	# Mark all occupied tiles as solid (blocked)
 	for unit in get_tree().get_nodes_in_group("Units"):
-		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
+		if is_instance_valid(unit):
+			astar.set_point_solid(unit.tile_pos, true)
+
+	astar.update()
+	print("✅ AStar grid updated with full walkability enforcement.")
 	
 	
 func is_tile_occupied(tile: Vector2i) -> bool:

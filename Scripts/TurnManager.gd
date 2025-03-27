@@ -74,9 +74,11 @@ func _start_unit_action(team):
 				print("🎯 Final target:", target.name)
 				print("🧭 Path to target:", path)
 
-				# Find next dry walkable step
-				var next_step := Vector2i(-1, -1)
-				for i in range(1, path.size()):
+				# Find the furthest valid step within movement range
+				var max_steps = min(unit.movement_range, path.size() - 1)
+				var next_step: Vector2i = Vector2i(-1, -1)
+
+				for i in range(max_steps, 0, -1):
 					var step = path[i]
 					if tilemap._is_tile_walkable(step) and not tilemap.is_tile_occupied(step) and not tilemap.is_water_tile(step):
 						next_step = step
