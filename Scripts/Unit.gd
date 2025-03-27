@@ -1,4 +1,4 @@
-extends Node2D
+extends Area2D
 
 @export var is_player: bool = true  
 @export var unit_type: String = "Soldier"  
@@ -19,6 +19,8 @@ signal movement_finished
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI
 
+var has_moved
+var has_attacked
 
 func _ready():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -237,17 +239,21 @@ func clear_actions():
 
 func execute_actions():
 	if queued_move != Vector2i(-1, -1):
-		move_to(queued_move)
-		await self.movement_finished
+		await move_to(queued_move)
+		has_moved = true
 		queued_move = Vector2i(-1, -1)
+
+		# 🧠 Enemy auto-attacks after moving
+		if not is_player:
+			auto_attack_adjacent()
 
 	if queued_attack_target and is_instance_valid(queued_attack_target):
 		if queued_attack_target == self:
-			print("🚨 Skipping attack: unit tried to attack itself")
+			print("🚨 Cannot attack self")
 			queued_attack_target = null
 			return
 
-		# Face the target
+		# Face and animate attack...
 		var dir = (queued_attack_target.tile_pos - tile_pos)
 		var sprite = get_node("AnimatedSprite2D")
 		if sprite and dir.x != 0:
@@ -261,9 +267,14 @@ func execute_actions():
 			await sprite.animation_finished
 			sprite.play("default")
 
-		if is_player:
-			if tilemap and tilemap.has_method("on_player_unit_done"):
-				tilemap.on_player_unit_done(self)
+		has_attacked = true
+		queued_attack_target = null
+
+	# ✅ Signal turn end if done
+	if is_player:
+		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		if tilemap.has_method("on_player_unit_done"):
+			tilemap.on_player_unit_done(self)
 
 func execute_all_player_actions():
 	var units := get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)

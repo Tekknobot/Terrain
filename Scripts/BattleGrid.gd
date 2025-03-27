@@ -435,6 +435,7 @@ var all_player_units: Array[Node2D] = []
 var finished_player_units: Array[Node2D] = []
 
 func start_player_turn():
+	set_end_turn_button_enabled(true)
 	all_player_units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
 	finished_player_units.clear()
 	print("🎮 Player turn started. Units:", all_player_units.size())
@@ -478,6 +479,7 @@ func on_player_unit_done(unit: Node2D):
 		var turn_manager = get_node("/root/TurnManager")
 		if turn_manager:
 			turn_manager.end_turn()
+			set_end_turn_button_enabled(false)			
 
 func _execute_all_player_units():
 	for unit in all_units:
@@ -487,3 +489,23 @@ func _execute_all_player_units():
 	var turn_manager = get_tree().get_current_scene().get_node("TurnManager")
 	if turn_manager:
 		turn_manager.end_turn()
+
+
+func _on_end_turn_button_pressed():
+	print("🛑 Player clicked End Turn")
+
+	for u in get_tree().get_nodes_in_group("PlayerUnits"):
+		u.has_moved = true
+		u.has_attacked = true
+		on_player_unit_done(u)
+
+	# 🔁 Force turn end after marking all player units done
+	var turn_manager = get_node("/root/TurnManager")
+	if turn_manager:
+		turn_manager.end_turn()
+
+
+func set_end_turn_button_enabled(enabled: bool):
+	var btn = get_node("CanvasLayer/Control/EndTurnButton")
+	if btn:
+		btn.disabled = not enabled

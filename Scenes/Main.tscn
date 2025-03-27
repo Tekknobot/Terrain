@@ -201,3 +201,20 @@ antialiased = true
 
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("30_njjnf")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Control" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Button" type="Button" parent="CanvasLayer/Control"]
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+theme_override_font_sizes/font_size = 32
+text = "END TURN"
+
+[connection signal="pressed" from="CanvasLayer/Control/Button" to="TileMap" method="_on_end_turn_button_pressed"]
