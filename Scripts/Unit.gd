@@ -241,15 +241,32 @@ func die():
 		if tm:
 			tm.end_turn(true)  # We'll add this next
 
+var _flash_tween: Tween = null
+
 func flash_white():
 	var sprite = $AnimatedSprite2D
 	if not sprite:
 		return
-	var original = sprite.modulate
-	var t = create_tween()
+
+	# Capture whatever color it currently has
+	var original: Color = sprite.self_modulate
+
+	# Cancel any in‑flight flash, immediately restore original
+	if _flash_tween:
+		_flash_tween.kill()
+		sprite.self_modulate = original
+		_flash_tween = null
+
+	# Start a new flash tween
+	_flash_tween = create_tween()
 	for i in range(6):
-		t.tween_property(sprite, "modulate", Color(1,1,1,0), 0.1)
-		t.tween_property(sprite, "modulate", original, 0.1)
+		_flash_tween.tween_property(sprite, "self_modulate", Color(1,1,1, 0.4), 0.1)
+		_flash_tween.tween_property(sprite, "self_modulate", original, 0.1)
+
+	# Guarantee we end on the original color
+	_flash_tween.tween_callback(
+		Callable(sprite, "set_self_modulate").bind(original)
+	)
 
 func set_team(player_team: bool):
 	is_player = player_team
