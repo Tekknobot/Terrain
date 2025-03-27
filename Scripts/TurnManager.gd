@@ -55,6 +55,27 @@ func find_detour(tile: Vector2i, tilemap) -> Vector2i:
 	# If no alternative found, return the original tile.
 	return tile
 
+# Helper: Manhattan distance (lower is better)
+func manhattan_distance(a: Vector2i, b: Vector2i) -> int:
+	return abs(a.x - b.x) + abs(a.y - b.y)
+
+# Evaluate a candidate tile.
+# +50 bonus if the candidate is adjacent to any player unit.
+# Then subtract the Manhattan distance from candidate to target.
+func evaluate_candidate(candidate: Vector2i, unit, tilemap, target) -> int:
+	var score = 0
+	# Check adjacent tiles (4-directional) for a player unit.
+	for dir in [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]:
+		var neighbor = candidate + dir
+		# Assuming TileMap has a get_unit_at_tile() method.
+		var other = tilemap.get_unit_at_tile(neighbor)
+		if other and other.is_player:
+			score += 50
+			break
+	# A lower distance to the target is better.
+	score -= manhattan_distance(candidate, target.tile_pos)
+	return score
+
 func _start_unit_action(team):
 	active_units = active_units.filter(is_instance_valid)
 
@@ -77,8 +98,11 @@ func _start_unit_action(team):
 				await _run_safe_enemy_action(unit)
 				return
 
-			# Find a target and compute a path that avoids water if possible.
-			var target = find_closest_enemy(unit)
+			# Instead of always targeting the closest enemy, try to pick the weakest enemy.
+			var target = find_weakest_enemy(unit)
+			if not target:
+				target = find_closest_enemy(unit)
+			
 			var path = []
 			while target:
 				# Get a path from the unit's tile to the target's tile.
@@ -101,18 +125,20 @@ func _start_unit_action(team):
 				print("🎯 Final target:", target.name)
 				print("🧭 Path to target:", path)
 				var max_steps = min(unit.movement_range, path.size() - 1)
-				var next_step: Vector2i = Vector2i(-1, -1)
+				
+				# Instead of taking the furthest valid candidate, evaluate all candidate steps.
+				var best_score = -INF
+				var best_candidate: Vector2i = Vector2i(-1, -1)
 				for i in range(1, max_steps + 1):
 					var candidate: Vector2i = path[i]
 					
 					# If the candidate is water, attempt a detour.
 					if tilemap.is_water_tile(candidate):
 						var detour_candidate = find_detour(candidate, tilemap)
-						# If detour_candidate is different and valid, use it.
+						# If a valid detour is found, use it.
 						if detour_candidate != candidate:
 							candidate = detour_candidate
 						else:
-							# No detour available; skip this candidate.
 							continue
 
 					# Recalculate the path from the unit’s current position to the candidate.
@@ -120,7 +146,7 @@ func _start_unit_action(team):
 					if candidate_path.is_empty():
 						continue  # Candidate is no longer reachable
 
-					# Check each cell along the candidate path (skipping the starting cell).
+					# Check every cell in the candidate path (skip index 0 which is the starting cell).
 					var path_clear = true
 					for j in range(1, candidate_path.size()):
 						var cell: Vector2i = Vector2i(candidate_path[j])
@@ -132,12 +158,14 @@ func _start_unit_action(team):
 					if not path_clear:
 						continue
 
-					# If we reach here, the candidate (or its detour) is valid.
-					next_step = candidate
-					# Continue checking for further candidates so that next_step ends up as the furthest valid candidate.
-				if next_step != Vector2i(-1, -1):
-					print("🚶 Planning move to:", next_step)
-					unit.plan_move(next_step)
+					# Evaluate this candidate move.
+					var score = evaluate_candidate(candidate, unit, tilemap, target)
+					if score > best_score:
+						best_score = score
+						best_candidate = candidate
+				if best_candidate != Vector2i(-1, -1):
+					print("🚶 Planning move to:", best_candidate, "with score:", best_score)
+					unit.plan_move(best_candidate)
 				else:
 					print("⛔ No valid movement tile found within range for", unit.name)
 			
