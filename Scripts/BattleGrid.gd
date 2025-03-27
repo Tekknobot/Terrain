@@ -37,7 +37,7 @@ var astar := AStarGrid2D.new()
 var grid_actual_width: int
 var grid_actual_height: int
 
-const MOVE_SPEED := 75.0  # pixels/sec
+const MOVE_SPEED := 100.0  # pixels/sec
 var current_path := []
 var moving := false
 

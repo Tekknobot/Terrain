@@ -70,7 +70,7 @@ func _move_one(dest: Vector2i) -> void:
 		sprite.play("move")
 		sprite.flip_h = global_position.x < world_target.x
 
-	var speed := 75.0  # pixels/sec
+	var speed := 100.0  # pixels/sec
 	
 	while global_position.distance_to(world_target) > 1.0:
 		var delta = get_process_delta_time()
