@@ -34,6 +34,10 @@ func _process(delta):
 	update_z_index()
 	_update_tile_pos()  # Ensure tile_pos is current
 
+	if has_moved:
+		print("Unit has moved; applying darken")
+
+
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -56,7 +60,6 @@ func compute_path(from: Vector2i, to: Vector2i) -> Array:
 	tilemap.update_astar_grid()
 	return tilemap.astar.get_point_path(from, to)
 
-
 func _move_one(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var world_target = tilemap.to_global(tilemap.map_to_local(dest))
@@ -75,7 +78,7 @@ func _move_one(dest: Vector2i) -> void:
 
 	tile_pos = dest
 	if sprite:
-		sprite.play("default")
+		sprite.play("default")	
 
 func move_to(dest: Vector2i) -> void:
 	var path = await compute_path(tile_pos, dest)
@@ -92,6 +95,7 @@ func move_to(dest: Vector2i) -> void:
 	await get_tree().process_frame
 
 	emit_signal("movement_finished")
+	has_moved = true
 
 func auto_attack_adjacent():
 	var directions = [

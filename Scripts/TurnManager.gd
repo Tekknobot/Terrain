@@ -72,7 +72,7 @@ func _start_unit_action(team):
 				return
 
 			# Existing logic to find a target and compute a path...
-			var target = find_weakest_enemy(unit)
+			var target = find_closest_enemy(unit)
 			var path = []
 			while target:
 				path = tilemap.astar.get_point_path(unit.tile_pos, target.tile_pos)

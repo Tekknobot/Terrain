@@ -89,6 +89,13 @@ func _select_unit_at_mouse():
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
 
+	# Prevent any movement updates if the unit has already moved
+	if unit == null:
+		return
+		
+	if unit.has_moved:
+		return
+		
 	if unit:
 		selected_unit = unit
 		showing_attack = false
@@ -193,11 +200,13 @@ func _physics_process(delta):
 		if world_pos.x > selected_unit.global_position.x:
 			sprite.flip_h = true  # moving right → face right
 		elif world_pos.x < selected_unit.global_position.x:
-			sprite.flip_h = false   # moving left → face left		
-			
+			sprite.flip_h = false   # moving left → face left
+		
 		var dir = (world_pos - selected_unit.global_position).normalized()
 		selected_unit.global_position += dir * MOVE_SPEED * delta
+		
 		if selected_unit.global_position.distance_to(world_pos) < 2:
+			# Set final position and update tile
 			selected_unit.global_position = world_pos
 			selected_unit.tile_pos = next_tile
 			current_path.remove_at(0)
@@ -207,11 +216,14 @@ func _physics_process(delta):
 				update_astar_grid()
 				_clear_highlights()
 				sprite.play("default")
+				
+				# Mark the unit as having moved and tint it
+				selected_unit.has_moved = true
+				sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dark gray tint
 
-				# ✅ Unit has finished moving — now run adjacency check
+				# Run adjacent enemy check if applicable
 				if selected_unit and selected_unit.has_method("check_adjacent_and_attack"):
 					selected_unit.check_adjacent_and_attack()
-
 
 
 func _clear_highlights():
@@ -493,10 +505,14 @@ func _on_end_turn_button_pressed():
 			print("⏳ Cannot end turn — unit is still moving:", u.name)
 			return
 
-	# ✅ Proceed if all units are idle
-	for u in get_tree().get_nodes_in_group("PlayerUnits"):
-		u.has_moved = true
-		u.has_attacked = true
+	for u in get_tree().get_nodes_in_group("Units"):
+		u.has_moved = false
+		u.has_attacked = false
+
+		var sprite = u.get_node("AnimatedSprite2D")
+		if sprite:
+			sprite.self_modulate = Color(1, 1, 1, 1)  # ✅ Reset the sprite’s tint
+
 		on_player_unit_done(u)
 
 	var turn_manager = get_node("/root/TurnManager")
