@@ -5,14 +5,14 @@ signal turn_ended(current_team)
 
 enum Team { ENEMY, PLAYER }
 
-var turn_order = [Team.ENEMY, Team.PLAYER]
+var turn_order = [Team.PLAYER, Team.ENEMY]
 var current_turn_index := 0
 var active_units := []
 var active_unit_index := 0
 
 func _ready():
 	# Wait one frame so TileMap can spawn units first
-	await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.5).timeout
 	call_deferred("_initialize_turns")
 
 func _initialize_turns():

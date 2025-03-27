@@ -460,7 +460,6 @@ func confirm_unit_plan(move_tile: Vector2i, attack_target: Node2D):
 	if planned_units >= all_units.size():
 		await _execute_all_player_units()
 
-
 func end_turn():
 	planning_phase = false
 	for unit in all_units:

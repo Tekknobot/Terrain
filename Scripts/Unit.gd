@@ -44,35 +44,42 @@ func start_turn():
 func on_player_done():
 	TurnManager.unit_finished_action(self)
 
-func move_to(dest: Vector2i):
+func compute_path(from: Vector2i, to: Vector2i) -> Array:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap.update_astar_grid()
+	return tilemap.astar.get_point_path(from, to)
+
+func _move_one(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var world_target = tilemap.to_global(tilemap.map_to_local(dest))
 
-	if global_position == world_target:
-		tile_pos = dest
-		emit_signal("movement_finished")
-		return
-
-	var sprite = get_node("AnimatedSprite2D")
+	var sprite = $AnimatedSprite2D
 	if sprite:
 		sprite.play("move")
 		sprite.flip_h = global_position.x < world_target.x
 
-	var duration := 0.3  # default for player
-	if not is_player:
-		duration = 0.5  # use faster speed for enemy
+	var speed := 75.0  # pixels/sec
 
-	var tween = create_tween()
-	tween.tween_property(self, "global_position", world_target, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await tween.finished
+	while global_position.distance_to(world_target) > 1.0:
+		var delta = get_process_delta_time()
+		global_position = global_position.move_toward(world_target, speed * delta)
+		await get_tree().process_frame
 
 	tile_pos = dest
 	if sprite:
 		sprite.play("default")
 
+func move_to(dest: Vector2i) -> void:
+	var path = compute_path(tile_pos, dest)
+	if path.is_empty():
+		emit_signal("movement_finished")
+		return
+
+	for step in path:
+		await _move_one(step)
+
 	emit_signal("movement_finished")
 	
-
 func auto_attack_adjacent():
 	var directions = [
 		Vector2i(0, -1), Vector2i(0, 1),
