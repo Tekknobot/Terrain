@@ -189,11 +189,34 @@ func update_xp_bar():
 
 func die():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	#tilemap.all_units.erase(self)
 	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
 	explosion.position = global_position + Vector2(0, -8)
 	tilemap.add_child(explosion)
+
+	# Check if this was the last unit on the team
+	await get_tree().process_frame  # Wait 1 frame before freeing
 	queue_free()
+
+	await get_tree().process_frame  # Let scene update
+
+	# 🧠 Check if game is over
+	var units = get_tree().get_nodes_in_group("Units")
+	var has_players = false
+	var has_enemies = false
+	for u in units:
+		if not is_instance_valid(u):
+			continue
+		if u.is_player:
+			has_players = true
+		else:
+			has_enemies = true
+
+	if not has_players or not has_enemies:
+		print("🏁 Game Over — One team has no remaining units.")
+		var tm = get_node_or_null("/root/TurnManager")
+		if tm:
+			tm.end_turn(true)  # We'll add this next
+
 
 func flash_white():
 	var sprite = $AnimatedSprite2D
@@ -243,17 +266,30 @@ func execute_actions():
 		has_moved = true
 		queued_move = Vector2i(-1, -1)
 
+		if not is_instance_valid(self):
+			print("☠️ Unit died after move")
+			return
+
 		# 🧠 Enemy auto-attacks after moving
 		if not is_player:
-			auto_attack_adjacent()
+			await auto_attack_adjacent()
+			if not is_instance_valid(self):
+				print("☠️ Unit died after auto-attack")
+				return
 
-	if queued_attack_target and is_instance_valid(queued_attack_target):
+	if queued_attack_target:
+		# 💥 Double-check target validity
+		if not is_instance_valid(queued_attack_target):
+			print("❌ Target no longer exists")
+			queued_attack_target = null
+			return
+
 		if queued_attack_target == self:
 			print("🚨 Cannot attack self")
 			queued_attack_target = null
 			return
 
-		# Face and animate attack...
+		# Face and animate attack
 		var dir = (queued_attack_target.tile_pos - tile_pos)
 		var sprite = get_node("AnimatedSprite2D")
 		if sprite and dir.x != 0:
@@ -265,16 +301,24 @@ func execute_actions():
 		if sprite:
 			sprite.play("attack")
 			await sprite.animation_finished
+			if not is_instance_valid(self):
+				print("☠️ Attacker died mid-attack")
+				return
 			sprite.play("default")
 
 		has_attacked = true
 		queued_attack_target = null
 
-	# ✅ Signal turn end if done
+	if not is_instance_valid(self):
+		print("☠️ Unit died before finishing turn")
+		return
+
+	# ✅ Signal end of turn for players
 	if is_player:
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		if tilemap.has_method("on_player_unit_done"):
 			tilemap.on_player_unit_done(self)
+
 
 func execute_all_player_actions():
 	var units := get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)

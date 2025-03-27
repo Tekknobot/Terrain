@@ -38,6 +38,8 @@ func start_turn():
 	_start_unit_action(team)
 
 func _start_unit_action(team):
+	active_units = active_units.filter(is_instance_valid)
+
 	while active_unit_index < active_units.size():
 		var unit = active_units[active_unit_index]
 
@@ -54,9 +56,7 @@ func _start_unit_action(team):
 			if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
 				print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement.")
 				unit.has_moved = true
-				await unit.auto_attack_adjacent()
-				await unit.execute_actions()
-				unit_finished_action(unit)
+				await _run_safe_enemy_action(unit)
 				return
 
 			var target = find_closest_enemy(unit)
@@ -118,6 +118,27 @@ func _start_unit_action(team):
 
 	end_turn()
 
+func _run_safe_enemy_action(unit):
+	await unit.auto_attack_adjacent()
+
+	# If the unit died while attacking (e.g. counter damage), skip its turn
+	if not is_instance_valid(unit):
+		print("☠️ Unit died during auto-attack. Skipping remaining actions.")
+		active_unit_index += 1
+		await get_tree().process_frame  # let the engine free nodes cleanly
+		_start_unit_action(turn_order[current_turn_index])
+		return
+
+	await unit.execute_actions()
+
+	if is_instance_valid(unit):
+		unit_finished_action(unit)
+	else:
+		print("☠️ Unit died during execution. Skipping.")
+		active_unit_index += 1
+		await get_tree().process_frame
+		_start_unit_action(turn_order[current_turn_index])
+
 func find_next_reachable_enemy(unit, exclude := []):
 	var candidates = []
 	for u in get_tree().get_nodes_in_group("Units"):
@@ -144,17 +165,22 @@ func end_turn():
 
 func unit_finished_action(unit):
 	active_unit_index += 1
+	await get_tree().process_frame  # wait for any freed units to process
+	active_units = active_units.filter(is_instance_valid)  # clean up
 	_start_unit_action(turn_order[current_turn_index])
+
 
 func find_closest_enemy(unit) -> Node:
 	var closest: Node = null
-	var shortest: float = INF
+	var shortest := INF
 
-	for u in get_tree().get_nodes_in_group("Units") as Array:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(u):
+			continue
 		if u.is_player != unit.is_player:
-			var dist: float = unit.tile_pos.distance_to(u.tile_pos)
+			var dist = unit.tile_pos.distance_to(u.tile_pos)
 			if dist < shortest:
 				shortest = dist
 				closest = u
 
-	return closest
+	return closest if is_instance_valid(closest) else null
