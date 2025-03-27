@@ -494,16 +494,21 @@ func _execute_all_player_units():
 func _on_end_turn_button_pressed():
 	print("🛑 Player clicked End Turn")
 
+	# ⛔ Prevent end turn if any unit is still moving
+	for u in get_tree().get_nodes_in_group("PlayerUnits"):
+		if u.has_method("is_moving") and u.is_moving():
+			print("⏳ Cannot end turn — unit is still moving:", u.name)
+			return
+
+	# ✅ Proceed if all units are idle
 	for u in get_tree().get_nodes_in_group("PlayerUnits"):
 		u.has_moved = true
 		u.has_attacked = true
 		on_player_unit_done(u)
 
-	# 🔁 Force turn end after marking all player units done
 	var turn_manager = get_node("/root/TurnManager")
 	if turn_manager:
 		turn_manager.end_turn()
-
 
 func set_end_turn_button_enabled(enabled: bool):
 	var btn = get_node("CanvasLayer/Control/EndTurnButton")

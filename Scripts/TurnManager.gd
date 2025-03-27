@@ -49,13 +49,22 @@ func _start_unit_action(team):
 			print("🤖 Enemy taking turn:", unit.name)
 
 			var tilemap = get_tree().get_current_scene().get_node("TileMap")
-			var target = find_closest_enemy(unit)
 
+			# ✅ Check for adjacent enemies before pathfinding
+			if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
+				print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement.")
+				unit.has_moved = true
+				await unit.auto_attack_adjacent()
+				await unit.execute_actions()
+				unit_finished_action(unit)
+				return
+
+			var target = find_closest_enemy(unit)
 			var path = []
+
 			while target:
 				path = tilemap.astar.get_point_path(unit.tile_pos, target.tile_pos)
 
-				# Check if there's any dry step along the way
 				var has_valid_step = false
 				for i in range(1, path.size()):
 					var step = path[i]
@@ -64,17 +73,15 @@ func _start_unit_action(team):
 						break
 
 				if has_valid_step:
-					break  # ✅ We found a reachable target
+					break
 				else:
 					print("❌ Target", target.name, "is unreachable via land")
 					target = find_next_reachable_enemy(unit, [target])
 
-			# If we have a reachable target and path
 			if target and path.size() > 1:
 				print("🎯 Final target:", target.name)
 				print("🧭 Path to target:", path)
 
-				# Find the furthest valid step within movement range
 				var max_steps = min(unit.movement_range, path.size() - 1)
 				var next_step: Vector2i = Vector2i(-1, -1)
 
@@ -89,7 +96,6 @@ func _start_unit_action(team):
 					unit.plan_move(next_step)
 				else:
 					print("⛔ No valid movement tile found within range")
-
 
 				if unit.tile_pos.distance_to(target.tile_pos) == 1:
 					print("💥 Planning attack on:", target.name)
