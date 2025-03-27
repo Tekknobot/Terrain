@@ -79,7 +79,7 @@ func _start_unit_action(team):
 				var next_step: Vector2i = Vector2i(-1, -1)
 
 				for i in range(max_steps, 0, -1):
-					var step = path[i]
+					var step: Vector2i = path[i]
 					if tilemap._is_tile_walkable(step) and not tilemap.is_tile_occupied(step) and not tilemap.is_water_tile(step):
 						next_step = step
 						break
@@ -87,6 +87,9 @@ func _start_unit_action(team):
 				if next_step != Vector2i(-1, -1):
 					print("🚶 Planning move to:", next_step)
 					unit.plan_move(next_step)
+				else:
+					print("⛔ No valid movement tile found within range")
+
 
 				if unit.tile_pos.distance_to(target.tile_pos) == 1:
 					print("💥 Planning attack on:", target.name)

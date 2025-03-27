@@ -44,6 +44,12 @@ var moving := false
 var attack_sound = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
 var beep_sound = preload("res://Audio/SFX/Retro Beeep 06.wav")  # Replace with your actual path
 
+var all_units: Array[Node2D]
+var current_unit_index := 0
+var planning_phase := true
+var planned_units := 0
+var completed_units
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -424,16 +430,14 @@ func play_beep_sound(pos: Vector2):
 		player.stream = beep_sound
 		player.global_position = pos
 		player.play()
- 
-var all_units: Array[Node2D]
-var current_unit_index := 0
-var planning_phase := true
+
+var all_player_units: Array[Node2D] = []
+var finished_player_units: Array[Node2D] = []
 
 func start_player_turn():
-	all_units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
-	current_unit_index = 0
-	planning_phase = true
-	allow_player_to_plan_next()
+	all_player_units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
+	finished_player_units.clear()
+	print("🎮 Player turn started. Units:", all_player_units.size())
 
 func allow_player_to_plan_next():
 	if current_unit_index >= all_units.size():
@@ -447,11 +451,39 @@ func confirm_unit_plan(move_tile: Vector2i, attack_target: Node2D):
 	var unit = all_units[current_unit_index]
 	unit.plan_move(move_tile)
 	unit.plan_attack(attack_target)
+	planned_units += 1
 	current_unit_index += 1
 	allow_player_to_plan_next()
+
+	# ✅ If all are planned, trigger actions immediately
+	if planned_units >= all_units.size():
+		await _execute_all_player_units()
+
 
 func end_turn():
 	planning_phase = false
 	for unit in all_units:
 		await unit.execute_actions()
 	# Switch to enemy turn next
+
+func on_player_unit_done(unit: Node2D):
+	if finished_player_units.has(unit):
+		return
+	
+	finished_player_units.append(unit)
+	print("✅ Player finished with:", unit.name)
+
+	if finished_player_units.size() == all_player_units.size():
+		print("🏁 All player units done! Ending turn...")
+		var turn_manager = get_node("/root/TurnManager")
+		if turn_manager:
+			turn_manager.end_turn()
+
+func _execute_all_player_units():
+	for unit in all_units:
+		await unit.execute_all_player_actions()
+
+	# 🔁 After all units are done, switch to enemy turn
+	var turn_manager = get_tree().get_current_scene().get_node("TurnManager")
+	if turn_manager:
+		turn_manager.end_turn()

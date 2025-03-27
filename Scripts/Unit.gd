@@ -56,8 +56,12 @@ func move_to(dest: Vector2i):
 		sprite.play("move")
 		sprite.flip_h = global_position.x < world_target.x
 
+	var duration := 0.3  # default for player
+	if not is_player:
+		duration = 0.5  # use faster speed for enemy
+
 	var tween = create_tween()
-	tween.tween_property(self, "global_position", world_target, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(self, "global_position", world_target, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await tween.finished
 
 	tile_pos = dest
@@ -65,6 +69,7 @@ func move_to(dest: Vector2i):
 		sprite.play("default")
 
 	emit_signal("movement_finished")
+	
 
 func auto_attack_adjacent():
 	var directions = [
@@ -234,15 +239,8 @@ func execute_actions():
 	if queued_move != Vector2i(-1, -1):
 		move_to(queued_move)
 		await self.movement_finished
-		queued_move = Vector2i(-1, -1)  # Only reset here, once
+		queued_move = Vector2i(-1, -1)
 
-	if queued_attack_target and is_instance_valid(queued_attack_target):
-		if queued_attack_target == self:
-			print("🚨 Skipping attack: unit tried to attack itself")
-			queued_attack_target = null
-			return
-			
-	# ATTACK second
 	if queued_attack_target and is_instance_valid(queued_attack_target):
 		if queued_attack_target == self:
 			print("🚨 Skipping attack: unit tried to attack itself")
@@ -262,3 +260,19 @@ func execute_actions():
 			sprite.play("attack")
 			await sprite.animation_finished
 			sprite.play("default")
+
+		if is_player:
+			if tilemap and tilemap.has_method("on_player_unit_done"):
+				tilemap.on_player_unit_done(self)
+
+func execute_all_player_actions():
+	var units := get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
+	
+	for unit in units:
+		if unit.has_method("execute_actions"):
+			await unit.execute_actions()
+
+	# ✅ All player actions are complete
+	var turn_manager = get_node("/root/TurnManager")  # or however you access it
+	if turn_manager and turn_manager.has_method("end_turn"):
+		turn_manager.end_turn()
