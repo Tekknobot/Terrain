@@ -94,22 +94,42 @@ func _start_unit_action(team):
 				var max_steps = min(unit.movement_range, path.size() - 1)
 				var next_step: Vector2i = Vector2i(-1, -1)
 				for i in range(1, max_steps + 1):
-					var step: Vector2i = path[i]
-					if tilemap._is_tile_walkable(step) and not tilemap.is_tile_occupied(step) and not tilemap.is_water_tile(step):
-						next_step = step
+					var candidate: Vector2i = path[i]
+					# Recalculate the path from the unit’s current position to the candidate
+					var candidate_path = await unit.compute_path(unit.tile_pos, candidate)
+					if candidate_path.is_empty():
+						continue  # Candidate is no longer reachable
+
+					# Check the candidate cell itself
+					if not tilemap._is_tile_walkable(candidate) or tilemap.is_water_tile(candidate):
+						continue
+					# Allow the candidate cell if it's occupied only by the unit itself.
+					if tilemap.is_tile_occupied(candidate) and candidate != unit.tile_pos:
+						continue
+
+					# Now check every cell in the candidate path (skip index 0 which is the starting cell)
+					var path_clear = true
+					for j in range(1, candidate_path.size()):
+						var cell: Vector2i = Vector2i(candidate_path[j])
+						# Ignore the cell if it equals the unit's starting tile
+						if cell == unit.tile_pos:
+							continue
+						if not tilemap._is_tile_walkable(cell) or tilemap.is_water_tile(cell) or tilemap.is_tile_occupied(cell):
+							path_clear = false
+							break
+					if not path_clear:
+						continue
+
+					# If we reach here, the candidate is valid.
+					next_step = candidate
+					# Continue checking further candidates so that next_step ends up as the furthest valid candidate.
+				
 
 				if next_step != Vector2i(-1, -1):
 					print("🚶 Planning move to:", next_step)
 					unit.plan_move(next_step)
 				else:
-					print("⛔ No valid movement tile found within range")
-				if unit.tile_pos.distance_to(target.tile_pos) == 1:
-					print("💥 Planning attack on:", target.name)
-					unit.plan_attack(target)
-				else:
-					print("🔎 Target not adjacent yet")
-			else:
-				print("⛔ No reachable enemies found — skipping unit")
+					print("⛔ No valid movement tile found within range for", unit.name)
 			
 			# Execute the enemy's planned actions
 			await unit.execute_actions()
