@@ -22,6 +22,9 @@ signal movement_finished
 var has_moved
 var has_attacked
 
+const Y_OFFSET := -8.0
+var true_position := Vector2.ZERO  # we manage this ourselves
+
 func _ready():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))  # 🔥 Set this!
@@ -36,7 +39,6 @@ func _process(delta):
 
 	if has_moved:
 		print("Unit has moved; applying darken")
-
 
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -61,7 +63,7 @@ func compute_path(from: Vector2i, to: Vector2i) -> Array:
 
 func _move_one(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var world_target = tilemap.to_global(tilemap.map_to_local(dest))
+	var world_target = tilemap.to_global(tilemap.map_to_local(dest)) + Vector2(0, Y_OFFSET)
 
 	var sprite = $AnimatedSprite2D
 	if sprite:
@@ -69,12 +71,14 @@ func _move_one(dest: Vector2i) -> void:
 		sprite.flip_h = global_position.x < world_target.x
 
 	var speed := 75.0  # pixels/sec
-
+	
 	while global_position.distance_to(world_target) > 1.0:
 		var delta = get_process_delta_time()
 		global_position = global_position.move_toward(world_target, speed * delta)
 		await get_tree().process_frame
 
+	global_position = world_target  # explicitly set position to remove small offsets
+	
 	tile_pos = dest
 	if sprite:
 		sprite.play("default")	
@@ -154,7 +158,7 @@ func auto_attack_adjacent():
 					and tilemap._is_tile_walkable(push_pos):
 
 					unit.tile_pos = push_pos
-					unit.global_position = tilemap.to_global(tilemap.map_to_local(push_pos))
+					unit.global_position = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 
 				tilemap.update_astar_grid()
 

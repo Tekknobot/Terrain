@@ -16,7 +16,7 @@ func _process(delta):
 		return  # Prevent errors if tilemap isn't assigned
 
 	var mouse_pos = get_global_mouse_position()
-	mouse_pos.y += 8
+	mouse_pos.y += 16
 	var tile_pos = tilemap.local_to_map(tilemap.to_local(mouse_pos))  # Convert to tile coordinates
 
 	# Ensure the highlight follows the tile properly without flickering

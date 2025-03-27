@@ -59,8 +59,7 @@ func _ready():
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
-		var mouse_tile = local_to_map(to_local(get_global_mouse_position() + Vector2(0, 8)))
-		
+		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 16)))
 		if moving == true:
 			return
 		
@@ -100,7 +99,7 @@ func _select_unit_at_mouse():
 	_clear_highlights()
 
 	var mouse_pos = get_global_mouse_position()
-	mouse_pos.y += 8
+	mouse_pos.y += 16
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
 
@@ -207,8 +206,8 @@ func _move_selected_to(target: Vector2i):
 func _physics_process(delta):
 	if moving:
 		var next_tile = current_path[0]
-		var world_pos = to_global(map_to_local(next_tile))
-		
+		var world_pos = to_global(map_to_local(next_tile)) + Vector2(0, selected_unit.Y_OFFSET)
+
 		# Flip sprite based on horizontal movement
 		var sprite := selected_unit.get_node("AnimatedSprite2D")
 		sprite.play("move")
@@ -235,10 +234,11 @@ func _physics_process(delta):
 				# Mark the unit as having moved and tint it
 				selected_unit.has_moved = true
 				sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dark gray tint
-
+				
 				# Run adjacent enemy check if applicable
 				if selected_unit and selected_unit.has_method("check_adjacent_and_attack"):
 					selected_unit.check_adjacent_and_attack()
+					
 
 
 func _clear_highlights():
@@ -368,10 +368,10 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 		return
 
 	var unit = scene.instantiate()
-	unit.global_position = to_global(map_to_local(spawn_tile))
+	unit.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit.Y_OFFSET)
 	unit.set_team(is_player)
 	unit.add_to_group("Units")
-	unit.tile_pos = spawn_tile  # optional tracking on unit
+	unit.tile_pos = spawn_tile
 	add_child(unit)
 
 	used_tiles.append(spawn_tile)
@@ -422,7 +422,7 @@ func _setup_camera():
 	camera.make_current()
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
 	camera.position = to_global(map_to_local(center_tile))
-	camera.zoom = Vector2(7, 7)
+	camera.zoom = Vector2(4, 4)
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.position)
 
 func is_within_bounds(tile: Vector2i) -> bool:
@@ -530,3 +530,6 @@ func set_end_turn_button_enabled(enabled: bool):
 	var btn = get_node("CanvasLayer/Control/EndTurnButton")
 	if btn:
 		btn.disabled = not enabled
+
+func set_unit_position(unit: Node2D, pos: Vector2):
+	unit.global_position = pos + Vector2(0, -8)
