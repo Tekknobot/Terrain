@@ -217,7 +217,6 @@ func die():
 		if tm:
 			tm.end_turn(true)  # We'll add this next
 
-
 func flash_white():
 	var sprite = $AnimatedSprite2D
 	if not sprite:

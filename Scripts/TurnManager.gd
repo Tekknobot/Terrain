@@ -50,6 +50,17 @@ func _start_unit_action(team):
 		if team == Team.ENEMY and not unit.is_player:
 			print("🤖 Enemy taking turn:", unit.name)
 
+			# 😨 Retreat logic if low HP
+			if unit.health < unit.max_health * 0.3:
+				print("🩸", unit.name, "is retreating!")
+
+				var retreat_pos = find_safest_tile_away_from_enemies(unit)
+				if retreat_pos != Vector2i(-1, -1):
+					unit.plan_move(retreat_pos)
+					await unit.execute_actions()
+					unit_finished_action(unit)
+					return
+
 			var tilemap = get_tree().get_current_scene().get_node("TileMap")
 
 			# ✅ Check for adjacent enemies before pathfinding
@@ -59,7 +70,7 @@ func _start_unit_action(team):
 				await _run_safe_enemy_action(unit)
 				return
 
-			var target = find_closest_enemy(unit)
+			var target = find_weakest_enemy(unit)
 			var path = []
 
 			while target:
@@ -117,6 +128,31 @@ func _start_unit_action(team):
 		active_unit_index += 1
 
 	end_turn()
+
+func find_safest_tile_away_from_enemies(unit) -> Vector2i:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var best_tile := Vector2i(-1, -1)
+	var best_score := -INF
+
+	for x in range(tilemap.grid_width):
+		for y in range(tilemap.grid_height):
+			var pos = Vector2i(x, y)
+
+			if not tilemap._is_tile_walkable(pos) or tilemap.is_tile_occupied(pos):
+				continue
+
+			var score := 0
+			for other in get_tree().get_nodes_in_group("Units"):
+				if other == unit or not is_instance_valid(other):
+					continue
+				if other.is_player != unit.is_player:
+					score += pos.distance_squared_to(other.tile_pos)
+
+			if score > best_score:
+				best_score = score
+				best_tile = pos
+
+	return best_tile
 
 func _run_safe_enemy_action(unit):
 	await unit.auto_attack_adjacent()
@@ -184,3 +220,19 @@ func find_closest_enemy(unit) -> Node:
 				closest = u
 
 	return closest if is_instance_valid(closest) else null
+
+func find_weakest_enemy(unit) -> Node:
+	var enemies := get_tree().get_nodes_in_group("Units").filter(
+		func(u): return is_instance_valid(u) and u.is_player != unit.is_player
+	)
+
+	if enemies.is_empty():
+		return null
+
+	enemies.sort_custom(func(a, b):
+		if a.health == b.health:
+			return unit.tile_pos.distance_to(a.tile_pos) < unit.tile_pos.distance_to(b.tile_pos)
+		return a.health < b.health
+	)
+
+	return enemies[0]
