@@ -170,6 +170,7 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				frontier.append(neighbor)
 
 func _move_selected_to(target: Vector2i):
+	self.update_astar_grid()
 	current_path = astar.get_point_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
 		return
@@ -218,6 +219,11 @@ func _post_map_generation():
 	_setup_camera()
 	update_astar_grid()
 
+	print("✅ Map post-gen complete. All units:")
+	for unit in get_tree().get_nodes_in_group("Units"):
+		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
+	
+
 func update_astar_grid() -> void:
 	var tilemap = self
 	var used_rect = tilemap.get_used_rect()
@@ -243,11 +249,15 @@ func update_astar_grid() -> void:
 	# Build neighbor links
 	astar.update()
 
-	# Block occupied tiles
-	for unit in get_tree().get_nodes_in_group("Units"):
-		astar.set_point_solid(unit.tile_pos, true)
+	# Don't block unit tiles yet — let pathfinding go through them for now
+	# We’ll handle pushing or blocking later.
 
 	print("AStar grid updated:", grid_actual_width, "x", grid_actual_height)
+	
+	print("✅ Map post-gen complete. All units:")
+	for unit in get_tree().get_nodes_in_group("Units"):
+		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
+	
 	
 func is_tile_occupied(tile: Vector2i) -> bool:
 	return get_unit_at_tile(tile) != null
@@ -420,3 +430,33 @@ func play_beep_sound(pos: Vector2):
 		player.global_position = pos
 		player.play()
  
+var all_units: Array[Node2D]
+var current_unit_index := 0
+var planning_phase := true
+
+func start_player_turn():
+	all_units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
+	current_unit_index = 0
+	planning_phase = true
+	allow_player_to_plan_next()
+
+func allow_player_to_plan_next():
+	if current_unit_index >= all_units.size():
+		print("✅ All moves planned. Waiting for End Turn.")
+		return
+	var unit = all_units[current_unit_index]
+	selected_unit = unit
+	# highlight movement/attack range, etc.
+
+func confirm_unit_plan(move_tile: Vector2i, attack_target: Node2D):
+	var unit = all_units[current_unit_index]
+	unit.plan_move(move_tile)
+	unit.plan_attack(attack_target)
+	current_unit_index += 1
+	allow_player_to_plan_next()
+
+func end_turn():
+	planning_phase = false
+	for unit in all_units:
+		await unit.execute_actions()
+	# Switch to enemy turn next

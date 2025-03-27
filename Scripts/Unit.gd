@@ -44,8 +44,26 @@ func on_player_done():
 
 func move_to(dest: Vector2i):
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var world_target = tilemap.to_global(tilemap.map_to_local(dest))
+
+	if global_position == world_target:
+		tile_pos = dest
+		emit_signal("movement_finished")
+		return
+
+	var sprite = get_node("AnimatedSprite2D")
+	if sprite:
+		sprite.play("move")
+		sprite.flip_h = global_position.x < world_target.x
+
+	var tween = create_tween()
+	tween.tween_property(self, "global_position", world_target, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await tween.finished
+
 	tile_pos = dest
-	global_position = tilemap.to_global(tilemap.map_to_local(dest))
+	if sprite:
+		sprite.play("default")
+
 	emit_signal("movement_finished")
 
 func auto_attack_adjacent():
@@ -193,3 +211,54 @@ func check_adjacent_and_attack():
 		auto_attack_adjacent()
 	else:
 		print("❌ No adjacent enemy after movement")
+
+var queued_move: Vector2i = Vector2i(-1, -1)
+var queued_attack_target: Node2D = null
+
+func plan_move(dest: Vector2i):
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap._is_tile_walkable(dest) and not tilemap.is_tile_occupied(dest):
+		print("🚶 Planning move to:", dest)
+		queued_move = dest
+	else:
+		print("⛔ Cannot plan move to:", dest, " — it's blocked or water")
+
+func plan_attack(target: Node2D):
+	queued_attack_target = target
+
+func clear_actions():
+	queued_move = Vector2i(-1, -1)
+	queued_attack_target = null
+
+func execute_actions():
+	if queued_move != Vector2i(-1, -1):
+		move_to(queued_move)
+		await self.movement_finished
+		queued_move = Vector2i(-1, -1)  # Only reset here, once
+
+	if queued_attack_target and is_instance_valid(queued_attack_target):
+		if queued_attack_target == self:
+			print("🚨 Skipping attack: unit tried to attack itself")
+			queued_attack_target = null
+			return
+			
+	# ATTACK second
+	if queued_attack_target and is_instance_valid(queued_attack_target):
+		if queued_attack_target == self:
+			print("🚨 Skipping attack: unit tried to attack itself")
+			queued_attack_target = null
+			return
+
+		# Face the target
+		var dir = (queued_attack_target.tile_pos - tile_pos)
+		var sprite = get_node("AnimatedSprite2D")
+		if sprite and dir.x != 0:
+			sprite.flip_h = dir.x > 0
+
+		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		tilemap.play_attack_sound(global_position)
+
+		if sprite:
+			sprite.play("attack")
+			await sprite.animation_finished
+			sprite.play("default")
