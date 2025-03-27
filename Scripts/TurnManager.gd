@@ -37,6 +37,24 @@ func start_turn():
 	emit_signal("turn_started", team)
 	_start_unit_action(team)
 
+# Helper to return adjacent positions (4-directional)
+func get_adjacent_tiles(tile: Vector2i) -> Array:
+	return [
+		tile + Vector2i(1, 0),
+		tile + Vector2i(-1, 0),
+		tile + Vector2i(0, 1),
+		tile + Vector2i(0, -1)
+	]
+
+# Try to find a detour for a water tile.
+func find_detour(tile: Vector2i, tilemap) -> Vector2i:
+	# Check adjacent tiles for one that is walkable, not water, and unoccupied.
+	for neighbor in get_adjacent_tiles(tile):
+		if tilemap._is_tile_walkable(neighbor) and not tilemap.is_water_tile(neighbor) and not tilemap.is_tile_occupied(neighbor):
+			return neighbor
+	# If no alternative found, return the original tile.
+	return tile
+
 func _start_unit_action(team):
 	active_units = active_units.filter(is_instance_valid)
 
@@ -59,21 +77,24 @@ func _start_unit_action(team):
 				await _run_safe_enemy_action(unit)
 				return
 
-			# Existing logic to find a target and compute a path...
+			# Find a target and compute a path that avoids water if possible.
 			var target = find_closest_enemy(unit)
 			var path = []
 			while target:
+				# Get a path from the unit's tile to the target's tile.
 				path = tilemap.astar.get_point_path(unit.tile_pos, target.tile_pos)
+				# Check that there is at least one valid step (beyond the starting tile)
+				# that is both walkable and not water.
 				var has_valid_step = false
 				for i in range(1, path.size()):
 					var step = path[i]
-					if tilemap._is_tile_walkable(step) and not tilemap.is_tile_occupied(step) and not tilemap.is_water_tile(step):
+					if tilemap._is_tile_walkable(step) and not tilemap.is_water_tile(step):
 						has_valid_step = true
 						break
 				if has_valid_step:
 					break
 				else:
-					print("❌ Target", target.name, "is unreachable via land")
+					print("❌ Target", target.name, "is unreachable via land avoiding water")
 					target = find_next_reachable_enemy(unit, [target])
 			
 			if target and path.size() > 1:
@@ -83,47 +104,48 @@ func _start_unit_action(team):
 				var next_step: Vector2i = Vector2i(-1, -1)
 				for i in range(1, max_steps + 1):
 					var candidate: Vector2i = path[i]
-					# Recalculate the path from the unit’s current position to the candidate
+					
+					# If the candidate is water, attempt a detour.
+					if tilemap.is_water_tile(candidate):
+						var detour_candidate = find_detour(candidate, tilemap)
+						# If detour_candidate is different and valid, use it.
+						if detour_candidate != candidate:
+							candidate = detour_candidate
+						else:
+							# No detour available; skip this candidate.
+							continue
+
+					# Recalculate the path from the unit’s current position to the candidate.
 					var candidate_path = await unit.compute_path(unit.tile_pos, candidate)
 					if candidate_path.is_empty():
 						continue  # Candidate is no longer reachable
 
-					# Check the candidate cell itself
-					if not tilemap._is_tile_walkable(candidate) or tilemap.is_water_tile(candidate):
-						continue
-					# Allow the candidate cell if it's occupied only by the unit itself.
-					if tilemap.is_tile_occupied(candidate) and candidate != unit.tile_pos:
-						continue
-
-					# Now check every cell in the candidate path (skip index 0 which is the starting cell)
+					# Check each cell along the candidate path (skipping the starting cell).
 					var path_clear = true
 					for j in range(1, candidate_path.size()):
 						var cell: Vector2i = Vector2i(candidate_path[j])
-						# Ignore the cell if it equals the unit's starting tile
 						if cell == unit.tile_pos:
 							continue
-						if not tilemap._is_tile_walkable(cell) or tilemap.is_water_tile(cell) or tilemap.is_tile_occupied(cell):
+						if tilemap.is_water_tile(cell):
 							path_clear = false
 							break
 					if not path_clear:
 						continue
 
-					# If we reach here, the candidate is valid.
+					# If we reach here, the candidate (or its detour) is valid.
 					next_step = candidate
-					# Continue checking further candidates so that next_step ends up as the furthest valid candidate.
-				
-
+					# Continue checking for further candidates so that next_step ends up as the furthest valid candidate.
 				if next_step != Vector2i(-1, -1):
 					print("🚶 Planning move to:", next_step)
 					unit.plan_move(next_step)
 				else:
 					print("⛔ No valid movement tile found within range for", unit.name)
 			
-			# Execute the enemy's planned actions
+			# Execute the enemy's planned actions.
 			await unit.execute_actions()
 			
-			# Add a delay after the enemy turn to ensure grid/tile_pos updates propagate
-			await get_tree().create_timer(0.2).timeout
+			# Add a delay after the enemy turn to ensure grid/tile_pos updates propagate.
+			await get_tree().create_timer(0).timeout
 			
 			unit_finished_action(unit)
 			return
