@@ -77,10 +77,25 @@ func _input(event):
 				showing_attack = true
 				_show_range_for_selected_unit()
 
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
-		get_tree().reload_current_scene()
+	elif event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_SPACE:
+				get_tree().reload_current_scene()
+			KEY_1:
+				toggle_borders()	
+						
 
+var borders_visible := false
 
+func toggle_borders():
+	borders_visible = not borders_visible
+
+	for unit in get_tree().get_nodes_in_group("Units"):
+		for name in ["HealthBorder","XPBorder","HealthUI","XPUI"]:
+			var node = unit.get_node_or_null(name)
+			if node:
+				node.visible = borders_visible
+				
 func _select_unit_at_mouse():
 	_clear_highlights()
 
