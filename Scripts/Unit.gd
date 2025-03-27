@@ -330,8 +330,10 @@ func execute_actions():
 			return
 
 		# Face and animate attack
-		var dir = (queued_attack_target.tile_pos - tile_pos)
+		var dir = queued_attack_target.tile_pos - tile_pos
 		var sprite = get_node("AnimatedSprite2D")
+
+		# ← PLACE THIS HERE
 		if sprite and dir.x != 0:
 			sprite.flip_h = dir.x > 0
 
