@@ -50,64 +50,59 @@ func _start_unit_action(team):
 		if team == Team.ENEMY and not unit.is_player:
 			print("🤖 Enemy taking turn:", unit.name)
 
-			# 😨 Retreat logic if low HP
+			# (Optional) Retreat logic if low HP remains the same...
 			if unit.health < unit.max_health * 0.3:
 				print("🩸", unit.name, "is retreating!")
-
 				var retreat_pos = find_safest_tile_away_from_enemies(unit)
 				if retreat_pos != Vector2i(-1, -1):
 					unit.plan_move(retreat_pos)
 					await unit.execute_actions()
+					# Add delay after enemy turn
+					await get_tree().create_timer(0.2).timeout
 					unit_finished_action(unit)
 					return
 
 			var tilemap = get_tree().get_current_scene().get_node("TileMap")
-
-			# ✅ Check for adjacent enemies before pathfinding
+			
+			# Check for adjacent enemies before pathfinding
 			if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
 				print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement.")
 				unit.has_moved = true
 				await _run_safe_enemy_action(unit)
 				return
 
+			# Existing logic to find a target and compute a path...
 			var target = find_weakest_enemy(unit)
 			var path = []
-
 			while target:
 				path = tilemap.astar.get_point_path(unit.tile_pos, target.tile_pos)
-
 				var has_valid_step = false
 				for i in range(1, path.size()):
 					var step = path[i]
 					if tilemap._is_tile_walkable(step) and not tilemap.is_tile_occupied(step) and not tilemap.is_water_tile(step):
 						has_valid_step = true
 						break
-
 				if has_valid_step:
 					break
 				else:
 					print("❌ Target", target.name, "is unreachable via land")
 					target = find_next_reachable_enemy(unit, [target])
-
+			
 			if target and path.size() > 1:
 				print("🎯 Final target:", target.name)
 				print("🧭 Path to target:", path)
-
 				var max_steps = min(unit.movement_range, path.size() - 1)
 				var next_step: Vector2i = Vector2i(-1, -1)
-
-				for i in range(max_steps, 0, -1):
+				for i in range(1, max_steps + 1):
 					var step: Vector2i = path[i]
 					if tilemap._is_tile_walkable(step) and not tilemap.is_tile_occupied(step) and not tilemap.is_water_tile(step):
 						next_step = step
-						break
 
 				if next_step != Vector2i(-1, -1):
 					print("🚶 Planning move to:", next_step)
 					unit.plan_move(next_step)
 				else:
 					print("⛔ No valid movement tile found within range")
-
 				if unit.tile_pos.distance_to(target.tile_pos) == 1:
 					print("💥 Planning attack on:", target.name)
 					unit.plan_attack(target)
@@ -115,8 +110,13 @@ func _start_unit_action(team):
 					print("🔎 Target not adjacent yet")
 			else:
 				print("⛔ No reachable enemies found — skipping unit")
-
+			
+			# Execute the enemy's planned actions
 			await unit.execute_actions()
+			
+			# Add a delay after the enemy turn to ensure grid/tile_pos updates propagate
+			await get_tree().create_timer(0.2).timeout
+			
 			unit_finished_action(unit)
 			return
 
@@ -201,10 +201,9 @@ func end_turn():
 
 func unit_finished_action(unit):
 	active_unit_index += 1
-	await get_tree().process_frame  # wait for any freed units to process
-	active_units = active_units.filter(is_instance_valid)  # clean up
+	await get_tree().process_frame  # Wait for any pending updates
+	active_units = active_units.filter(is_instance_valid)
 	_start_unit_action(turn_order[current_turn_index])
-
 
 func find_closest_enemy(unit) -> Node:
 	var closest: Node = null

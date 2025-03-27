@@ -229,36 +229,30 @@ func _post_map_generation():
 	for unit in get_tree().get_nodes_in_group("Units"):
 		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
 	
-
 func update_astar_grid():
-	var used_rect = get_used_rect()
-	grid_actual_width = used_rect.size.x
-	grid_actual_height = used_rect.size.y
-
+	grid_actual_width = grid_width
+	grid_actual_height = grid_height
 	astar.clear()
 	astar.cell_size = Vector2(1, 1)
 	astar.default_compute_heuristic = 1
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.size = Vector2i(grid_actual_width, grid_actual_height)
 
-	# Register all walkable tiles first
+	# Mark terrain walkability
 	for x in range(grid_actual_width):
 		for y in range(grid_actual_height):
 			var pos = Vector2i(x, y)
 			var tile_id = get_cell_source_id(0, pos)
-
-			# Water = not walkable
 			var walkable = tile_id != water_tile_id
 			astar.set_point_solid(pos, not walkable)
 
-	# Mark all occupied tiles as solid (blocked)
+	# Mark all occupied tiles as solid
 	for unit in get_tree().get_nodes_in_group("Units"):
 		if is_instance_valid(unit):
 			astar.set_point_solid(unit.tile_pos, true)
 
 	astar.update()
 	print("✅ AStar grid updated with full walkability enforcement.")
-	
 	
 func is_tile_occupied(tile: Vector2i) -> bool:
 	return get_unit_at_tile(tile) != null
