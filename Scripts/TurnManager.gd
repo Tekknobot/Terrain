@@ -91,88 +91,80 @@ func _start_unit_action(team):
 
 			var tilemap = get_tree().get_current_scene().get_node("TileMap")
 			
-			# Check for adjacent enemies before pathfinding
 			if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
 				print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement.")
 				unit.has_moved = true
 				await _run_safe_enemy_action(unit)
 				return
 
-			# Instead of always targeting the closest enemy, try to pick the weakest enemy.
 			var target = find_weakest_enemy(unit)
 			if not target:
 				target = find_closest_enemy(unit)
-			
+
 			var path = []
 			while target:
-				# Get a path from the unit's tile to the target's tile.
-				path = tilemap.astar.get_point_path(unit.tile_pos, target.tile_pos)
-				# Check that there is at least one valid step (beyond the starting tile)
-				# that is both walkable and not water.
+				tilemap.update_astar_grid()
+				path = await unit.compute_path(unit.tile_pos, target.tile_pos)
+
 				var has_valid_step = false
 				for i in range(1, path.size()):
 					var step = path[i]
-					if tilemap._is_tile_walkable(step) and not tilemap.is_water_tile(step):
+					if tilemap._is_tile_walkable(step) and not tilemap.is_water_tile(step) and not tilemap.is_tile_occupied(step):
 						has_valid_step = true
 						break
+
 				if has_valid_step:
 					break
 				else:
-					print("❌ Target", target.name, "is unreachable via land avoiding water")
+					print("❌ Target", target.name, "unreachable. Finding next.")
 					target = find_next_reachable_enemy(unit, [target])
-			
+
 			if target and path.size() > 1:
-				print("🎯 Final target:", target.name)
-				print("🧭 Path to target:", path)
 				var max_steps = min(unit.movement_range, path.size() - 1)
 				
-				# Instead of taking the furthest valid candidate, evaluate all candidate steps.
 				var best_score = -INF
 				var best_candidate: Vector2i = Vector2i(-1, -1)
+				
 				for i in range(1, max_steps + 1):
 					var candidate: Vector2i = path[i]
-					
-					# If the candidate is water, attempt a detour.
+
 					if tilemap.is_water_tile(candidate):
-						var detour_candidate = find_detour(candidate, tilemap)
-						# If a valid detour is found, use it.
-						if detour_candidate != candidate:
-							candidate = detour_candidate
-						else:
+						candidate = find_detour(candidate, tilemap)
+						if tilemap.is_water_tile(candidate):
 							continue
 
-					# Recalculate the path from the unit’s current position to the candidate.
+					if tilemap.is_tile_occupied(candidate):
+						continue  # ❗️ Explicit check here!
+
+					tilemap.update_astar_grid()
 					var candidate_path = await unit.compute_path(unit.tile_pos, candidate)
 					if candidate_path.is_empty():
-						continue  # Candidate is no longer reachable
+						continue
 
-					# Check every cell in the candidate path (skip index 0 which is the starting cell).
 					var path_clear = true
-					for j in range(1, candidate_path.size()):
-						var cell: Vector2i = Vector2i(candidate_path[j])
-						if cell == unit.tile_pos:
+					for cell in candidate_path:
+						var cell_i = Vector2i(cell)
+						if cell_i == unit.tile_pos:
 							continue
-						if tilemap.is_water_tile(cell):
+						if tilemap.is_water_tile(cell_i) or tilemap.is_tile_occupied(cell_i):
 							path_clear = false
 							break
+
 					if not path_clear:
 						continue
 
-					# Evaluate this candidate move.
 					var score = evaluate_candidate(candidate, unit, tilemap, target)
 					if score > best_score:
 						best_score = score
 						best_candidate = candidate
+
 				if best_candidate != Vector2i(-1, -1):
-					print("🚶 Planning move to:", best_candidate, "with score:", best_score)
+					print("🚶 Planning move to:", best_candidate, "score:", best_score)
 					unit.plan_move(best_candidate)
 				else:
-					print("⛔ No valid movement tile found within range for", unit.name)
+					print("⛔ No valid tile within range for", unit.name)
 			
-			# Execute the enemy's planned actions.
 			await unit.execute_actions()
-			
-			# Add a delay after the enemy turn to ensure grid/tile_pos updates propagate.
 			await get_tree().create_timer(0).timeout
 			
 			unit_finished_action(unit)

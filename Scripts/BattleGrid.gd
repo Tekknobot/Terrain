@@ -246,25 +246,17 @@ func update_astar_grid():
 	grid_actual_height = grid_height
 	astar.clear()
 	astar.cell_size = Vector2(1, 1)
-	astar.default_compute_heuristic = 1
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.size = Vector2i(grid_actual_width, grid_actual_height)
 
-	# Mark terrain walkability
 	for x in range(grid_actual_width):
 		for y in range(grid_actual_height):
 			var pos = Vector2i(x, y)
-			var tile_id = get_cell_source_id(0, pos)
-			var walkable = tile_id != water_tile_id
-			astar.set_point_solid(pos, not walkable)
-
-	# Mark all occupied tiles as solid
-	for unit in get_tree().get_nodes_in_group("Units"):
-		if is_instance_valid(unit):
-			astar.set_point_solid(unit.tile_pos, true)
+			var blocked = (not _is_tile_walkable(pos)) or is_tile_occupied(pos)
+			astar.set_point_solid(pos, blocked)
 
 	astar.update()
-	print("✅ AStar grid updated with full walkability enforcement.")
+	print("✅ AStar grid rebuilt — occupied tiles excluded.")
 	
 func is_tile_occupied(tile: Vector2i) -> bool:
 	return get_unit_at_tile(tile) != null
@@ -415,7 +407,7 @@ func _setup_camera():
 	camera.make_current()
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
 	camera.position = to_global(map_to_local(center_tile))
-	camera.zoom = Vector2(6, 6)
+	camera.zoom = Vector2(7, 7)
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.position)
 
 func is_within_bounds(tile: Vector2i) -> bool:

@@ -54,10 +54,9 @@ func on_player_done():
 	TurnManager.unit_finished_action(self)
 
 func compute_path(from: Vector2i, to: Vector2i) -> Array:
-	# Force a frame to pass so that _process() has updated all positions
 	await get_tree().process_frame
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	tilemap.update_astar_grid()
+	tilemap.update_astar_grid()  # 🔥 Crucial step!
 	return tilemap.astar.get_point_path(from, to)
 
 func _move_one(dest: Vector2i) -> void:
@@ -292,7 +291,7 @@ func plan_move(dest: Vector2i):
 		queued_move = dest
 	else:
 		print("⛔ Cannot plan move to:", dest, " — it's blocked or water")
-
+ 
 func plan_attack(target: Node2D):
 	queued_attack_target = target
 
