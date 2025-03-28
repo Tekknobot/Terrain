@@ -46,25 +46,16 @@ func get_adjacent_tiles(tile: Vector2i) -> Array:
 		tile + Vector2i(0, -1)
 	]
 
-func find_detour(tile: Vector2i, tilemap) -> Vector2i:
-	# Use a BFS to search for a tile that is walkable, not water, and unoccupied.
-	var frontier = [tile]
-	var visited = { tile: true }
-	
-	while frontier.size() > 0:
-		var current = frontier.pop_front()
-		for neighbor in get_adjacent_tiles(current):
-			# Optionally, check boundaries if needed:
-			# if not tilemap.is_within_bounds(neighbor):
-			#     continue
-			if visited.has(neighbor):
-				continue
-			visited[neighbor] = true
-			if tilemap._is_tile_walkable(neighbor) and not tilemap.is_water_tile(neighbor) and not tilemap.is_tile_occupied(neighbor):
-				return neighbor
-			frontier.append(neighbor)
-	
-	# If no suitable detour is found, return the original tile.
+func find_detour(tile: Vector2i, tilemap, target: Vector2i, movement_range: int) -> Vector2i:
+	var path = tilemap.get_weighted_path(tile, target)
+	if path.is_empty():
+		return tile
+	# Limit the search to the first 'movement_range' steps (or the path length, whichever is smaller)
+	var max_index = min(path.size() - 1, movement_range)
+	# Search backward from the furthest reachable tile toward the start.
+	for i in range(max_index, 0, -1):
+		if not tilemap.is_water_tile(path[i]):
+			return path[i]
 	return tile
 
 
@@ -91,105 +82,60 @@ func evaluate_candidate(candidate: Vector2i, unit, tilemap, target) -> int:
 
 func _start_unit_action(team):
 	active_units = active_units.filter(is_instance_valid)
-
+	
 	while active_unit_index < active_units.size():
 		var unit = active_units[active_unit_index]
-
 		if not is_instance_valid(unit):
 			active_unit_index += 1
 			continue
 
 		if team == Team.ENEMY and not unit.is_player:
 			print("🤖 Enemy taking turn:", unit.name)
-
 			var tilemap = get_tree().get_current_scene().get_node("TileMap")
-			
+
+			# If there's an adjacent enemy, skip movement and just attack.
 			if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
 				print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement.")
 				unit.has_moved = true
 				await _run_safe_enemy_action(unit)
 				return
-
+			
+			# Find a target (weakest or closest).
 			var target = find_weakest_enemy(unit)
 			if not target:
 				target = find_closest_enemy(unit)
-
+			
+			# Compute the path to the target if it exists.
 			var path = []
-			while target:
+			if target:
 				tilemap.update_astar_grid()
 				path = await unit.compute_path(unit.tile_pos, target.tile_pos)
-
-				var has_valid_step = false
-				for i in range(1, path.size()):
-					var step = path[i]
-					if tilemap._is_tile_walkable(step) and not tilemap.is_water_tile(step) and not tilemap.is_tile_occupied(step):
-						has_valid_step = true
-						break
-
-				if has_valid_step:
-					break
-				else:
-					print("❌ Target", target.name, "unreachable. Finding next.")
-					target = find_next_reachable_enemy(unit, [target])
-
-			if target and path.size() > 1:
-				var max_steps = min(unit.movement_range, path.size() - 1)
-				
-				var best_score = -INF
-				var best_candidate: Vector2i = Vector2i(-1, -1)
-				
-				for i in range(1, max_steps + 1):
-					var candidate: Vector2i = path[i]
-
-					if tilemap.is_water_tile(candidate):
-						candidate = find_detour(candidate, tilemap)
-						if tilemap.is_water_tile(candidate):
-							continue
-
-					if tilemap.is_tile_occupied(candidate):
-						continue  # ❗️ Explicit check here!
-
-					tilemap.update_astar_grid()
-					var candidate_path = await unit.compute_path(unit.tile_pos, candidate)
-					if candidate_path.is_empty():
-						continue
-
-					var path_clear = true
-					for cell in candidate_path:
-						var cell_i = Vector2i(cell)
-						if cell_i == unit.tile_pos:
-							continue
-						if tilemap.is_water_tile(cell_i) or tilemap.is_tile_occupied(cell_i):
-							path_clear = false
-							break
-
-					if not path_clear:
-						continue
-
-					var score = evaluate_candidate(candidate, unit, tilemap, target)
-					if score > best_score:
-						best_score = score
-						best_candidate = candidate
-
-				if best_candidate != Vector2i(-1, -1):
-					print("🚶 Planning move to:", best_candidate, "score:", best_score)
-					unit.plan_move(best_candidate)
-				else:
-					print("⛔ No valid tile within range for", unit.name)
 			
+			# If we found a path with at least 2 tiles, move partially.
+			if path.size() > 1:
+				# partial movement: pick tile at index min(movement_range, path.size() - 1)
+				var max_steps = min(unit.movement_range, path.size() - 1)
+				var move_tile = path[max_steps]
+				print("🚶 Planning move to:", move_tile, "within", unit.movement_range, "steps.")
+				unit.plan_move(move_tile)
+			else:
+				print("❌ No valid path found. Enemy won't move this turn.")
+			
+			# Execute the enemy's planned actions (movement + potential attack).
 			await unit.execute_actions()
 			await get_tree().create_timer(0).timeout
-			
+
+			# Mark this unit done and move on.
 			unit_finished_action(unit)
 			return
-
+		
 		elif team == Team.PLAYER and unit.is_player:
 			print("🧍 Player unit turn:", unit.name)
 			unit.start_turn()
 			return
-
+		
 		active_unit_index += 1
-
+	
 	end_turn()
 
 func _run_safe_enemy_action(unit):

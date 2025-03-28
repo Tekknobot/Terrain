@@ -673,6 +673,13 @@ func spawn_structures():
 		elif structure.has_variable("tile_pos"):
 			structure.tile_pos = pos
 		
+		# Randomly modulate the structure's color within a mid-range.
+		# This keeps the RGB values between 0.4 and 0.8.
+		var r = randf_range(0.4, 0.8)
+		var g = randf_range(0.4, 0.8)
+		var b = randf_range(0.4, 0.8)
+		structure.modulate = Color(r, g, b, 1)
+		
 		# Add the structure to the "Structures" group.
 		structure.add_to_group("Structures")
 		
