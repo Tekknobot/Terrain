@@ -198,7 +198,7 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 
 func _move_selected_to(target: Vector2i):
 	self.update_astar_grid()
-	current_path = astar.get_point_path(selected_unit.tile_pos, target)
+	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
 		return
 	moving = true
@@ -538,3 +538,82 @@ func set_end_turn_button_enabled(enabled: bool):
 
 func set_unit_position(unit: Node2D, pos: Vector2):
 	unit.global_position = pos + Vector2(0, -8)
+
+# Custom weighted A* pathfinding that penalizes tiles adjacent to water.
+# Adjust penalty values as needed.
+
+func get_weighted_path(start: Vector2i, goal: Vector2i) -> Array:
+	var INF = 1e9
+	var open_set = []
+	open_set.append(start)
+	
+	var came_from = {}
+	var g_score = {}
+	g_score[start] = 0.0
+	
+	var f_score = {}
+	f_score[start] = heuristic(start, goal)
+	
+	while open_set.size() > 0:
+		var current = get_lowest_f_score(open_set, f_score)
+		if current == goal:
+			return reconstruct_path(came_from, current)
+		
+		open_set.erase(current)
+		
+		for neighbor in get_neighbors(current):
+			# Skip non-walkable tiles
+			if not _is_tile_walkable(neighbor):
+				continue
+			
+			# Calculate the cost to move into this neighbor
+			var tentative_g = g_score[current] + get_cell_cost(neighbor)
+			
+			if (not g_score.has(neighbor)) or (tentative_g < g_score[neighbor]):
+				came_from[neighbor] = current
+				g_score[neighbor] = tentative_g
+				f_score[neighbor] = tentative_g + heuristic(neighbor, goal)
+				if not neighbor in open_set:
+					open_set.append(neighbor)
+					
+	# Return an empty array if no valid path was found.
+	return []
+
+func get_neighbors(tile: Vector2i) -> Array:
+	var neighbors = []
+	var directions = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for d in directions:
+		var neighbor = tile + d
+		if is_within_bounds(neighbor):
+			neighbors.append(neighbor)
+	return neighbors
+
+func heuristic(a: Vector2i, b: Vector2i) -> float:
+	# Manhattan distance heuristic
+	return abs(a.x - b.x) + abs(a.y - b.y)
+
+func reconstruct_path(came_from: Dictionary, current: Vector2i) -> Array:
+	var total_path = [current]
+	while came_from.has(current):
+		current = came_from[current]
+		total_path.insert(0, current)
+	return total_path
+
+func get_cell_cost(tile: Vector2i) -> float:
+	# Base cost for a normal move
+	var cost = 1.0
+	# Add a penalty if this tile is adjacent to water.
+	# Adjust the penalty value as needed.
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var neighbor = tile + d
+		if is_within_bounds(neighbor) and get_cell_source_id(0, neighbor) == water_tile_id:
+			cost += 0.5
+			break  # Only add penalty once per tile; remove break if you want cumulative penalties.
+	return cost
+
+func get_lowest_f_score(open_set: Array, f_score: Dictionary) -> Vector2i:
+	var lowest = open_set[0]
+	for tile in open_set:
+		if f_score.has(tile) and f_score[tile] < f_score.get(lowest, 1e9):
+			lowest = tile
+	return lowest

@@ -4,3 +4,4 @@ res://Scenes/Meks_Scenes/CPU/M1.scn
 res://Scenes/Meks_Scenes/CPU/M2.scn
 res://Scenes/Meks_Scenes/PLAYER/R3.scn
 res://Scenes/Meks_Scenes/CPU/R1.scn
+res://Scripts/BattleGrid.gd
