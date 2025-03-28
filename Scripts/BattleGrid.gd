@@ -562,8 +562,8 @@ func get_weighted_path(start: Vector2i, goal: Vector2i) -> Array:
 		open_set.erase(current)
 		
 		for neighbor in get_neighbors(current):
-			# Skip non-walkable tiles
-			if not _is_tile_walkable(neighbor):
+			# Skip non-walkable or occupied tiles
+			if not _is_tile_walkable(neighbor) or is_tile_occupied(neighbor):
 				continue
 			
 			# Calculate the cost to move into this neighbor
