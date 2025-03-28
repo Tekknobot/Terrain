@@ -81,7 +81,9 @@ func _move_one(dest: Vector2i) -> void:
 		sprite.play("default")	
 
 func move_to(dest: Vector2i) -> void:
-	var path = await compute_path(tile_pos, dest)
+	# Update the grid and wait for a frame so all positions are up-to-date
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")	
+	var path = tilemap.get_weighted_path(tile_pos, dest)
 	if path.is_empty():
 		emit_signal("movement_finished")
 		return
@@ -89,8 +91,6 @@ func move_to(dest: Vector2i) -> void:
 	for step in path:
 		await _move_one(step)
 	
-	# Update the grid and wait for a frame so all positions are up-to-date
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap.update_astar_grid()
 	await get_tree().process_frame
 
