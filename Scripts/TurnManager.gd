@@ -46,14 +46,27 @@ func get_adjacent_tiles(tile: Vector2i) -> Array:
 		tile + Vector2i(0, -1)
 	]
 
-# Try to find a detour for a water tile.
 func find_detour(tile: Vector2i, tilemap) -> Vector2i:
-	# Check adjacent tiles for one that is walkable, not water, and unoccupied.
-	for neighbor in get_adjacent_tiles(tile):
-		if tilemap._is_tile_walkable(neighbor) and not tilemap.is_water_tile(neighbor) and not tilemap.is_tile_occupied(neighbor):
-			return neighbor
-	# If no alternative found, return the original tile.
+	# Use a BFS to search for a tile that is walkable, not water, and unoccupied.
+	var frontier = [tile]
+	var visited = { tile: true }
+	
+	while frontier.size() > 0:
+		var current = frontier.pop_front()
+		for neighbor in get_adjacent_tiles(current):
+			# Optionally, check boundaries if needed:
+			# if not tilemap.is_within_bounds(neighbor):
+			#     continue
+			if visited.has(neighbor):
+				continue
+			visited[neighbor] = true
+			if tilemap._is_tile_walkable(neighbor) and not tilemap.is_water_tile(neighbor) and not tilemap.is_tile_occupied(neighbor):
+				return neighbor
+			frontier.append(neighbor)
+	
+	# If no suitable detour is found, return the original tile.
 	return tile
+
 
 # Helper: Manhattan distance (lower is better)
 func manhattan_distance(a: Vector2i, b: Vector2i) -> int:
