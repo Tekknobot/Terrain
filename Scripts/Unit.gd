@@ -286,28 +286,45 @@ var queued_attack_target: Node2D = null
 func plan_move(dest: Vector2i):
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	
-	# Try the desired destination first.
-	if tilemap._is_tile_walkable(dest) and not tilemap.is_tile_occupied(dest):
-		print("🚶 Planning move to:", dest)
+	# Use BFS to find all reachable tiles within movement_range.
+	var frontier = [tile_pos]
+	var distances = { tile_pos: 0 }
+	var candidates = []  # Collect all reachable tiles (except the starting tile)
+	
+	while frontier.size() > 0:
+		var current = frontier.pop_front()
+		var d = distances[current]
+		
+		# Don't add the starting tile, but add every other reached tile.
+		if current != tile_pos:
+			candidates.append(current)
+		
+		# If we've reached the movement limit, stop expanding this branch.
+		if d == movement_range:
+			continue
+		
+		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var neighbor = current + dir
+			if tilemap.is_within_bounds(neighbor) and not distances.has(neighbor) and tilemap._is_tile_walkable(neighbor) and not tilemap.is_tile_occupied(neighbor):
+				distances[neighbor] = d + 1
+				frontier.append(neighbor)
+	
+	# First, check if the desired destination is among the reachable tiles.
+	if distances.has(dest):
+		print("🚶 Planning move to:", dest, "(reachable via BFS)")
 		queued_move = dest
 		return
 	else:
-		print("⛔ Cannot plan move to:", dest, "— it's blocked or water")
+		print("⛔ Desired destination", dest, "is not reachable (blocked or out of range)")
 	
-	# Fallback: Check every tile within movement_range.
-	var best_candidate: Vector2i = tile_pos  # start with current position as default
-	var best_dist = INF  # initialize best distance with a large number
-	for x in range(-movement_range, movement_range + 1):
-		for y in range(-movement_range, movement_range + 1):
-			# Only consider tiles within the Manhattan distance limit.
-			if abs(x) + abs(y) <= movement_range:
-				var candidate = tile_pos + Vector2i(x, y)
-				if tilemap._is_tile_walkable(candidate) and not tilemap.is_tile_occupied(candidate):
-					# Evaluate how close this candidate is to the desired destination.
-					var d = candidate.distance_to(dest)
-					if d < best_dist:
-						best_dist = d
-						best_candidate = candidate
+	# Fallback: From the list of reachable candidate tiles, choose the one closest to the desired destination.
+	var best_candidate: Vector2i = tile_pos
+	var best_euclid = INF
+	for candidate in candidates:
+		var d = candidate.distance_to(dest)
+		if d < best_euclid:
+			best_euclid = d
+			best_candidate = candidate
 	if best_candidate != tile_pos:
 		print("🚶 Fallback move found, planning move to:", best_candidate)
 		queued_move = best_candidate
