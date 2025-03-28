@@ -37,9 +37,6 @@ func _process(delta):
 	update_z_index()
 	_update_tile_pos()  # Ensure tile_pos is current
 
-	if has_moved:
-		print("Unit has moved; applying darken")
-
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))

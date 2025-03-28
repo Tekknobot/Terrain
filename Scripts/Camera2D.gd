@@ -1,6 +1,6 @@
 extends Camera2D
 
-var zoom_levels = [Vector2(4,4), Vector2(5,5), Vector2(6,6), Vector2(8,8)]
+var zoom_levels = [Vector2(3,3), Vector2(4,4), Vector2(5,5), Vector2(6,6), Vector2(8,8)]
 var current_zoom_index := 0
 var dragging := false
 var drag_start := Vector2.ZERO
