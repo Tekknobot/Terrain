@@ -50,6 +50,9 @@ var planning_phase := true
 var planned_units := 0
 var completed_units
 
+@export var structure_scenes: Array[PackedScene]  # Add 6 structure scenes here
+@export var max_structures: int = 10
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -57,6 +60,16 @@ func _ready():
 
 	call_deferred("_post_map_generation")  # Wait until the next frame
 
+func _post_map_generation():
+	_spawn_teams()
+	spawn_structures()  # Spawn structures after the map is generated.		
+	_setup_camera()
+	update_astar_grid()
+
+	print("✅ Map post-gen complete. All units:")
+	for unit in get_tree().get_nodes_in_group("Units"):
+		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
+	
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 16)))
@@ -247,15 +260,6 @@ func _clear_highlights():
 		set_cell(1, pos, _get_tile_id_from_noise(noise.get_noise_2d(pos.x, pos.y)))
 	highlighted_tiles.clear()
 
-func _post_map_generation():
-	_spawn_teams()
-	_setup_camera()
-	update_astar_grid()
-
-	print("✅ Map post-gen complete. All units:")
-	for unit in get_tree().get_nodes_in_group("Units"):
-		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
-	
 func update_astar_grid():
 	grid_actual_width = grid_width
 	grid_actual_height = grid_height
@@ -274,7 +278,14 @@ func update_astar_grid():
 	print("✅ AStar grid rebuilt — occupied tiles excluded.")
 	
 func is_tile_occupied(tile: Vector2i) -> bool:
-	return get_unit_at_tile(tile) != null
+	return get_unit_at_tile(tile) != null or get_structure_at_tile(tile) != null
+
+func get_structure_at_tile(tile: Vector2i) -> Node:
+	for structure in get_tree().get_nodes_in_group("Structures"):
+		# Assuming each structure stores its tile_pos.
+		if structure.tile_pos == tile:
+			return structure
+	return null
 
 func _build_astar():
 	astar.clear()
@@ -617,3 +628,63 @@ func get_lowest_f_score(open_set: Array, f_score: Dictionary) -> Vector2i:
 		if f_score.has(tile) and f_score[tile] < f_score.get(lowest, 1e9):
 			lowest = tile
 	return lowest
+
+
+func spawn_structures():
+	# Check if there are any structure scenes available.
+	if structure_scenes.size() == 0:
+		push_error("No structure scenes available to spawn!")
+		return
+
+	var count = 0  # Counter for spawned structures.
+	var attempts = 0
+	var max_attempts = grid_width * grid_height * 5  # Arbitrary limit to avoid infinite loops
+
+	while count < max_structures and attempts < max_attempts:
+		attempts += 1
+		var x = randi() % grid_width
+		var y = randi() % grid_height
+		var pos = Vector2i(x, y)
+		var tile_id = get_cell_source_id(0, pos)
+		
+		# Skip if the tile is water.
+		if tile_id == water_tile_id:
+			continue
+		
+		# Skip if the tile is a road (e.g., intersection or road tiles).
+		if tile_id == INTERSECTION or tile_id == DOWN_RIGHT_ROAD or tile_id == DOWN_LEFT_ROAD:
+			continue
+		
+		# Skip if the tile is occupied by a unit or structure.
+		if is_tile_occupied(pos):
+			continue
+		
+		# Valid tile found; spawn a structure.
+		var random_index = randi() % structure_scenes.size()
+		var structure_scene = structure_scenes[random_index]
+		var structure = structure_scene.instantiate()
+		
+		# Position the structure in world space.
+		structure.global_position = to_global(map_to_local(pos))
+		
+		# Optionally, set the tile_pos property if available.
+		if structure.has_method("set_tile_pos"):
+			structure.set_tile_pos(pos)
+		elif structure.has_variable("tile_pos"):
+			structure.tile_pos = pos
+		
+		# Add the structure to the "Structures" group.
+		structure.add_to_group("Structures")
+		
+		# Add the structure as a child to the TileMap (or your dedicated parent node).
+		add_child(structure)
+		
+		# Mark this tile as occupied in the AStar grid.
+		astar.set_point_solid(pos, true)
+		
+		count += 1
+
+	if count < max_structures:
+		print("Spawned only", count, "structures after", attempts, "attempts.")
+	else:
+		print("Spawned", count, "structures.")

@@ -1,0 +1,75 @@
+[gd_scene load_steps=12 format=3 uid="uid://dumfkfxnng3od"]
+
+[ext_resource type="Script" path="res://Scripts/Structure.gd" id="1_bdb8f"]
+[ext_resource type="Texture2D" uid="uid://ckxtu0sg4l76u" path="res://Sprites/Structures/tower/default/buildings 1.png" id="2_3tl2q"]
+[ext_resource type="Texture2D" uid="uid://bh2v5n6ud2ksd" path="res://Sprites/Structures/tower/buildings 1_demolished1.png" id="3_6vppo"]
+[ext_resource type="Texture2D" uid="uid://dmcnmf6lypgb0" path="res://Sprites/Structures/tower/buildings 1_demolished2.png" id="4_ffj3v"]
+[ext_resource type="Texture2D" uid="uid://dv18l8uiy2ju8" path="res://Sprites/Structures/tower/buildings 1_demolished3.png" id="5_op7vc"]
+[ext_resource type="Texture2D" uid="uid://bp2kg7mbanjp6" path="res://Sprites/Structures/tower/buildings 1_demolished4.png" id="6_67412"]
+[ext_resource type="Texture2D" uid="uid://0v42me67engk" path="res://Sprites/Structures/tower/buildings 1_demolished5.png" id="7_g3sn6"]
+[ext_resource type="Texture2D" uid="uid://chd3yq78wcfel" path="res://Sprites/Structures/tower/buildings 1_demolished6.png" id="8_wbt5n"]
+[ext_resource type="Texture2D" uid="uid://gdq18ocbhgvu" path="res://Sprites/Structures/tower/buildings 1_demolished7.png" id="9_16xc2"]
+[ext_resource type="Texture2D" uid="uid://dbn2xeb214ng4" path="res://Sprites/Structures/tower/buildings 1_demolished8.png" id="10_1tu7e"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_jyawu"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": null
+}],
+"loop": true,
+"name": &"cooldown",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_3tl2q")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_6vppo")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_ffj3v")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_op7vc")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_67412")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_g3sn6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_wbt5n")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_16xc2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_1tu7e")
+}],
+"loop": true,
+"name": &"demolished",
+"speed": 12.0
+}]
+
+[node name="Tower_Area2D" type="Area2D" groups=["structure"]]
+script = ExtResource("1_bdb8f")
+tile_pos = null
+z_layer = null
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_jyawu")
+autoplay = "default"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+
+[node name="RayCast2D" type="RayCast2D" parent="."]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
