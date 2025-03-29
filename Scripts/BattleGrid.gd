@@ -630,6 +630,42 @@ func get_lowest_f_score(open_set: Array, f_score: Dictionary) -> Vector2i:
 	return lowest
 
 
+func is_map_connected() -> bool:
+	# Find a starting tile that is not water and not blocked.
+	var start = null
+	for x in range(grid_width):
+		for y in range(grid_height):
+			var pos = Vector2i(x, y)
+			if get_cell_source_id(0, pos) != water_tile_id and not astar.is_point_solid(pos):
+				start = pos
+				break
+		if start != null:
+			break
+	if start == null:
+		return false  # No valid start found.
+	
+	# Flood-fill to determine connectivity.
+	var queue = [start]
+	var visited = {}
+	visited[start] = true
+	while queue.size() > 0:
+		var current = queue.pop_front()
+		for neighbor in get_neighbors(current):
+			# Only consider neighbors that are not water and not blocked.
+			if not visited.has(neighbor) and get_cell_source_id(0, neighbor) != water_tile_id and not astar.is_point_solid(neighbor):
+				visited[neighbor] = true
+				queue.append(neighbor)
+	
+	# Count total open (walkable) tiles.
+	var total_open = 0
+	for x in range(grid_width):
+		for y in range(grid_height):
+			var pos = Vector2i(x, y)
+			if get_cell_source_id(0, pos) != water_tile_id and not astar.is_point_solid(pos):
+				total_open += 1
+	# Here, we require that at least 90% of walkable tiles are reachable.
+	return visited.size() >= total_open * 0.9
+
 func spawn_structures():
 	# Check if there are any structure scenes available.
 	if structure_scenes.size() == 0:
@@ -659,6 +695,15 @@ func spawn_structures():
 		if is_tile_occupied(pos):
 			continue
 		
+		# Temporarily mark this tile as occupied in the AStar grid.
+		astar.set_point_solid(pos, true)
+		
+		# Check if this new blocking still keeps the map connected.
+		if not is_map_connected():
+			# Revert the temporary block if connectivity is broken.
+			astar.set_point_solid(pos, false)
+			continue
+		
 		# Valid tile found; spawn a structure.
 		var random_index = randi() % structure_scenes.size()
 		var structure_scene = structure_scenes[random_index]
@@ -685,9 +730,6 @@ func spawn_structures():
 		
 		# Add the structure as a child to the TileMap (or your dedicated parent node).
 		add_child(structure)
-		
-		# Mark this tile as occupied in the AStar grid.
-		astar.set_point_solid(pos, true)
 		
 		count += 1
 

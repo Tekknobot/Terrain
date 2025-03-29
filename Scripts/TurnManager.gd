@@ -100,10 +100,8 @@ func _start_unit_action(team):
 				await _run_safe_enemy_action(unit)
 				return
 			
-			# Find a target (weakest or closest).
-			var target = find_weakest_enemy(unit)
-			if not target:
-				target = find_closest_enemy(unit)
+			# Find a target (closest).
+			var target = find_closest_enemy(unit)
 			
 			# Compute the path to the target if it exists.
 			var path = []

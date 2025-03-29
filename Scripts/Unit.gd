@@ -299,17 +299,17 @@ func plan_move(dest: Vector2i):
 		if current != tile_pos:
 			candidates.append(current)
 		
-		# If we've reached the movement limit, stop expanding this branch.
+		# Stop expanding if we've reached the movement limit.
 		if d == movement_range:
 			continue
 		
-		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var neighbor = current + dir
 			if tilemap.is_within_bounds(neighbor) and not distances.has(neighbor) and tilemap._is_tile_walkable(neighbor) and not tilemap.is_tile_occupied(neighbor):
 				distances[neighbor] = d + 1
 				frontier.append(neighbor)
 	
-	# First, check if the desired destination is among the reachable tiles.
+	# First, if the destination is directly reachable, use it.
 	if distances.has(dest):
 		print("🚶 Planning move to:", dest, "(reachable via BFS)")
 		queued_move = dest
@@ -317,14 +317,22 @@ func plan_move(dest: Vector2i):
 	else:
 		print("⛔ Desired destination", dest, "is not reachable (blocked or out of range)")
 	
-	# Fallback: From the list of reachable candidate tiles, choose the one closest to the desired destination.
+	# Fallback: From the candidates, choose one closest to the destination.
+	# Introduce a penalty if the candidate equals the last queued move,
+	# which helps avoid oscillating back and forth.
 	var best_candidate: Vector2i = tile_pos
-	var best_euclid = INF
+	var best_cost = INF
 	for candidate in candidates:
-		var d = candidate.distance_to(dest)
-		if d < best_euclid:
-			best_euclid = d
+		# Calculate Euclidean distance to destination.
+		var euclid = candidate.distance_to(dest)
+		var extra_cost = 0
+		if candidate == queued_move:
+			extra_cost = 2
+		var cost = euclid + extra_cost
+		if cost < best_cost:
+			best_cost = cost
 			best_candidate = candidate
+	
 	if best_candidate != tile_pos:
 		print("🚶 Fallback move found, planning move to:", best_candidate)
 		queued_move = best_candidate
