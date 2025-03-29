@@ -392,7 +392,14 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 	unit.tile_pos = spawn_tile
 	add_child(unit)
 
+	# Flip player unit sprite if applicable
+	if is_player:
+		var sprite = unit.get_node_or_null("AnimatedSprite2D")
+		if sprite:
+			sprite.flip_h = true
+
 	used_tiles.append(spawn_tile)
+
 
 func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var direction := -1  # default = upward (for player units)
@@ -444,7 +451,7 @@ func _setup_camera():
 	
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
 	camera.global_position = to_global(map_to_local(center_tile))
-	camera.zoom = Vector2(4, 4) 
+	camera.zoom = Vector2(5, 5) 
 	
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.global_position)
 
