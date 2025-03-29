@@ -1,7 +1,7 @@
 [gd_scene load_steps=54 format=3 uid="uid://npnv1wvwmhj3"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_2cdww"]
-[ext_resource type="Script" path="res://Scripts/BattleGrid.gd" id="1_juvca"]
+[ext_resource type="Script" path="res://Scripts/TileMap.gd" id="1_juvca"]
 [ext_resource type="Texture2D" uid="uid://56t0bjdw3rny" path="res://Sprites/Tiles_UI/tile_hover_black.png" id="2_bm8h6"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://Sprites/Terrain/sandstone.png" id="3_c04i0"]
 [ext_resource type="Texture2D" uid="uid://dyigrwo5qmh4a" path="res://Sprites/Tiles_UI/tile_hover_blue.png" id="3_igwkr"]
