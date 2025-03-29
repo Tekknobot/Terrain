@@ -51,7 +51,10 @@ var planned_units := 0
 var completed_units
 
 @export var structure_scenes: Array[PackedScene]  # Add 6 structure scenes here
-@export var max_structures: int = 10
+# Customize these parameters as needed.
+@export var max_structures := 50       # Total number of structures to spawn.
+@export var cluster_count := 20        # How many structures to spawn around the center.
+@export var cluster_radius := 5        # Radius (in tiles) around the center for clustering.
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -629,7 +632,6 @@ func get_lowest_f_score(open_set: Array, f_score: Dictionary) -> Vector2i:
 			lowest = tile
 	return lowest
 
-
 func spawn_structures():
 	# Check if there are any structure scenes available.
 	if structure_scenes.size() == 0:
@@ -640,6 +642,53 @@ func spawn_structures():
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5  # Arbitrary limit to avoid infinite loops
 
+	# Calculate the center of the map.
+	var center = Vector2i(grid_width / 2, grid_height / 2)
+
+	# Spawn structures around the center (clustered)
+	while count < cluster_count and attempts < max_attempts:
+		attempts += 1
+		
+		# Pick a random position within a circle (using polar coordinates) around the center.
+		var angle = randf() * TAU
+		var radius = randf() * cluster_radius
+		var x = center.x + int(radius * cos(angle))
+		var y = center.y + int(radius * sin(angle))
+		var pos = Vector2i(x, y)
+		
+		# Check the tile type.
+		var tile_id = get_cell_source_id(0, pos)
+		if tile_id == water_tile_id:
+			continue
+		if tile_id == INTERSECTION or tile_id == DOWN_RIGHT_ROAD or tile_id == DOWN_LEFT_ROAD:
+			continue
+		if is_tile_occupied(pos):
+			continue
+		
+		# Valid tile found; spawn a structure.
+		var random_index = randi() % structure_scenes.size()
+		var structure_scene = structure_scenes[random_index]
+		var structure = structure_scene.instantiate()
+		structure.global_position = to_global(map_to_local(pos))
+		if structure.has_method("set_tile_pos"):
+			structure.set_tile_pos(pos)
+		elif structure.has_variable("tile_pos"):
+			structure.tile_pos = pos
+		
+		# Randomly modulate the structure's color.
+		var r = randf_range(0.4, 0.8)
+		var g = randf_range(0.4, 0.8)
+		var b = randf_range(0.4, 0.8)
+		structure.modulate = Color(r, g, b, 1)
+		
+		structure.add_to_group("Structures")
+		add_child(structure)
+		astar.set_point_solid(pos, true)
+		
+		count += 1
+		print("Clustered structure spawned at", pos)
+
+	# Now spawn the remaining structures scattered across the map.
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
 		var x = randi() % grid_width
@@ -650,12 +699,10 @@ func spawn_structures():
 		# Skip if the tile is water.
 		if tile_id == water_tile_id:
 			continue
-		
-		# Skip if the tile is a road (e.g., intersection or road tiles).
+		# Skip if the tile is a road.
 		if tile_id == INTERSECTION or tile_id == DOWN_RIGHT_ROAD or tile_id == DOWN_LEFT_ROAD:
 			continue
-		
-		# Skip if the tile is occupied by a unit or structure.
+		# Skip if the tile is occupied.
 		if is_tile_occupied(pos):
 			continue
 		
@@ -663,33 +710,23 @@ func spawn_structures():
 		var random_index = randi() % structure_scenes.size()
 		var structure_scene = structure_scenes[random_index]
 		var structure = structure_scene.instantiate()
-		
-		# Position the structure in world space.
 		structure.global_position = to_global(map_to_local(pos))
-		
-		# Optionally, set the tile_pos property if available.
 		if structure.has_method("set_tile_pos"):
 			structure.set_tile_pos(pos)
 		elif structure.has_variable("tile_pos"):
 			structure.tile_pos = pos
 		
-		# Randomly modulate the structure's color within a mid-range.
-		# This keeps the RGB values between 0.4 and 0.8.
 		var r = randf_range(0.4, 0.8)
 		var g = randf_range(0.4, 0.8)
 		var b = randf_range(0.4, 0.8)
 		structure.modulate = Color(r, g, b, 1)
 		
-		# Add the structure to the "Structures" group.
 		structure.add_to_group("Structures")
-		
-		# Add the structure as a child to the TileMap (or your dedicated parent node).
 		add_child(structure)
-		
-		# Mark this tile as occupied in the AStar grid.
 		astar.set_point_solid(pos, true)
 		
 		count += 1
+		print("Scattered structure spawned at", pos)
 
 	if count < max_structures:
 		print("Spawned only", count, "structures after", attempts, "attempts.")

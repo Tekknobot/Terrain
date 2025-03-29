@@ -291,14 +291,14 @@ func plan_move(dest: Vector2i):
 	# Use BFS to find all reachable tiles within movement_range.
 	var frontier = [tile_pos]
 	var distances = { tile_pos: 0 }
-	var parents = {}  # Store each tile's parent for path reconstruction.
-	var candidates = []  # Collect all reachable tiles (except the starting tile)
+	var parents = {}  # Record each tile's parent for path reconstruction.
+	var candidates = []  # All reachable tiles (except the starting tile)
 	
 	while frontier.size() > 0:
 		var current = frontier.pop_front()
 		var d = distances[current]
 		
-		# Don't add the starting tile, but add every other reached tile.
+		# Add reached tile to candidates (ignore the starting tile).
 		if current != tile_pos:
 			candidates.append(current)
 		
@@ -306,45 +306,73 @@ func plan_move(dest: Vector2i):
 		if d == movement_range:
 			continue
 		
+		# Check the four cardinal neighbors.
 		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var neighbor = current + dir
 			if tilemap.is_within_bounds(neighbor) and not distances.has(neighbor) and tilemap._is_tile_walkable(neighbor) and not tilemap.is_tile_occupied(neighbor):
 				distances[neighbor] = d + 1
-				parents[neighbor] = current  # Record the tile we came from.
+				parents[neighbor] = current  # Record where we came from.
 				frontier.append(neighbor)
 	
-	# If the destination is reachable, reconstruct the path and take the first step.
+	# First, if the destination is directly reachable, reconstruct the full path.
 	if distances.has(dest):
 		var path = []
 		var current = dest
-		# Backtrack from destination to tile_pos.
+		# Backtrack from destination to the starting tile.
 		while current != tile_pos:
 			path.insert(0, current)
 			current = parents[current]
-		# The first element in the path is the next move.
-		if path.size() > 0:
-			queued_move = path[0]
-			# Record the move so we don't revisit it later this round.
-			visited_tiles.append(queued_move)
-			print("🚶 Planning move along path to:", queued_move)
-		else:
-			print("⛔ Already at destination.")
+		# Determine how many steps to take:
+		# If the full path is longer than our movement_range, take the tile at index (movement_range - 1).
+		# Otherwise, take the final destination tile.
+		var steps_to_take = min(path.size(), movement_range)
+		var move_target = path[steps_to_take - 1]
+		queued_move = move_target
+		visited_tiles.append(move_target)
+		print("🚶 Direct path: planning move along path to:", move_target)
 		return
 	else:
 		print("⛔ Desired destination", dest, "is not reachable (blocked or out of range)")
 	
-	# Fallback: From the candidate tiles, choose one closest to the destination.
-	# Apply a penalty if the candidate is the same as the last queued move or has been visited this round.
+	# NEW: Check for any candidate that puts the enemy within attack range.
+	# This check is independent of any penalties.
+	var attack_candidates: Array = []
+	for candidate in candidates:
+		# If candidate tile is within attack range of the enemy (target at dest).
+		if candidate.distance_to(dest) <= attack_range:
+			attack_candidates.append(candidate)
+			
+	if attack_candidates.size() > 0:
+		# Choose the candidate closest to the target.
+		var best_candidate: Vector2i = attack_candidates[0]
+		var best_cost = best_candidate.distance_to(dest)
+		for candidate in attack_candidates:
+			var cost = candidate.distance_to(dest)
+			if cost < best_cost:
+				best_cost = cost
+				best_candidate = candidate
+		queued_move = best_candidate
+		visited_tiles.append(best_candidate)
+		print("🚶 Attack move found, planning move to:", best_candidate)
+		return
+	
+	# Fallback: choose from candidate tiles using a cost function.
 	var best_candidate: Vector2i = tile_pos
 	var best_cost = INF
 	for candidate in candidates:
 		var euclid = candidate.distance_to(dest)
 		var extra_cost = 0
+		
+		# Apply penalties if reusing the same move or if the tile has already been visited.
 		if candidate == queued_move:
 			extra_cost += 2
-		# Add a penalty if the tile was visited this round.
 		if visited_tiles.has(candidate):
 			extra_cost += 5
+
+		# Reward candidate if it puts the enemy within its attack range.
+		if candidate.distance_to(dest) <= attack_range:
+			extra_cost -= 10  # Adjust bonus value as needed.
+		
 		var cost = euclid + extra_cost
 		if cost < best_cost:
 			best_cost = cost
