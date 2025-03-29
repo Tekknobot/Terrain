@@ -73,29 +73,34 @@ func _post_map_generation():
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 16)))
-		if moving == true:
+		if moving:
 			return
-		
+
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			# Left click → select or move (movement only)
-			if selected_unit and highlighted_tiles.has(mouse_tile) and showing_attack == false:
-				_move_selected_to(mouse_tile)
-			else:
-				_select_unit_at_mouse()
-		
+			if selected_unit:
+				# Check if we're in attack mode.
+				if showing_attack:
+					var enemy = get_unit_at_tile(mouse_tile)
+					# Ensure there is an enemy unit on the clicked tile and that it's adjacent.
+					if enemy and not enemy.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+						# Call your attack method on the selected unit.
+						selected_unit.auto_attack_adjacent()
+						showing_attack = false
+						_clear_highlights()
+						play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+						return
+				# If not in attack mode, then move if the tile is highlighted.
+				elif highlighted_tiles.has(mouse_tile):
+					_move_selected_to(mouse_tile)
+					return
+			_select_unit_at_mouse()
+
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			# Right click → show attack range only, don't change selected unit
+			# Right click sets up attack mode.
 			if selected_unit:
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()
-
-	elif event is InputEventKey and event.pressed:
-		match event.keycode:
-			KEY_SPACE:
-				get_tree().reload_current_scene()
-			KEY_1:
-				toggle_borders()	
 						
 
 var borders_visible := false
