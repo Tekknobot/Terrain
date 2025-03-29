@@ -166,6 +166,9 @@ func _update_highlight_display():
 	_highlight_range(selected_unit.tile_pos, range, tile_id)
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
+	# If we're in attack mode, allow highlighting occupied tiles.
+	var allow_occupied = (tile_id == attack_tile_id)
+	
 	var frontier = [start]
 	var distances = { start: 0 }
 
@@ -173,20 +176,22 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 		var current = frontier.pop_front()
 		var dist = distances[current]
 
+		# Only highlight if it's not water and (if not allowing occupied, ensure it's not occupied)
 		if dist > 0:
-			if not is_water_tile(current) and not is_tile_occupied(current):
+			if not is_water_tile(current) and (allow_occupied or not is_tile_occupied(current)):
 				set_cell(1, current, tile_id, Vector2i.ZERO)
 				highlighted_tiles.append(current)
 
 		if dist == max_dist:
 			continue
 
-		for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var neighbor = current + dir
+			# When exploring neighbors, only check for occupancy if we're not in attack mode.
 			if is_within_bounds(neighbor) \
 			and not distances.has(neighbor) \
 			and _is_tile_walkable(neighbor) \
-			and not is_tile_occupied(neighbor):
+			and (allow_occupied or not is_tile_occupied(neighbor)):
 				distances[neighbor] = dist + 1
 				frontier.append(neighbor)
 
