@@ -117,22 +117,24 @@ func _select_unit_at_mouse():
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
 
-	# Prevent any movement updates if the unit has already moved
+	# Prevent movement selection only for player units that have already moved
 	if unit == null:
-		return
-		
-	if unit.has_moved:
-		return
-		
-	if unit:
-		selected_unit = unit
-		showing_attack = false
-		_show_range_for_selected_unit()
-	else:
 		selected_unit = null
 		showing_attack = false
+		play_beep_sound(tile)
+		return
 		
-	play_beep_sound(tile)	
+	if unit.is_player and unit.has_moved:
+		selected_unit = null
+		showing_attack = false
+		play_beep_sound(tile)
+		return
+		
+	selected_unit = unit
+	showing_attack = false
+	_show_range_for_selected_unit()
+
+	play_beep_sound(tile)
 
 func _show_range_for_selected_unit():
 	var range = 0
