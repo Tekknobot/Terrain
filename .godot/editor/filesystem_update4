@@ -1,7 +1,3 @@
 res://Scenes/Main.tscn
 res://Textures/flash.gdshader
-res://Scripts/TurnManager.gd
-res://Scripts/Unit.gd
-res://Scripts/BattleGrid.gd
 res://Scenes/VFX/Explosion.tscn
-res://Scripts/Explosion.gd
