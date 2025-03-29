@@ -180,6 +180,7 @@ func auto_attack_adjacent():
 									var occ_sprite = occ.get_node("AnimatedSprite2D")
 									if occ_sprite:
 										occ_sprite.play("demolished")
+										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 								# If the occupant is another unit.
 								elif occ.is_in_group("Units"):
 									await get_tree().create_timer(0.1).timeout
