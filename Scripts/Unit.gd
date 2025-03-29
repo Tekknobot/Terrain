@@ -109,7 +109,7 @@ func auto_attack_adjacent():
 	var raw_units = get_tree().get_nodes_in_group("Units")
 	var units = []
 
-	# Snapshot all valid units up front
+	# Snapshot all valid units up front.
 	for u in raw_units:
 		if is_instance_valid(u):
 			units.append(u)
@@ -119,47 +119,93 @@ func auto_attack_adjacent():
 		var check_pos = actual_pos + dir
 
 		for unit in units:
+			# Skip invalid units and self.
 			if not is_instance_valid(unit) or unit == self:
 				continue
+			# If the unit is adjacent and on the opposing team.
 			if unit.tile_pos == check_pos and unit.is_player != is_player:
 				var push_pos = unit.tile_pos + dir
 
-				# 🔥 Damage and detect if it dies BEFORE continuing
+				# 🔥 Damage the target and flash white.
 				var died = unit.take_damage(damage)
 				unit.flash_white()
 
-				# 🧱 Animate the attacker (only if target still exists)
+				# 🧱 Animate the attacker.
 				var sprite = get_node("AnimatedSprite2D")
 				if sprite:
-					# 🎵 Play attack sound BEFORE the animation
+					# 🎵 Play attack sound before animation.
 					tilemap.play_attack_sound(global_position)
-
-					# Determine if we need to face right (i.e., attack direction is right)
-					var should_face_right = dir.x > 0
-
+					# Face the appropriate direction.
 					if dir.x != 0:
 						sprite.flip_h = dir.x > 0
 					elif dir.y != 0:
 						sprite.flip_h = true
-
 					sprite.play("attack")
 					await sprite.animation_finished
 					sprite.play("default")
 
-				# 🎖 Grant XP only if it died
+				# 🎖 Grant XP if the target died from the damage.
 				if died:
 					gain_xp(50)
-					continue  # ⛔ Unit is already dead and freed
+					continue  # Unit is already dead.
 
-				# ➡ Try to push (only if unit is alive)
-				if tilemap.is_within_bounds(push_pos) \
-					and not tilemap.is_tile_occupied(push_pos) \
-					and tilemap._is_tile_walkable(push_pos):
+				# ➡ Push Logic:
+				if tilemap.is_within_bounds(push_pos):
+					# Animate the push regardless of occupancy.
+					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+					var push_speed = 150.0  # Adjust push speed as desired.
+					while unit.global_position.distance_to(target_pos) > 1.0:
+						var delta = get_process_delta_time()
+						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
+						await get_tree().process_frame
+					unit.global_position = target_pos
+					unit.tile_pos = push_pos  # Update the pushed unit's tile position.
 
-					unit.tile_pos = push_pos
-					unit.global_position = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+					# After the push animation, check for occupancy by another entity.
+					# We ignore the pushed unit itself.
+					if tilemap.is_tile_occupied(push_pos):
+						var occupants = get_occupants_at(push_pos, unit)
+						if occupants.size() > 0:
+							for occ in occupants:
+								# If the occupant is a structure.
+								if occ.is_in_group("Structures"):
+									#spawn_explosion_at(occ.global_position)
+									var occ_sprite = occ.get_node("AnimatedSprite2D")
+									if occ_sprite:
+										occ_sprite.play("demolished")
+								# If the occupant is another unit.
+								elif occ.is_in_group("Units"):
+									await get_tree().create_timer(0.3).timeout
+									occ.take_damage(damage)  # Adjust damage as needed.
+									occ.shake()
+							# In either case, the pushed unit dies.
+							unit.die()
 
-				tilemap.update_astar_grid()
+					# Otherwise, if the tile is free and walkable (only occupied by the unit itself), do nothing extra.
+					
+					# Update the AStar grid after any changes.
+					tilemap.update_astar_grid()
+
+# Helper function to retrieve the occupant (unit or structure) at a given tile.
+func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:
+	var occupants = []
+	# Check units.
+	for unit in get_tree().get_nodes_in_group("Units"):
+		if is_instance_valid(unit) and unit.tile_pos == pos and unit != ignore:
+			occupants.append(unit)
+	# Check structures.
+	for structure in get_tree().get_nodes_in_group("Structures"):
+		if is_instance_valid(structure) and structure.tile_pos == pos and structure != ignore:
+			occupants.append(structure)
+	return occupants
+
+# Example helper to spawn an explosion at a given position.
+func spawn_explosion_at(pos: Vector2):
+	# Replace the following with your actual explosion scene path and logic.
+	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+	var explosion = explosion_scene.instantiate()
+	explosion.position = pos
+	get_tree().get_current_scene().add_child(explosion)
 
 func has_adjacent_enemy() -> bool:
 	var directions = [
@@ -465,3 +511,13 @@ func execute_all_player_actions():
 	var turn_manager = get_node("/root/TurnManager")  # or however you access it
 	if turn_manager and turn_manager.has_method("end_turn"):
 		turn_manager.end_turn()
+
+func shake():
+	var original_position = global_position
+	var tween = create_tween()
+	# Shake right by 5 pixels.
+	tween.tween_property(self, "global_position", original_position + Vector2(5, 0), 0.05)
+	# Shake left by 10 pixels.
+	tween.tween_property(self, "global_position", original_position - Vector2(5, 0), 0.05)
+	# Return to original position.
+	tween.tween_property(self, "global_position", original_position, 0.05)
