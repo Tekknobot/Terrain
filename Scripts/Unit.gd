@@ -26,6 +26,7 @@ const Y_OFFSET := -8.0
 var true_position := Vector2.ZERO  # we manage this ourselves
 
 var visited_tiles: Array = []
+@export var water_tile_id := 6
 
 func _ready():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -150,6 +151,12 @@ func auto_attack_adjacent():
 					continue  # Unit is already dead.
 
 				# ➡ Push Logic:
+				# Do not push into water.
+				var tile_id = tilemap.get_cell_source_id(0, push_pos)
+				if tile_id == water_tile_id:
+					# Skip push logic if destination is water.
+					continue
+
 				if tilemap.is_within_bounds(push_pos):
 					# Animate the push regardless of occupancy.
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
@@ -175,12 +182,11 @@ func auto_attack_adjacent():
 										occ_sprite.play("demolished")
 								# If the occupant is another unit.
 								elif occ.is_in_group("Units"):
-									await get_tree().create_timer(0.3).timeout
+									await get_tree().create_timer(0.1).timeout
 									occ.take_damage(damage)  # Adjust damage as needed.
 									occ.shake()
 							# In either case, the pushed unit dies.
 							unit.die()
-
 					# Otherwise, if the tile is free and walkable (only occupied by the unit itself), do nothing extra.
 					
 					# Update the AStar grid after any changes.
