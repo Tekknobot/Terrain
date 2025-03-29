@@ -84,7 +84,12 @@ func _input(event):
 					# Ensure there is an enemy unit on the clicked tile and that it's adjacent.
 					if enemy and not enemy.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 						# Call your attack method on the selected unit.
-						selected_unit.auto_attack_adjacent()
+						selected_unit.auto_attack_adjacent( )
+						
+						selected_unit.has_moved = true
+						var sprite := selected_unit.get_node("AnimatedSprite2D")
+						sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dark gray tint
+										
 						showing_attack = false
 						_clear_highlights()
 						play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
