@@ -25,6 +25,8 @@ var has_attacked
 const Y_OFFSET := -8.0
 var true_position := Vector2.ZERO  # we manage this ourselves
 
+var visited_tiles: Array = []
+
 func _ready():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))  # 🔥 Set this!
@@ -289,6 +291,7 @@ func plan_move(dest: Vector2i):
 	# Use BFS to find all reachable tiles within movement_range.
 	var frontier = [tile_pos]
 	var distances = { tile_pos: 0 }
+	var parents = {}  # Store each tile's parent for path reconstruction.
 	var candidates = []  # Collect all reachable tiles (except the starting tile)
 	
 	while frontier.size() > 0:
@@ -307,35 +310,50 @@ func plan_move(dest: Vector2i):
 			var neighbor = current + dir
 			if tilemap.is_within_bounds(neighbor) and not distances.has(neighbor) and tilemap._is_tile_walkable(neighbor) and not tilemap.is_tile_occupied(neighbor):
 				distances[neighbor] = d + 1
+				parents[neighbor] = current  # Record the tile we came from.
 				frontier.append(neighbor)
 	
-	# First, if the destination is directly reachable, use it.
+	# If the destination is reachable, reconstruct the path and take the first step.
 	if distances.has(dest):
-		print("🚶 Planning move to:", dest, "(reachable via BFS)")
-		queued_move = dest
+		var path = []
+		var current = dest
+		# Backtrack from destination to tile_pos.
+		while current != tile_pos:
+			path.insert(0, current)
+			current = parents[current]
+		# The first element in the path is the next move.
+		if path.size() > 0:
+			queued_move = path[0]
+			# Record the move so we don't revisit it later this round.
+			visited_tiles.append(queued_move)
+			print("🚶 Planning move along path to:", queued_move)
+		else:
+			print("⛔ Already at destination.")
 		return
 	else:
 		print("⛔ Desired destination", dest, "is not reachable (blocked or out of range)")
 	
-	# Fallback: From the candidates, choose one closest to the destination.
-	# Introduce a penalty if the candidate equals the last queued move,
-	# which helps avoid oscillating back and forth.
+	# Fallback: From the candidate tiles, choose one closest to the destination.
+	# Apply a penalty if the candidate is the same as the last queued move or has been visited this round.
 	var best_candidate: Vector2i = tile_pos
 	var best_cost = INF
 	for candidate in candidates:
-		# Calculate Euclidean distance to destination.
 		var euclid = candidate.distance_to(dest)
 		var extra_cost = 0
 		if candidate == queued_move:
-			extra_cost = 2
+			extra_cost += 2
+		# Add a penalty if the tile was visited this round.
+		if visited_tiles.has(candidate):
+			extra_cost += 5
 		var cost = euclid + extra_cost
 		if cost < best_cost:
 			best_cost = cost
 			best_candidate = candidate
 	
 	if best_candidate != tile_pos:
-		print("🚶 Fallback move found, planning move to:", best_candidate)
 		queued_move = best_candidate
+		visited_tiles.append(best_candidate)
+		print("🚶 Fallback move found, planning move to:", best_candidate)
 	else:
 		print("⛔ No valid tile found within movement range. This unit will not move this turn.")
 
