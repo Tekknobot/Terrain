@@ -87,6 +87,7 @@ func _input(event):
 			# Right click → show attack range only, don't change selected unit
 			if selected_unit:
 				showing_attack = true
+				_clear_highlights()
 				_show_range_for_selected_unit()
 
 	elif event is InputEventKey and event.pressed:
@@ -365,10 +366,11 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 	if count == 0:
 		return
 
-	var spacing = float(grid_width) / float(count + 1)
-
+	# Calculate the starting x position so the units appear centered
+	var start_x = int((grid_width - count) / 2)
+	
 	for i in range(count):
-		var x = clamp(int(round(spacing * (i + 1))) - 1, 0, grid_width - 1)
+		var x = clamp(start_x + i, 0, grid_width - 1)
 		_spawn_unit(units[i], Vector2i(x, row), is_player, used_tiles)
 
 func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]):
