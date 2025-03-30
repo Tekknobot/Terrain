@@ -77,27 +77,28 @@ func _input(event):
 
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit:
-				# Check if we're in attack mode.
+				# If we're in attack mode (right click activated) and the clicked tile has an enemy:
 				if showing_attack:
 					var enemy = get_unit_at_tile(mouse_tile)
-					# Ensure there is an enemy unit on the clicked tile and that it's adjacent.
 					if enemy and not enemy.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
-						# Call your attack method on the selected unit.
-						selected_unit.auto_attack_adjacent( )
-						
+						selected_unit.auto_attack_adjacent()
 						selected_unit.has_moved = true
 						var sprite := selected_unit.get_node("AnimatedSprite2D")
-						sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dark gray tint
-										
+						sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 						showing_attack = false
 						_clear_highlights()
 						play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 						return
-				# If not in attack mode, then move if the tile is highlighted.
-				elif highlighted_tiles.has(mouse_tile):
-					_move_selected_to(mouse_tile)
-					return
+				# Only allow manual movement if the selected unit is a player.
+				if selected_unit.is_player:
+					if highlighted_tiles.has(mouse_tile):
+						_move_selected_to(mouse_tile)
+						return
+				# If the selected unit is an enemy, you might simply show its range:
+				else:
+					_show_range_for_selected_unit()
 			_select_unit_at_mouse()
+
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# Right click sets up attack mode.
@@ -126,23 +127,24 @@ func _select_unit_at_mouse():
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
 
-	# Prevent movement selection only for player units that have already moved
+	# If no unit, clear selection.
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
-		#play_beep_sound(tile)
+		play_beep_sound(tile)
 		return
-		
+
+	# If it's a player unit that has already moved, ignore selection.
 	if unit.is_player and unit.has_moved:
 		selected_unit = null
 		showing_attack = false
 		play_beep_sound(tile)
 		return
-		
+
+	# Otherwise, allow selection for both players and enemies.
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
-
 	play_beep_sound(tile)
 
 func _show_range_for_selected_unit():
