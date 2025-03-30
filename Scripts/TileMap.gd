@@ -734,7 +734,7 @@ func spawn_new_enemy_units():
 		return  # Do not spawn any new units if at or above limit.
 	
 	# Determine how many new enemy units to spawn, limited to 3 per turn.
-	var units_to_spawn = min(3, max_enemy_units - current_count)
+	var units_to_spawn = min(1, max_enemy_units - current_count)
 	
 	# Create an array to track occupied spawn tiles.
 	var used_tiles: Array[Vector2i] = []
@@ -759,8 +759,9 @@ func spawn_new_enemy_units():
 		
 		used_tiles.append(spawn_tile)
 		
-		# Instantiate an enemy unit (using modulo if you have multiple enemy types).
-		var enemy_scene = enemy_units[i % enemy_units.size()]
+		# Instantiate a random enemy unit.
+		var random_index = randi() % enemy_units.size()
+		var enemy_scene = enemy_units[random_index]
 		var enemy_unit = enemy_scene.instantiate()
 		
 		enemy_unit.set_team(false)  # Set unit as enemy
