@@ -1,5 +1,5 @@
 ea4bc82a6ad023ab7ee23ee620429895
-::res://::1743288106
+::res://::1743295625
 icon.svg::CompressedTexture2D::5386714213251779679::1742446131::1742446134::1::::<><>::
 README.md::TextFile::-1::1742505458::0::1::::<><>::
 ::res://Audio/::1742592709
@@ -8,11 +8,11 @@ attack_default.wav::AudioStreamWAV::4557845464649724187::1734075766::1742593197:
 explosion_8bit.wav::AudioStreamWAV::8697155020520171370::1700464680::1742592715::1::::<><>::
 missile_launch.wav::AudioStreamWAV::3750671596837135289::1647425362::1742623170::1::::<><>::
 Retro Beeep 06.wav::AudioStreamWAV::1135877189744161791::1700464680::1742789837::1::::<><>::
-::res://Prefabs/::1743288136
-Missile.tscn::PackedScene::6379788369360577189::1743288136::0::1::::<><>::res://Scripts/Missile.gd<>uid://180q5qojg8k8::::res://Textures/missile.png<>uid://cw6p7njt8awwy::::res://Prefabs/missile_launch.wav
+::res://Prefabs/::1743295524
+Missile.tscn::PackedScene::6379788369360577189::1743295524::0::1::::<><>::res://Scripts/Missile.gd<>uid://180q5qojg8k8::::res://Textures/missile.png<>uid://cw6p7njt8awwy::::res://Prefabs/missile_launch.wav
 missile_launch.wav::AudioStreamWAV::6381960235709411212::1742623170::1742623170::1::::<><>::
-::res://Scenes/::1743288136
-Main.tscn::PackedScene::944248856760108746::1743288164::0::1::::<><>::uid://b3fmige5evt8r::::res://Sprites/Tiles_UI/tile_hover.png<>res://Scripts/BattleGrid.gd<>uid://56t0bjdw3rny::::res://Sprites/Tiles_UI/tile_hover_black.png<>uid://bvs7gpxakq282::::res://Sprites/Terrain/sandstone.png<>uid://dyigrwo5qmh4a::::res://Sprites/Tiles_UI/tile_hover_blue.png<>uid://6xil7xbbe3vx::::res://Sprites/Tiles_UI/tile_hover_red.png<>uid://bsdcosxsddrot::::res://Sprites/Terrain/ice.png<>uid://c1pruacv3xra5::::res://Sprites/Terrain/roads/16.png<>uid://rktlakqso06f::::res://Sprites/Tiles_UI/tile_hover_white.png<>uid://bp4obyr2a6lhr::::res://Sprites/Terrain/roads/17.png<>uid://d2hi70r47mggn::::res://Sprites/Tiles_UI/tile_walkable.png<>uid://eh6ocjhc4lti::::res://Sprites/Terrain/water.png<>uid://bkcixujm222r0::::res://Sprites/Terrain/roads/18.png<>res://Scripts/HoverTile.gd<>uid://bpsujbhwy03a0::::res://Scenes/Meks_Scenes/PLAYER/M1.scn<>uid://ci0nvbknkouk5::::res://Scenes/Meks_Scenes/CPU/M1.scn<>uid://bnqjqpd5lkacg::::res://Scenes/Meks_Scenes/PLAYER/M2.scn<>uid://isp3h3mc30kr::::res://Scenes/Meks_Scenes/CPU/M2.scn<>uid://by1nnygq8fbib::::res://Sprites/Terrain/dirt.png<>uid://bmuido3r5ktn4::::res://Scenes/Meks_Scenes/PLAYER/R1.scn<>uid://usc687xtdcac::::res://Sprites/Terrain/grass_default.png<>uid://d0nuwcj38jovf::::res://Scenes/Meks_Scenes/CPU/R1.scn<>uid://dqnyvmrsprmvf::::res://Sprites/Terrain/grass_snow.png<>uid://d4kyifny6a844::::res://Scenes/Meks_Scenes/PLAYER/R3.scn<>uid://ljo4wh1814ie::::res://Scenes/Meks_Scenes/CPU/R3.scn<>uid://kjjhlcxrti0l::::res://Scenes/Meks_Scenes/CPU/S2.scn<>uid://dok7nyn6rfklj::::res://Scenes/Meks_Scenes/PLAYER/S2.scn<>uid://bedhvs5lsjiuk::::res://Scenes/Meks_Scenes/CPU/S3.scn<>uid://f0axh6ymw2lc::::res://Scenes/Meks_Scenes/PLAYER/S3.scn<>uid://dx4l36fri7lqo::::res://Scenes/Structures_Scenes/building_c3.scn<>res://Scripts/TurnManager.gd<>uid://ta73ff7u5b2i::::res://Scenes/Structures_Scenes/building_d.tscn<>uid://bjego6do1vtmm::::res://Scenes/Structures_Scenes/building_e.tscn<>uid://b6reg1gechlys::::res://Scenes/Structures_Scenes/district.tscn<>uid://bj4tbqwo8ei00::::res://Scenes/Structures_Scenes/stadium.tscn<>uid://dumfkfxnng3od::::res://Scenes/Structures_Scenes/tower.tscn<>uid://bm1g128j70kea::::res://Scenes/VFX/StarNight.tscn
+::res://Scenes/::1743295524
+Main.tscn::PackedScene::944248856760108746::1743295524::0::1::::<><>::uid://b3fmige5evt8r::::res://Sprites/Tiles_UI/tile_hover.png<>res://Scripts/TileMap.gd<>uid://56t0bjdw3rny::::res://Sprites/Tiles_UI/tile_hover_black.png<>uid://bvs7gpxakq282::::res://Sprites/Terrain/sandstone.png<>uid://dyigrwo5qmh4a::::res://Sprites/Tiles_UI/tile_hover_blue.png<>uid://6xil7xbbe3vx::::res://Sprites/Tiles_UI/tile_hover_red.png<>uid://bsdcosxsddrot::::res://Sprites/Terrain/ice.png<>uid://c1pruacv3xra5::::res://Sprites/Terrain/roads/16.png<>uid://rktlakqso06f::::res://Sprites/Tiles_UI/tile_hover_white.png<>uid://bp4obyr2a6lhr::::res://Sprites/Terrain/roads/17.png<>uid://d2hi70r47mggn::::res://Sprites/Tiles_UI/tile_walkable.png<>uid://eh6ocjhc4lti::::res://Sprites/Terrain/water.png<>uid://bkcixujm222r0::::res://Sprites/Terrain/roads/18.png<>res://Scripts/HoverTile.gd<>uid://bpsujbhwy03a0::::res://Scenes/Meks_Scenes/PLAYER/M1.scn<>uid://ci0nvbknkouk5::::res://Scenes/Meks_Scenes/CPU/M1.scn<>uid://bnqjqpd5lkacg::::res://Scenes/Meks_Scenes/PLAYER/M2.scn<>uid://isp3h3mc30kr::::res://Scenes/Meks_Scenes/CPU/M2.scn<>uid://by1nnygq8fbib::::res://Sprites/Terrain/dirt.png<>uid://bmuido3r5ktn4::::res://Scenes/Meks_Scenes/PLAYER/R1.scn<>uid://usc687xtdcac::::res://Sprites/Terrain/grass_default.png<>uid://d0nuwcj38jovf::::res://Scenes/Meks_Scenes/CPU/R1.scn<>uid://dqnyvmrsprmvf::::res://Sprites/Terrain/grass_snow.png<>uid://d4kyifny6a844::::res://Scenes/Meks_Scenes/PLAYER/R3.scn<>uid://ljo4wh1814ie::::res://Scenes/Meks_Scenes/CPU/R3.scn<>uid://kjjhlcxrti0l::::res://Scenes/Meks_Scenes/CPU/S2.scn<>uid://dok7nyn6rfklj::::res://Scenes/Meks_Scenes/PLAYER/S2.scn<>uid://bedhvs5lsjiuk::::res://Scenes/Meks_Scenes/CPU/S3.scn<>uid://f0axh6ymw2lc::::res://Scenes/Meks_Scenes/PLAYER/S3.scn<>uid://dx4l36fri7lqo::::res://Scenes/Structures_Scenes/building_c3.scn<>res://Scripts/TurnManager.gd<>uid://ta73ff7u5b2i::::res://Scenes/Structures_Scenes/building_d.tscn<>uid://bjego6do1vtmm::::res://Scenes/Structures_Scenes/building_e.tscn<>uid://b6reg1gechlys::::res://Scenes/Structures_Scenes/district.tscn<>uid://bj4tbqwo8ei00::::res://Scenes/Structures_Scenes/stadium.tscn<>uid://dumfkfxnng3od::::res://Scenes/Structures_Scenes/tower.tscn<>uid://bm1g128j70kea::::res://Scenes/VFX/StarNight.tscn
 ::res://Scenes/Meks_Scenes/::1742464755
 ::res://Scenes/Meks_Scenes/CPU/::1743236347
 M1.scn::PackedScene::5386788451495914354::1743236347::0::1::::<><>::res://Scripts/Unit.gd<>uid://dpcs3qp8kvyhg::::res://Sprites/Meks/M1/m1atk_1.png<>uid://o02m6vb346nv::::res://Sprites/Meks/M1/m1atk_2.png<>uid://g6ajll1v8i1c::::res://Sprites/Meks/M1/m1atk_3.png<>uid://utnmb2ip3tym::::res://Sprites/Meks/M1/m1atk_4.png<>uid://bsjtdxk1jmq46::::res://Sprites/Meks/M1/m1atk_5.png<>uid://fw3gn5e3wao5::::res://Sprites/Meks/M1/m1atk_6.png<>uid://bedrjpys37gnq::::res://Sprites/Meks/M1/m1idle_1.png<>uid://cgvo5o4g8t7i7::::res://Sprites/Meks/M1/m1idle_2.png<>uid://bf0om5jfkhhdw::::res://Sprites/Meks/M1/m1idle_3.png<>uid://dsuegaaab5s07::::res://Sprites/Meks/M1/m1idle_4.png<>uid://dfukoee0luo5y::::res://Sprites/Meks/M1/m1move_1.png<>uid://b3jrtotkeeelh::::res://Sprites/Meks/M1/m1move_2.png<>uid://c8ku360hp3ei1::::res://Sprites/Meks/M1/m1move_3.png<>uid://c7w2d5pgml0xc::::res://Sprites/Meks/M1/m1move_4.png<>res://Scripts/HealthBar.gd
@@ -40,16 +40,16 @@ tower.tscn::PackedScene::8588133198547103279::1743192633::0::1::::<><>::res://Sc
 ::res://Scenes/VFX/::1743246618
 Explosion.tscn::PackedScene::3380709063271943721::1743246618::0::1::::<><>::uid://bkylv8dfqnkcg::::res://Sprites/Explosion/explosion1.png<>res://Scripts/Explosion.gd<>uid://5rowb55gcpdo::::res://Sprites/Explosion/explosion2.png<>uid://bd7brxhvng8x2::::res://Sprites/Explosion/explosion3.png<>uid://dba6mxmkieou5::::res://Sprites/Explosion/explosion4.png<>uid://7vhtauytorjm::::res://Sprites/Explosion/explosion5.png<>uid://cx563mikd8xgq::::res://Sprites/Explosion/explosion6.png<>uid://colhte0st8rgu::::res://Sprites/Explosion/explosion7.png<>uid://duocys137b0ff::::res://Sprites/Explosion/explosion8.png<>uid://12yes4vjuccq::::res://Sprites/Explosion/explosion9.png<>uid://d0b35fj4u2wvh::::res://Sprites/Explosion/explosion10.png<>uid://b0cc4uuasjv8a::::res://Sprites/Explosion/explosion11.png<>uid://btqqeif8wuqwt::::res://Sprites/Explosion/explosion12.png<>uid://ohqnd0ucje5w::::res://Sprites/Explosion/explosion13.png<>uid://bevk2t4jsk0ry::::res://Sprites/Explosion/explosion14.png<>uid://dv574wvo3nfbm::::res://Audio/SFX/explosion_8bit.wav
 StarNight.tscn::PackedScene::3282772831114845400::1743218036::0::1::::<><>::
-::res://Scripts/::1743288028
-BattleGrid.gd::GDScript::-1::1743288028::0::1::::<>TileMap<>::
+::res://Scripts/::1743288463
 Camera2D.gd::GDScript::-1::1743123247::0::1::::<>Camera2D<>::
 Explosion.gd::GDScript::-1::1743216392::0::1::::<>Node2D<>::
 HealthBar.gd::GDScript::-1::1742594248::0::1::::<>ProgressBar<>::
 HoverTile.gd::GDScript::-1::1743089517::0::1::::<>Sprite2D<>::
 Missile.gd::GDScript::-1::1742633293::0::1::::<>Node2D<>::
 Structure.gd::GDScript::-1::1743193423::0::1::::<>Node2D<>::
+TileMap.gd::GDScript::-1::1743288028::0::1::::<>TileMap<>::
 TurnManager.gd::GDScript::-1::1743208255::0::1::::<>Node<>::
-Unit.gd::GDScript::-1::1743216862::0::1::::<>Area2D<>::
+Unit.gd::GDScript::-1::1743288463::0::1::::<>Area2D<>::
 UnitAction.gd::GDScript::-1::1742613784::0::1::::UnitAction<>Resource<>::
 ::res://Sprites/::1743191313
 ::res://Sprites/Explosion/::1742592551
@@ -333,6 +333,6 @@ tile_hover_blue.png::CompressedTexture2D::8860705159403430422::1743084813::17430
 tile_hover_red.png::CompressedTexture2D::2223841937122132577::1743180860::1743180862::1::::<><>::
 tile_hover_white.png::CompressedTexture2D::1215027402182310167::1743084825::1743084840::1::::<><>::
 tile_walkable.png::CompressedTexture2D::9069355695637981873::1743180806::1743180829::1::::<><>::
-::res://Textures/::1743288136
-flash.gdshader::Shader::-1::1743288164::0::1::::<><>::
+::res://Textures/::1743295618
+flash.gdshader::Shader::-1::1743295618::0::1::::<><>::
 missile.png::CompressedTexture2D::1894582499060226809::1742622754::1742622758::1::::<><>::

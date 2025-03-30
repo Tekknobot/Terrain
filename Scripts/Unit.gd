@@ -157,8 +157,23 @@ func auto_attack_adjacent():
 					# Skip push logic if destination is water.
 					continue
 
+				# NEW: If the push position is off the tilemap, animate the unit being pushed off.
+				if not tilemap.is_within_bounds(push_pos):
+					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+					var push_speed = 150.0  # Adjust push speed as desired.
+					# Animate the unit moving toward the off-map target.
+					while unit.global_position.distance_to(target_pos) > 1.0:
+						var delta = get_process_delta_time()
+						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
+						await get_tree().process_frame
+					# Optionally wait a short time to let the animation complete.
+					await get_tree().create_timer(0.2).timeout
+					unit.die()
+					continue
+
+
+				# If push position is within bounds, perform push animation.
 				if tilemap.is_within_bounds(push_pos):
-					# Animate the push regardless of occupancy.
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0  # Adjust push speed as desired.
 					while unit.global_position.distance_to(target_pos) > 1.0:
@@ -176,20 +191,17 @@ func auto_attack_adjacent():
 							for occ in occupants:
 								# If the occupant is a structure.
 								if occ.is_in_group("Structures"):
-									#spawn_explosion_at(occ.global_position)
 									var occ_sprite = occ.get_node("AnimatedSprite2D")
 									if occ_sprite:
 										occ_sprite.play("demolished")
 										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 								# If the occupant is another unit.
 								elif occ.is_in_group("Units"):
-									await get_tree().create_timer(0.1).timeout
+									await get_tree().create_timer(0.2).timeout
 									occ.take_damage(damage)  # Adjust damage as needed.
 									occ.shake()
 							# In either case, the pushed unit dies.
 							unit.die()
-					# Otherwise, if the tile is free and walkable (only occupied by the unit itself), do nothing extra.
-					
 					# Update the AStar grid after any changes.
 					tilemap.update_astar_grid()
 
