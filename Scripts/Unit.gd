@@ -152,7 +152,7 @@ func auto_attack_adjacent():
 
 				# ➡ Push Logic:
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
-				# If the push tile is water, push onto water and apply water damage.
+				# Water branch: if push tile is water, animate push onto water and apply water damage.
 				if tile_id == water_tile_id:
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0  # Adjust push speed as desired.
@@ -164,32 +164,42 @@ func auto_attack_adjacent():
 					unit.global_position = target_pos
 					unit.tile_pos = push_pos  # Update the unit's tile position
 
-					# Spawn a splash effect at the target position.
+					# Spawn splash effect or play splash sound.
 					tilemap.play_splash_sound(target_pos)
-					
-					# Flash the unit blue.
-					var unit_sprite = unit.get_node("AnimatedSprite2D")
-					if unit_sprite:
-						unit_sprite.modulate = Color(0, 0, 0.8, 1)  # Blue
-						await get_tree().create_timer(0.2).timeout
-						unit_sprite.modulate = Color(1, 1, 1, 1)  # Reset to normal
-					
+
 					# Apply water damage.
 					var water_damage = 25  # Adjust water damage as needed.
 					died = unit.take_damage(water_damage)
 					if not died:
 						unit.shake()
 					
-					# Optionally wait a short time to let the effect play.
-					await get_tree().create_timer(0.2).timeout
+					# Flash the unit blue faster, preserving its original modulation.
+					var unit_sprite = unit.get_node("AnimatedSprite2D")
+					if unit_sprite:
+						var original_modulate = unit_sprite.modulate
+						for i in range(6):
+							unit_sprite.modulate = Color(0, 0.5, 1, 1)  # Set to blue (cyan is Color(0,1,1,1), but blue is Color(0,0,1,1))
+							await get_tree().create_timer(0.075).timeout
+							unit_sprite.modulate = original_modulate  # Restore original modulation
+							await get_tree().create_timer(0.075).timeout					
+						unit_sprite.modulate = original_modulate
 					
-					# Update the AStar grid after changes.
+				# Off-grid branch: if the push position is off the tilemap.
+				elif not tilemap.is_within_bounds(push_pos):
+					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+					var push_speed = 150.0
+					while unit.global_position.distance_to(target_pos) > 1.0:
+						var delta = get_process_delta_time()
+						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
+						await get_tree().process_frame
+					# Optionally wait a short time to let the animation complete.
+					await get_tree().create_timer(0.2).timeout
+					unit.die()
 					tilemap.update_astar_grid()
 					continue
 
-
-				# If push position is within bounds and not water, perform normal push animation.
-				if tilemap.is_within_bounds(push_pos):
+				# Normal push: push position is within bounds and not water.
+				elif tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0  # Adjust push speed as desired.
 					while unit.global_position.distance_to(target_pos) > 1.0:
@@ -199,7 +209,7 @@ func auto_attack_adjacent():
 					unit.global_position = target_pos
 					unit.tile_pos = push_pos  # Update the pushed unit's tile position.
 
-					# After push, check for occupancy.
+					# After the push animation, check for occupancy by another entity.
 					if tilemap.is_tile_occupied(push_pos):
 						var occupants = get_occupants_at(push_pos, unit)
 						if occupants.size() > 0:
@@ -211,7 +221,7 @@ func auto_attack_adjacent():
 										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 								elif occ.is_in_group("Units"):
 									await get_tree().create_timer(0.2).timeout
-									occ.take_damage(damage)
+									occ.take_damage(damage)  # Adjust damage as needed.
 									occ.shake()
 							unit.die()
 					tilemap.update_astar_grid()
@@ -343,6 +353,25 @@ func flash_white():
 		_flash_tween = null
 	)
 
+func flash_blue():
+	var sprite = $AnimatedSprite2D
+	if not sprite:
+		return
+
+	# Kill any existing flash
+	if _flash_tween:
+		_flash_tween.kill()
+		sprite.self_modulate = Color(1,1,1,1)
+		_flash_tween = null
+
+	_flash_tween = create_tween()
+	for i in range(3):
+		_flash_tween.tween_property(sprite, "self_modulate", Color(0,0,1,1), 0.1)
+		_flash_tween.tween_property(sprite, "self_modulate", Color(1,1,1,0), 0.1)
+	_flash_tween.tween_callback(func():
+		sprite.self_modulate = Color(1,1,1,1)
+		_flash_tween = null
+	)
 
 func set_team(player_team: bool):
 	is_player = player_team
