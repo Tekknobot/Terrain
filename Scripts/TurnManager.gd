@@ -31,9 +31,9 @@ func start_turn():
 		team_name = "PLAYER"
 	elif team == Team.ENEMY:
 		team_name = "ENEMY"
-
+	
 	print("🔁 Starting turn for:", team_name)
-
+	
 	emit_signal("turn_started", team)
 	_start_unit_action(team)
 
@@ -172,14 +172,23 @@ func find_next_reachable_enemy(unit, exclude := []):
 
 func end_turn():
 	emit_signal("turn_ended", turn_order[current_turn_index])
+	
+	# If the current turn was for the enemy, spawn reinforcements after they all move.
+	if turn_order[current_turn_index] == Team.ENEMY:
+		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		tilemap.spawn_new_enemy_units()
+		_populate_units()  # Refresh the list so new enemies are included in future enemy turns.
+	
+	# Advance to the next turn.
 	current_turn_index = (current_turn_index + 1) % turn_order.size()
 	active_unit_index = 0
-
+	
 	if active_units.is_empty():
 		print("Game Over — no units remain")
 		return
-
+	
 	call_deferred("start_turn")
+
 
 func unit_finished_action(unit):
 	active_unit_index += 1

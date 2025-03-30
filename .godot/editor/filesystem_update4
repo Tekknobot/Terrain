@@ -2,3 +2,5 @@ res://Scenes/Main.tscn
 res://Textures/flash.gdshader
 res://Prefabs/Missile.tscn
 res://Scripts/Unit.gd
+res://Scripts/TileMap.gd
+res://Scripts/TurnManager.gd

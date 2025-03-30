@@ -53,6 +53,8 @@ var completed_units
 @export var structure_scenes: Array[PackedScene]  # Add 6 structure scenes here
 @export var max_structures: int = 10
 
+@export var max_enemy_units: int = 10
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -721,3 +723,61 @@ func spawn_structures():
 		print("Spawned only", count, "structures after", attempts, "attempts.")
 	else:
 		print("Spawned", count, "structures.")
+
+func spawn_new_enemy_units():
+	# Count current enemy units on the board.
+	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)
+	var current_count = enemy_units_on_board.size()
+	
+	if current_count >= max_enemy_units:
+		print("Max enemy units reached:", current_count)
+		return  # Do not spawn any new units if at or above limit.
+	
+	# Determine how many new enemy units to spawn, limited to 3 per turn.
+	var units_to_spawn = min(3, max_enemy_units - current_count)
+	
+	# Create an array to track occupied spawn tiles.
+	var used_tiles: Array[Vector2i] = []
+	
+	# Define the spawn row for new enemy units (adjust as needed).
+	var spawn_row = 0
+	
+	# Calculate a starting x position so that units appear centered.
+	var start_x = int((grid_width - units_to_spawn) / 2)
+	
+	for i in range(units_to_spawn):
+		# Calculate the spawn tile along the row.
+		var x = clamp(start_x + i, 0, grid_width - 1)
+		var spawn_tile = Vector2i(x, spawn_row)
+		
+		# Ensure the spawn tile is valid, open, and not water.
+		if !is_within_bounds(spawn_tile) or is_tile_occupied(spawn_tile) or is_water_tile(spawn_tile):
+			# Try to find an alternative nearby open tile.
+			spawn_tile = _find_nearest_land(spawn_tile, used_tiles)
+			if spawn_tile == Vector2i(-1, -1):
+				continue  # Skip if no valid tile is found.
+		
+		used_tiles.append(spawn_tile)
+		
+		# Instantiate an enemy unit (using modulo if you have multiple enemy types).
+		var enemy_scene = enemy_units[i % enemy_units.size()]
+		var enemy_unit = enemy_scene.instantiate()
+		
+		enemy_unit.set_team(false)  # Set unit as enemy
+		enemy_unit.tile_pos = spawn_tile
+		enemy_unit.add_to_group("Units")
+		add_child(enemy_unit)
+		
+		# Determine the target position based on the tile.
+		var target_pos = to_global(map_to_local(spawn_tile)) + Vector2(0, enemy_unit.Y_OFFSET)
+		
+		# Create a drop effect: start above the target position.
+		var drop_offset = 100.0  # Adjust how high above the tile the enemy starts.
+		enemy_unit.global_position = target_pos - Vector2(0, drop_offset)
+		
+		# Animate the enemy dropping into place using a tween.
+		var tween = enemy_unit.create_tween()
+		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	
+	# Optionally, update the AStar grid after spawning new units.
+	update_astar_grid()
