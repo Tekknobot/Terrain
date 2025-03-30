@@ -26,6 +26,18 @@ func _populate_units():
 func start_turn():
 	var team = turn_order[current_turn_index]
 
+	var player_units_exist = false
+	var enemy_units_exist = false
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.is_player:
+			player_units_exist = true
+		else:
+			enemy_units_exist = true
+
+	if not player_units_exist or not enemy_units_exist:
+		print("🏁 Game Over — no units remain for one team. Turn will not start.")
+		return  # ← Prevent starting turn if game over
+	
 	var team_name = "UNKNOWN"
 	if team == Team.PLAYER:
 		team_name = "PLAYER"
@@ -36,6 +48,7 @@ func start_turn():
 	
 	emit_signal("turn_started", team)
 	_start_unit_action(team)
+
 
 # Helper to return adjacent positions (4-directional)
 func get_adjacent_tiles(tile: Vector2i) -> Array:
@@ -170,23 +183,34 @@ func find_next_reachable_enemy(unit, exclude := []):
 
 	return null
 
-func end_turn():
+func end_turn(game_over: bool = false):
 	emit_signal("turn_ended", turn_order[current_turn_index])
+
+	if game_over:
+		print("🏁 Game Over detected in end_turn, aborting spawn.")
+		return
 	
-	# If the current turn was for the enemy, spawn reinforcements after they all move.
+	# Check if any team has no units left
+	var player_units_exist = false
+	var enemy_units_exist = false
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.is_player:
+			player_units_exist = true
+		else:
+			enemy_units_exist = true
+	
+	if not player_units_exist or not enemy_units_exist:
+		print("🏁 Game Over — no units remain for one team.")
+		return  # ← Prevent further spawning and turns if game over
+
 	if turn_order[current_turn_index] == Team.ENEMY:
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		tilemap.spawn_new_enemy_units()
-		_populate_units()  # Refresh the list so new enemies are included in future enemy turns.
-	
-	# Advance to the next turn.
+		_populate_units()
+
 	current_turn_index = (current_turn_index + 1) % turn_order.size()
 	active_unit_index = 0
-	
-	if active_units.is_empty():
-		print("Game Over — no units remain")
-		return
-	
+
 	call_deferred("start_turn")
 
 
