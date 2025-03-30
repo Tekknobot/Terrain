@@ -89,11 +89,12 @@ func _input(event):
 						_clear_highlights()
 						play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 						return
-				# Only allow manual movement if the selected unit is a player.
-				if selected_unit.is_player:
+				# Only allow manual movement if the selected unit is a player and we're not in attack mode.
+				if selected_unit.is_player and not showing_attack:
 					if highlighted_tiles.has(mouse_tile):
 						_move_selected_to(mouse_tile)
 						return
+
 				# If the selected unit is an enemy, you might simply show its range:
 				else:
 					_show_range_for_selected_unit()
