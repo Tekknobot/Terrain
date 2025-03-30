@@ -579,12 +579,22 @@ var water_material = preload("res://Textures/in_water.tres")
 func apply_water_effect(unit: Node) -> void:
 	var sprite = unit.get_node("AnimatedSprite2D")
 	if sprite:
-		# Save the original material if it hasn't been stored already.
+		# Save original material if not stored already.
 		if not sprite.has_meta("original_material"):
 			sprite.set_meta("original_material", sprite.material)
 		# Apply the water material.
 		sprite.material = water_material
+
+		# Determine which base_modulate to use.
+		var base_mod = Color(1, 1, 1, 1)  # Default for player.
+		if not unit.is_player:
+			base_mod = Color(1, 0.43, 1, 1)  # Example enemy tint.
+
+		# If the water material is a ShaderMaterial, set its base_modulate parameter.
+		if sprite.material is ShaderMaterial:
+			sprite.material.set_shader_parameter("base_modulate", base_mod)
 		print("Water material applied to", unit.name)
+
 
 func remove_water_effect(unit: Node) -> void:
 	var sprite = unit.get_node("AnimatedSprite2D")
@@ -592,7 +602,12 @@ func remove_water_effect(unit: Node) -> void:
 		# Restore the original material.
 		sprite.material = sprite.get_meta("original_material")
 		sprite.remove_meta("original_material")
+		# Restore the original modulate.
+		if sprite.has_meta("original_modulate"):
+			sprite.modulate = sprite.get_meta("original_modulate")
+			sprite.remove_meta("original_modulate")
 		print("Original material restored for", unit.name)
+
 
 func check_water_status():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
