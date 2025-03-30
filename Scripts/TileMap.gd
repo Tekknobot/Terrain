@@ -7,7 +7,7 @@ const DOWN_LEFT_ROAD = 13
 @export var grid_width: int = 10
 @export var grid_height: int = 20
 
-@export var water_threshold := -0.3
+@export var water_threshold := -0.2
 @export var sandstone_threshold := -0.2
 @export var dirt_threshold := 0.1
 @export var grass_threshold := 0.4
@@ -69,10 +69,6 @@ func _post_map_generation():
 	_setup_camera()
 	update_astar_grid()
 
-	print("✅ Map post-gen complete. All units:")
-	for unit in get_tree().get_nodes_in_group("Units"):
-		print("  -", unit.name, "at", unit.tile_pos, "is_player:", unit.is_player)
-	
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 16)))

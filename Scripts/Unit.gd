@@ -39,6 +39,7 @@ func _ready():
 func _process(delta):
 	update_z_index()
 	_update_tile_pos()  # Ensure tile_pos is current
+	check_water_status()
 
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -166,23 +167,14 @@ func auto_attack_adjacent():
 
 					# Spawn splash effect or play splash sound.
 					tilemap.play_splash_sound(target_pos)
-
+					apply_water_effect(unit)
+					
 					# Apply water damage.
 					var water_damage = 25  # Adjust water damage as needed.
 					died = unit.take_damage(water_damage)
 					if not died:
 						unit.shake()
-					
-					# Flash the unit blue faster, preserving its original modulation.
-					var unit_sprite = unit.get_node("AnimatedSprite2D")
-					if unit_sprite:
-						var original_modulate = unit_sprite.modulate
-						for i in range(6):
-							unit_sprite.modulate = Color(0, 0.5, 1, 1)  # Set to blue (cyan is Color(0,1,1,1), but blue is Color(0,0,1,1))
-							await get_tree().create_timer(0.075).timeout
-							unit_sprite.modulate = original_modulate  # Restore original modulation
-							await get_tree().create_timer(0.075).timeout					
-						unit_sprite.modulate = original_modulate
+
 					
 				# Off-grid branch: if the push position is off the tilemap.
 				elif not tilemap.is_within_bounds(push_pos):
@@ -580,3 +572,34 @@ func shake():
 	tween.tween_property(self, "global_position", original_position - Vector2(5, 0), 0.05)
 	# Return to original position.
 	tween.tween_property(self, "global_position", original_position, 0.05)
+
+# Preload your water material (make sure the path is correct)
+var water_material = preload("res://Textures/in_water.tres")
+
+func apply_water_effect(unit: Node) -> void:
+	var sprite = unit.get_node("AnimatedSprite2D")
+	if sprite:
+		# Save the original material if it hasn't been stored already.
+		if not sprite.has_meta("original_material"):
+			sprite.set_meta("original_material", sprite.material)
+		# Apply the water material.
+		sprite.material = water_material
+		print("Water material applied to", unit.name)
+
+func remove_water_effect(unit: Node) -> void:
+	var sprite = unit.get_node("AnimatedSprite2D")
+	if sprite and sprite.has_meta("original_material"):
+		# Restore the original material.
+		sprite.material = sprite.get_meta("original_material")
+		sprite.remove_meta("original_material")
+		print("Original material restored for", unit.name)
+
+func check_water_status():
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	# Check the tile at the unit's current position.
+	if tilemap.get_cell_source_id(0, tile_pos) == water_tile_id:
+		# Unit is on water: apply water effect if not already applied.
+		apply_water_effect(self)
+	else:
+		# Unit is off water: remove water effect if it’s currently applied.
+		remove_water_effect(self)

@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://cib32jd6eakdl"]
+
+[ext_resource type="Shader" path="res://Textures/in_water.gdshader" id="1_lbkrg"]
+
+[resource]
+shader = ExtResource("1_lbkrg")
+shader_parameter/target_color = Vector4(0, 1, 1, 1)
+shader_parameter/pulse_speed = 3.0
+shader_parameter/threshold = 0.15
