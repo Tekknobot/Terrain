@@ -153,7 +153,7 @@ func auto_attack_adjacent():
 
 				# ➡ Push Logic:
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
-				# Water branch: if push tile is water, animate push onto water and apply water damage.
+				# Water branch: if push tile is water, animate push onto water, apply water effect, and then check for occupancy.
 				if tile_id == water_tile_id:
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0  # Adjust push speed as desired.
@@ -169,13 +169,34 @@ func auto_attack_adjacent():
 					tilemap.play_splash_sound(target_pos)
 					apply_water_effect(unit)
 					
-					# Apply water damage.
+					# First, check if the water tile is already occupied.
+					if tilemap.is_tile_occupied(push_pos):
+						var occupants = get_occupants_at(push_pos, unit)
+						if occupants.size() > 0:
+							for occ in occupants:
+								if occ.is_in_group("Structures"):
+									var occ_sprite = occ.get_node("AnimatedSprite2D")
+									if occ_sprite:
+										occ_sprite.play("demolished")
+										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+								elif occ.is_in_group("Units"):
+									await get_tree().create_timer(0.2).timeout
+									occ.take_damage(damage)  # Adjust damage as needed.
+									occ.shake()
+							unit.die()
+							tilemap.update_astar_grid()
+							continue
+					
+					# Otherwise, apply water damage normally.
 					var water_damage = 25  # Adjust water damage as needed.
 					died = unit.take_damage(water_damage)
 					if not died:
 						unit.shake()
-
 					
+					await get_tree().create_timer(0.2).timeout
+					tilemap.update_astar_grid()
+					continue
+
 				# Off-grid branch: if the push position is off the tilemap.
 				elif not tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
