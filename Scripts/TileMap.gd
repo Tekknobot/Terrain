@@ -416,20 +416,21 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 
 
 func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
-	var direction := -1  # default = upward (for player units)
-
-	# if enemy side, move downward
+	var direction := -1  # default = upward
+	# For enemy units, we might want to move downward.
 	if start.y == 0:
 		direction = 1
 
 	var pos := start
 	while is_within_bounds(pos):
-		if not is_water_tile(pos) and not used_tiles.has(pos):
+		# Check that the tile is not water, not already used, and not occupied.
+		if not is_water_tile(pos) and not used_tiles.has(pos) and not is_tile_occupied(pos):
 			return pos
 		pos.y += direction
 
 	push_warning("⚠ No valid land tile found in straight path from %s" % start)
 	return Vector2i(-1, -1)
+
 
 func is_water_tile(tile: Vector2i) -> bool:
 	return get_cell_source_id(0, tile) == water_tile_id
@@ -733,7 +734,7 @@ func spawn_new_enemy_units():
 		print("Max enemy units reached:", current_count)
 		return  # Do not spawn any new units if at or above limit.
 	
-	# Determine how many new enemy units to spawn, limited to 3 per turn.
+	# Determine how many new enemy units to spawn, limited to 1 per turn here.
 	var units_to_spawn = min(1, max_enemy_units - current_count)
 	
 	# Create an array to track occupied spawn tiles.
@@ -750,7 +751,7 @@ func spawn_new_enemy_units():
 		var x = clamp(start_x + i, 0, grid_width - 1)
 		var spawn_tile = Vector2i(x, spawn_row)
 		
-		# Ensure the spawn tile is valid, open, and not water.
+		# Check if the spawn tile is valid, open, and not water.
 		if !is_within_bounds(spawn_tile) or is_tile_occupied(spawn_tile) or is_water_tile(spawn_tile):
 			# Try to find an alternative nearby open tile.
 			spawn_tile = _find_nearest_land(spawn_tile, used_tiles)
