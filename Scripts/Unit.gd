@@ -395,7 +395,6 @@ func set_team(player_team: bool):
 func check_adjacent_and_attack():
 	if has_adjacent_enemy():
 		print("✅ Adjacent enemy detected after movement")
-		display_attack_range(1)
 		auto_attack_adjacent()
 	else:
 		print("❌ No adjacent enemy after movement")
