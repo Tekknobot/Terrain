@@ -3,3 +3,5 @@ res://Textures/flash.gdshader
 res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Prefabs/Missile.tscn
+res://Scripts/Camera2D.gd
+res://Scripts/TileMap.gd

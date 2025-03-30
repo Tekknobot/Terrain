@@ -6,6 +6,11 @@ var dragging := false
 var drag_start := Vector2.ZERO
 var camera_start := Vector2.ZERO
 
+# For pinch zooming
+var active_touches := {}
+var pinch_initial_distance := 0.0
+var pinch_initial_zoom_index := 0
+
 func _ready():
 	zoom = zoom_levels[current_zoom_index]
 	set_process_unhandled_input(true)  
@@ -17,7 +22,7 @@ func _ready():
 	global_position = tilemap.to_global(tilemap.map_to_local(center_tile))
 
 func _unhandled_input(event):
-	# Zoom
+	# Desktop zooming via mouse wheel
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			current_zoom_index = max(current_zoom_index - 1, 0)
@@ -26,7 +31,7 @@ func _unhandled_input(event):
 			current_zoom_index = min(current_zoom_index + 1, zoom_levels.size() - 1)
 			_zoom_camera()
 		
-		# Dragging
+		# Desktop dragging via left click
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if is_click_on_empty_tile():
@@ -36,8 +41,46 @@ func _unhandled_input(event):
 			else:
 				dragging = false
 
+	# Desktop dragging motion
 	elif event is InputEventMouseMotion and dragging:
 		global_position = camera_start - (get_global_mouse_position() - drag_start) * 0.6
+
+	# Touch events for pinch zoom (Android)
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			# Register touch with its index
+			active_touches[event.index] = event.position
+			# If exactly two touches are active, start pinch gesture
+			if active_touches.size() == 2:
+				var touches = active_touches.values()
+				pinch_initial_distance = touches[0].distance_to(touches[1])
+				pinch_initial_zoom_index = current_zoom_index
+		else:
+			# Touch released – remove from dictionary
+			active_touches.erase(event.index)
+			# Reset pinch state if less than 2 touches remain
+			if active_touches.size() < 2:
+				pinch_initial_distance = 0.0
+
+	elif event is InputEventScreenDrag:
+		# Update the position of the dragging touch
+		active_touches[event.index] = event.position
+		# If two touches are active, process pinch zoom
+		if active_touches.size() == 2 and pinch_initial_distance > 0.0:
+			var touches = active_touches.values()
+			var current_distance = touches[0].distance_to(touches[1])
+			# Calculate ratio: >1 means fingers moved apart (zoom out), <1 means pinch (zoom in)
+			var ratio = current_distance / pinch_initial_distance
+			# Determine an offset based on the ratio. The multiplier (here 5) controls sensitivity.
+			var offset := 0
+			if ratio > 1:
+				offset = int((ratio - 1) * 5)
+			elif ratio < 1:
+				offset = -int((1 - ratio) * 5)
+			var new_index = clamp(pinch_initial_zoom_index + offset, 0, zoom_levels.size() - 1)
+			if new_index != current_zoom_index:
+				current_zoom_index = new_index
+				_zoom_camera()
 
 func _zoom_camera():
 	var tween = create_tween()

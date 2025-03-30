@@ -56,12 +56,28 @@ var completed_units
 
 @export var max_enemy_units: int = 10
 
+# Add a new variable at the top of your script.
+var hold_time: float = 0.0
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
 	_generate_map()
 
 	call_deferred("_post_map_generation")  # Wait until the next frame
+
+# New _process function to check for a continuous press.
+func _process(delta):
+	# Only accumulate hold time if the left mouse button is pressed and a unit is selected.
+	if selected_unit and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		hold_time += delta
+		if hold_time >= 1.0:
+			# Toggle attack mode on every 2 seconds of holding.
+			showing_attack = not showing_attack
+			_update_highlight_display()  # update highlights to reflect the new mode.
+			hold_time = 0.0  # reset the timer so holding continues to toggle every 2 seconds.
+	else:
+		hold_time = 0.0  # reset if the mouse button is released.
 
 func _post_map_generation():
 	_spawn_teams()
