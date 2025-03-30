@@ -65,7 +65,7 @@ func _ready():
 
 func _post_map_generation():
 	_spawn_teams()
-	spawn_structures()  # Spawn structures after the map is generated.		
+	spawn_structures()  # Spawn structures after the map is generated.
 	_setup_camera()
 	update_astar_grid()
 
@@ -132,7 +132,6 @@ func _select_unit_at_mouse():
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
-		play_beep_sound(tile)
 		return
 
 	# If it's a player unit that has already moved, ignore selection.
@@ -466,7 +465,7 @@ func _setup_camera():
 	
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
 	camera.global_position = to_global(map_to_local(center_tile))
-	camera.zoom = Vector2(5, 5) 
+	camera.zoom = Vector2(5, 5)
 	
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.global_position)
 
@@ -545,7 +544,7 @@ func on_player_unit_done(unit: Node2D):
 		var turn_manager = get_node("/root/TurnManager")
 		if turn_manager:
 			turn_manager.end_turn()
-			set_end_turn_button_enabled(false)			
+			set_end_turn_button_enabled(false)
 
 func _execute_all_player_units():
 	for unit in all_units:
