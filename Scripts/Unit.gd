@@ -148,31 +148,47 @@ func auto_attack_adjacent():
 				# 🎖 Grant XP if the target died from the damage.
 				if died:
 					gain_xp(50)
-					continue  # Unit is already dead.
+					continue  # Stop further processing for this target.
 
 				# ➡ Push Logic:
-				# Do not push into water.
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
+				# If the push tile is water, push onto water and apply water damage.
 				if tile_id == water_tile_id:
-					# Skip push logic if destination is water.
-					continue
-
-				# NEW: If the push position is off the tilemap, animate the unit being pushed off.
-				if not tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0  # Adjust push speed as desired.
-					# Animate the unit moving toward the off-map target.
+					# Animate the unit moving toward the water tile.
 					while unit.global_position.distance_to(target_pos) > 1.0:
 						var delta = get_process_delta_time()
 						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
 						await get_tree().process_frame
-					# Optionally wait a short time to let the animation complete.
+					unit.global_position = target_pos
+					unit.tile_pos = push_pos  # Update the unit's tile position
+
+					# Spawn a splash effect at the target position.
+					tilemap.play_splash_sound(target_pos)
+					
+					# Flash the unit blue.
+					var unit_sprite = unit.get_node("AnimatedSprite2D")
+					if unit_sprite:
+						unit_sprite.modulate = Color(0, 0, 0.8, 1)  # Blue
+						await get_tree().create_timer(0.2).timeout
+						unit_sprite.modulate = Color(1, 1, 1, 1)  # Reset to normal
+					
+					# Apply water damage.
+					var water_damage = 25  # Adjust water damage as needed.
+					died = unit.take_damage(water_damage)
+					if not died:
+						unit.shake()
+					
+					# Optionally wait a short time to let the effect play.
 					await get_tree().create_timer(0.2).timeout
-					unit.die()
+					
+					# Update the AStar grid after changes.
+					tilemap.update_astar_grid()
 					continue
 
 
-				# If push position is within bounds, perform push animation.
+				# If push position is within bounds and not water, perform normal push animation.
 				if tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0  # Adjust push speed as desired.
@@ -183,26 +199,21 @@ func auto_attack_adjacent():
 					unit.global_position = target_pos
 					unit.tile_pos = push_pos  # Update the pushed unit's tile position.
 
-					# After the push animation, check for occupancy by another entity.
-					# We ignore the pushed unit itself.
+					# After push, check for occupancy.
 					if tilemap.is_tile_occupied(push_pos):
 						var occupants = get_occupants_at(push_pos, unit)
 						if occupants.size() > 0:
 							for occ in occupants:
-								# If the occupant is a structure.
 								if occ.is_in_group("Structures"):
 									var occ_sprite = occ.get_node("AnimatedSprite2D")
 									if occ_sprite:
 										occ_sprite.play("demolished")
 										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-								# If the occupant is another unit.
 								elif occ.is_in_group("Units"):
 									await get_tree().create_timer(0.2).timeout
-									occ.take_damage(damage)  # Adjust damage as needed.
+									occ.take_damage(damage)
 									occ.shake()
-							# In either case, the pushed unit dies.
 							unit.die()
-					# Update the AStar grid after any changes.
 					tilemap.update_astar_grid()
 
 # Helper function to retrieve the occupant (unit or structure) at a given tile.

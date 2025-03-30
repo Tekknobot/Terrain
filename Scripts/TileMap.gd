@@ -43,6 +43,7 @@ var moving := false
 
 var attack_sound = preload("res://Audio/SFX/attack_default.wav")  # Replace with your actual path
 var beep_sound = preload("res://Audio/SFX/Retro Beeep 06.wav")  # Replace with your actual path
+var splash_sound = preload("res://Audio/SFX/water-splash-199583.mp3")  # Replace with your actual path
 
 var all_units: Array[Node2D]
 var current_unit_index := 0
@@ -488,6 +489,15 @@ func play_beep_sound(pos: Vector2):
 		player.stream = beep_sound
 		player.global_position = pos
 		player.play()
+
+func play_splash_sound(pos: Vector2):
+	var player := $AudioStreamPlayer2D
+	if player:
+		player.stop()
+		player.stream = splash_sound
+		player.global_position = pos
+		player.play()
+
 
 var all_player_units: Array[Node2D] = []
 var finished_player_units: Array[Node2D] = []
