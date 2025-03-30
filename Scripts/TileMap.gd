@@ -133,7 +133,7 @@ func _select_unit_at_mouse():
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
-		play_beep_sound(tile)
+		#play_beep_sound(tile)
 		return
 		
 	if unit.is_player and unit.has_moved:
