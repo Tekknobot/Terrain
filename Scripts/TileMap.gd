@@ -7,7 +7,7 @@ const DOWN_LEFT_ROAD = 13
 @export var grid_width: int = 10
 @export var grid_height: int = 20
 
-@export var water_threshold := -0.15
+@export var water_threshold := -0.6
 @export var sandstone_threshold := -0.2
 @export var dirt_threshold := 0.1
 @export var grass_threshold := 0.4
