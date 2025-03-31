@@ -95,15 +95,27 @@ func _input(event):
 
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit:
-				# If we're in attack mode (right click activated) and the clicked tile has an enemy:
+				# If we're in attack mode (right click activated) and the clicked tile has an enemy or structure:
 				if showing_attack:
+					# Try to get an enemy unit and a structure at the clicked tile.
 					var enemy = get_unit_at_tile(mouse_tile)
-					if enemy and not enemy.is_player:
+					var structure = get_structure_at_tile(mouse_tile)
+					
+					# If there's either an enemy (that isn't a player) or a structure:
+					if (enemy and not enemy.is_player) or structure:
 						# Check if the selected unit is ranged or support.
 						if selected_unit.unit_type in ["Ranged", "Support"]:
-							# For ranged/support units, allow any enemy within attack_range.
-							if manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
+							# If enemy exists, use its tile position.
+							if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 								selected_unit.auto_attack_ranged(enemy, selected_unit)
+								var sprite := selected_unit.get_node("AnimatedSprite2D")
+								sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+								showing_attack = false
+								_clear_highlights()
+								return
+							# Otherwise, if a structure is found, assume it has a tile_pos property.
+							elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
+								selected_unit.auto_attack_ranged(structure, selected_unit)
 								var sprite := selected_unit.get_node("AnimatedSprite2D")
 								sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 								showing_attack = false
@@ -111,7 +123,7 @@ func _input(event):
 								return
 						else:
 							# For melee units, require the enemy to be exactly adjacent.
-							if manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+							if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 								selected_unit.auto_attack_adjacent()
 								selected_unit.has_moved = true
 								var sprite := selected_unit.get_node("AnimatedSprite2D")
@@ -121,18 +133,20 @@ func _input(event):
 								play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 								return
 				# Only allow manual movement if the selected unit is a player and we're not in attack mode.
-				if selected_unit.is_player and not showing_attack:
+				if is_instance_valid(selected_unit) and selected_unit.is_player and not showing_attack:
 					if highlighted_tiles.has(mouse_tile):
+						if selected_unit.has_moved:
+							return
 						_move_selected_to(mouse_tile)
 						var sprite = selected_unit.get_node("AnimatedSprite2D")
-						sprite.self_modulate = Color(1, 0.75, 0.75, 1)							
+						sprite.self_modulate = Color(1, 0.6, 0.6, 1)
 						return
 
-				# If the selected unit is an enemy, you might simply show its range:
+
+				# If the selected unit is an enemy, simply show its range:
 				else:
 					_show_range_for_selected_unit()
 			_select_unit_at_mouse()
-
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# Right click sets up attack mode.
@@ -182,6 +196,9 @@ func _show_range_for_selected_unit():
 	var range = 0
 	var tile_id = 0
 
+	if selected_unit == null:
+		return
+
 	if showing_attack:
 		range = selected_unit.attack_range
 		tile_id = attack_tile_id
@@ -211,7 +228,7 @@ func _update_highlight_display():
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 	# In attack mode, allow highlighting even if tiles are water or occupied,
-	# except for those occupied by structures.
+	# and now also allow tiles occupied by structures.
 	var allow_occupied = (tile_id == attack_tile_id)
 	
 	var frontier = [start]
@@ -224,13 +241,11 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 		# For non-starting tiles...
 		if dist > 0:
 			if allow_occupied:
-				# In attack mode, ignore water and general occupancy,
-				# but if a structure occupies the tile, skip highlighting it.
-				if get_structure_at_tile(current) == null:
-					set_cell(1, current, tile_id, Vector2i.ZERO)
-					highlighted_tiles.append(current)
+				# In attack mode, ignore water, occupancy, and structures.
+				set_cell(1, current, tile_id, Vector2i.ZERO)
+				highlighted_tiles.append(current)
 			else:
-				# In movement mode, only highlight if not water, not occupied, 
+				# In movement mode, only highlight if not water, not occupied,
 				# and not occupied by a structure.
 				if not is_water_tile(current) and not is_tile_occupied(current) and get_structure_at_tile(current) == null:
 					set_cell(1, current, tile_id, Vector2i.ZERO)
@@ -244,11 +259,9 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 			var neighbor = current + dir
 			if is_within_bounds(neighbor) and not distances.has(neighbor):
 				if allow_occupied:
-					# In attack mode, add neighbors even if occupied,
-					# but do not expand into a tile if it's occupied by a structure.
-					if get_structure_at_tile(neighbor) == null:
-						distances[neighbor] = dist + 1
-						frontier.append(neighbor)
+					# In attack mode, add neighbors regardless of occupancy or structures.
+					distances[neighbor] = dist + 1
+					frontier.append(neighbor)
 				else:
 					# Otherwise, add neighbor only if walkable, not occupied, and not occupied by a structure.
 					if _is_tile_walkable(neighbor) and not is_tile_occupied(neighbor) and get_structure_at_tile(neighbor) == null:

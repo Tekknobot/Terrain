@@ -122,12 +122,13 @@ func _start_unit_action(team):
 			
 			# Execute the planned movement.
 			await unit.execute_actions()
-			
+					
 			# Now, if the unit is ranged, check for a valid target.
 			if unit.unit_type == "Ranged" or unit.unit_type == "Support":
 				var ranged_target = _find_ranged_target(unit)
 				if ranged_target:
 					print("🤖 Ranged enemy", unit.name, "attacking target", ranged_target.name)
+					unit.has_moved = true
 					await unit.auto_attack_ranged(ranged_target, unit)
 				# (Optional: you might let a melee enemy also attack here if adjacent.)
 			else:
