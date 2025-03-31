@@ -128,8 +128,7 @@ func _start_unit_action(team):
 				var ranged_target = _find_ranged_target(unit)
 				if ranged_target:
 					print("🤖 Ranged enemy", unit.name, "attacking target", ranged_target.name)
-					await unit.auto_attack_ranged(ranged_target)
-					unit.has_attacked = true
+					await unit.auto_attack_ranged(ranged_target, unit)
 				# (Optional: you might let a melee enemy also attack here if adjacent.)
 			else:
 				# For melee units, check if there is an adjacent enemy to attack.

@@ -639,7 +639,7 @@ func check_water_status():
 		# Unit is off water: remove water effect if it’s currently applied.
 		remove_water_effect(self)
 
-func auto_attack_ranged(target: Node) -> void:
+func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	if not is_instance_valid(target):
 		return
 
@@ -659,6 +659,8 @@ func auto_attack_ranged(target: Node) -> void:
 	
 	# Use the connection syntax that supports binds.
 	missile.connect("finished", Callable(self, "_on_ranged_attack_finished"), 0)
+
+	unit.has_moved = true
 
 func _on_ranged_attack_finished(target: Node) -> void:
 	# When the missile “hits”, if the target is still valid, apply damage and show visual feedback.

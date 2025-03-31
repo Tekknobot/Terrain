@@ -103,8 +103,7 @@ func _input(event):
 						if selected_unit.unit_type in ["Ranged", "Support"]:
 							# For ranged/support units, allow any enemy within attack_range.
 							if manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
-								selected_unit.auto_attack_ranged(enemy)
-								selected_unit.has_moved = true
+								selected_unit.auto_attack_ranged(enemy, selected_unit)
 								var sprite := selected_unit.get_node("AnimatedSprite2D")
 								sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 								showing_attack = false
