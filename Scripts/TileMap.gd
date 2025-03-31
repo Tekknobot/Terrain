@@ -208,7 +208,8 @@ func _update_highlight_display():
 	_highlight_range(selected_unit.tile_pos, range, tile_id)
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
-	# If we're in attack mode, allow highlighting occupied tiles.
+	# In attack mode, allow highlighting even if tiles are water or occupied,
+	# except for those occupied by structures.
 	var allow_occupied = (tile_id == attack_tile_id)
 	
 	var frontier = [start]
@@ -218,24 +219,39 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 		var current = frontier.pop_front()
 		var dist = distances[current]
 
-		# Only highlight if it's not water and (if not allowing occupied, ensure it's not occupied)
+		# For non-starting tiles...
 		if dist > 0:
-			if not is_water_tile(current) and (allow_occupied or not is_tile_occupied(current)):
-				set_cell(1, current, tile_id, Vector2i.ZERO)
-				highlighted_tiles.append(current)
+			if allow_occupied:
+				# In attack mode, ignore water and general occupancy,
+				# but if a structure occupies the tile, skip highlighting it.
+				if get_structure_at_tile(current) == null:
+					set_cell(1, current, tile_id, Vector2i.ZERO)
+					highlighted_tiles.append(current)
+			else:
+				# In movement mode, only highlight if not water, not occupied, 
+				# and not occupied by a structure.
+				if not is_water_tile(current) and not is_tile_occupied(current) and get_structure_at_tile(current) == null:
+					set_cell(1, current, tile_id, Vector2i.ZERO)
+					highlighted_tiles.append(current)
 
 		if dist == max_dist:
 			continue
 
+		# Expand the search.
 		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var neighbor = current + dir
-			# When exploring neighbors, only check for occupancy if we're not in attack mode.
-			if is_within_bounds(neighbor) \
-			and not distances.has(neighbor) \
-			and _is_tile_walkable(neighbor) \
-			and (allow_occupied or not is_tile_occupied(neighbor)):
-				distances[neighbor] = dist + 1
-				frontier.append(neighbor)
+			if is_within_bounds(neighbor) and not distances.has(neighbor):
+				if allow_occupied:
+					# In attack mode, add neighbors even if occupied,
+					# but do not expand into a tile if it's occupied by a structure.
+					if get_structure_at_tile(neighbor) == null:
+						distances[neighbor] = dist + 1
+						frontier.append(neighbor)
+				else:
+					# Otherwise, add neighbor only if walkable, not occupied, and not occupied by a structure.
+					if _is_tile_walkable(neighbor) and not is_tile_occupied(neighbor) and get_structure_at_tile(neighbor) == null:
+						distances[neighbor] = dist + 1
+						frontier.append(neighbor)
 
 func _highlight_movement_range(start: Vector2i, max_dist: int):
 	var frontier = [start]

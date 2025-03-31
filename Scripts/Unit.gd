@@ -654,10 +654,12 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	
-	# Set the missile's target.
-	missile.set_target(global_position, target.global_position)
+	# Use the unit's global_position instead of self.global_position.
+	var start_pos = unit.global_position
+	var target_pos = target.global_position
+	missile.set_target(start_pos, target_pos)
 	
-	# Use the connection syntax that supports binds.
+	# Connect the missile's finished signal.
 	missile.connect("finished", Callable(self, "_on_ranged_attack_finished"), 0)
 
 	unit.has_moved = true
