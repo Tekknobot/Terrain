@@ -661,7 +661,6 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	
 	# Connect the missile's finished signal.
 	missile.connect("finished", Callable(self, "_on_ranged_attack_finished"), 0)
-
 	unit.has_moved = true
 
 func _on_ranged_attack_finished(target: Node) -> void:

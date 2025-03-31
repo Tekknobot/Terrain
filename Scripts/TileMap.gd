@@ -124,6 +124,8 @@ func _input(event):
 				if selected_unit.is_player and not showing_attack:
 					if highlighted_tiles.has(mouse_tile):
 						_move_selected_to(mouse_tile)
+						var sprite = selected_unit.get_node("AnimatedSprite2D")
+						sprite.self_modulate = Color(1, 0.75, 0.75, 1)							
 						return
 
 				# If the selected unit is an enemy, you might simply show its range:
@@ -157,20 +159,20 @@ func _select_unit_at_mouse():
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
 
-	# If no unit, clear selection.
+	# If no unit is found, clear selection.
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
 		return
 
-	# If it's a player unit that has already moved, ignore selection.
-	if unit.is_player and unit.has_moved:
+	# For a player unit, if it has already moved and attacked, disallow re-selection.
+	if unit.is_player and unit.has_moved and unit.has_attacked:
 		selected_unit = null
 		showing_attack = false
 		play_beep_sound(tile)
 		return
 
-	# Otherwise, allow selection for both players and enemies.
+	# Otherwise, select the unit (even if it has moved but not attacked).
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
