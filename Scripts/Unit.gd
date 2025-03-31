@@ -665,3 +665,30 @@ func _on_ranged_attack_finished(target: Node) -> void:
 	if is_instance_valid(target):
 		target.take_damage(damage)
 		target.flash_white()
+
+func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
+	# Get the TileMap node from the current scene.
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap == null:
+		return
+
+	# Convert the target tile to a world position.
+	# Adjust the Y offset if needed.
+	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, unit.Y_OFFSET)
+	
+	var sprite = $AnimatedSprite2D
+	if sprite:
+		sprite.play("attack")
+		await sprite.animation_finished
+		sprite.play("default")
+	
+	# Instantiate a new missile.
+	var missile_scene = preload("res://Prefabs/Missile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+	
+	# Set the missile's trajectory from this unit's current position to the target position.
+	missile.set_target(global_position, target_pos)
+	
+	# Await the missile's finished signal before returning.
+	await missile.finished
