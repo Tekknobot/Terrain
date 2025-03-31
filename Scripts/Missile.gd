@@ -12,7 +12,7 @@ var progress: float = 0.0
 var is_ready: bool = false
 
 @onready var sprite: Sprite2D = $Sprite2D
-var line_renderer: Line2D = null
+@onready var line_renderer: Line2D = $Line2D
 
 func _ready():
 	visible = false
@@ -55,11 +55,26 @@ func _process(delta):
 		update_rotation()
 
 		if line_renderer:
-			line_renderer.add_point(global_position)  # This will stay in world space
+			line_renderer.add_point(global_position)
 	elif is_ready and progress >= 1.0:
 		is_ready = false
 		if line_renderer:
-			line_renderer.visible = false  # 🔻 hide trail after impact
+			line_renderer.visible = false
+
+		# Instantiate explosion effect at the missile's final position.
+		var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+		var explosion = explosion_scene.instantiate()
+		explosion.global_position = global_position
+		get_tree().get_current_scene().add_child(explosion)
+		
+		# Damage any unit on this tile.
+		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		var tile = tilemap.local_to_map(tilemap.to_local(global_position))
+		var target_unit = tilemap.get_unit_at_tile(tile)
+		if target_unit:
+			target_unit.take_damage(40)  # Adjust damage as needed.
+			target_unit.flash_white()
+			
 		emit_signal("finished")
 		queue_free()
 

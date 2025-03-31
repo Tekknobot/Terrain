@@ -638,3 +638,30 @@ func check_water_status():
 	else:
 		# Unit is off water: remove water effect if it’s currently applied.
 		remove_water_effect(self)
+
+func auto_attack_ranged(target: Node) -> void:
+	if not is_instance_valid(target):
+		return
+
+	var sprite = $AnimatedSprite2D
+	if sprite:
+		sprite.play("attack")
+		await sprite.animation_finished
+		sprite.play("default")
+	
+	# Instantiate a new missile each time.
+	var missile_scene = preload("res://Prefabs/Missile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+	
+	# Set the missile's target.
+	missile.set_target(global_position, target.global_position)
+	
+	# Use the connection syntax that supports binds.
+	missile.connect("finished", Callable(self, "_on_ranged_attack_finished"), 0)
+
+func _on_ranged_attack_finished(target: Node) -> void:
+	# When the missile “hits”, if the target is still valid, apply damage and show visual feedback.
+	if is_instance_valid(target):
+		target.take_damage(damage)
+		target.flash_white()

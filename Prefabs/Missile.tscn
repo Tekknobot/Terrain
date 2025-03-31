@@ -10,7 +10,13 @@ missile_speed = 0.5
 pixel_size = 1
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
+z_index = 4096
 texture = ExtResource("2_rayj7")
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="Sprite2D"]
+amount = 20
+lifetime = 0.3
+gravity = Vector2(0, 0)
 
 [node name="Line2D" type="Line2D" parent="."]
 width = 1.0

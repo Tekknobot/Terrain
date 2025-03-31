@@ -101,45 +101,47 @@ func _start_unit_action(team):
 		if not is_instance_valid(unit):
 			active_unit_index += 1
 			continue
-
+		
+		# Enemy branch:
 		if team == Team.ENEMY and not unit.is_player:
-			print("🤖 Enemy taking turn:", unit.name)
-			var tilemap = get_tree().get_current_scene().get_node("TileMap")
-
-			# If there's an adjacent enemy, skip movement and just attack.
-			if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
-				print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement.")
-				unit.has_moved = true
-				await _run_safe_enemy_action(unit)
-				return
-			
-			# Find a target (closest).
+			# First, plan movement toward the closest enemy.
 			var target = find_closest_enemy(unit)
-			
-			# Compute the path to the target if it exists.
 			var path = []
 			if target:
+				var tilemap = get_tree().get_current_scene().get_node("TileMap")
 				tilemap.update_astar_grid()
 				path = await unit.compute_path(unit.tile_pos, target.tile_pos)
-			
-			# If we found a path with at least 2 tiles, move partially.
 			if path.size() > 1:
-				# partial movement: pick tile at index min(movement_range, path.size() - 1)
+				# Move as far as allowed by the unit's movement_range.
 				var max_steps = min(unit.movement_range, path.size() - 1)
 				var move_tile = path[max_steps]
-				print("🚶 Planning move to:", move_tile, "within", unit.movement_range, "steps.")
+				print("🚶 Planning move to:", move_tile, "for enemy", unit.name)
 				unit.plan_move(move_tile)
 			else:
 				print("❌ No valid path found. Enemy won't move this turn.")
 			
-			# Execute the enemy's planned actions (movement + potential attack).
+			# Execute the planned movement.
 			await unit.execute_actions()
-			await get_tree().create_timer(0).timeout
-
-			# Mark this unit done and move on.
+			
+			# Now, if the unit is ranged, check for a valid target.
+			if unit.unit_type == "Ranged" or unit.unit_type == "Support":
+				var ranged_target = _find_ranged_target(unit)
+				if ranged_target:
+					print("🤖 Ranged enemy", unit.name, "attacking target", ranged_target.name)
+					await unit.auto_attack_ranged(ranged_target)
+					unit.has_attacked = true
+				# (Optional: you might let a melee enemy also attack here if adjacent.)
+			else:
+				# For melee units, check if there is an adjacent enemy to attack.
+				if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
+					print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement attack.")
+					unit.has_moved = true
+					await _run_safe_enemy_action(unit)
+			
 			unit_finished_action(unit)
 			return
 		
+		# Player branch.
 		elif team == Team.PLAYER and unit.is_player:
 			print("🧍 Player unit turn:", unit.name)
 			unit.start_turn()
@@ -250,3 +252,24 @@ func find_weakest_enemy(unit) -> Node:
 	)
 
 	return enemies[0]
+
+func _find_ranged_target(unit) -> Node:
+	var candidates = []
+	for other in get_tree().get_nodes_in_group("Units"):
+		# Check for an enemy unit.
+		if other.is_player != unit.is_player:
+			# Compute Manhattan distance.
+			var dx = abs(unit.tile_pos.x - other.tile_pos.x)
+			var dy = abs(unit.tile_pos.y - other.tile_pos.y)
+			var manh_dist = dx + dy
+			if manh_dist <= unit.attack_range:
+				candidates.append(other)
+	if candidates.size() > 0:
+		# Sort candidates by Manhattan distance (closest first).
+		candidates.sort_custom(func(a, b):
+			var a_dist = abs(unit.tile_pos.x - a.tile_pos.x) + abs(unit.tile_pos.y - a.tile_pos.y)
+			var b_dist = abs(unit.tile_pos.x - b.tile_pos.x) + abs(unit.tile_pos.y - b.tile_pos.y)
+			return a_dist < b_dist
+		)
+		return candidates[0]
+	return null

@@ -207,10 +207,6 @@ script = ExtResource("8_51jtd")
 tilemap = NodePath("../TileMap")
 highlight_texture = ExtResource("1_2cdww")
 
-[node name="MissileTrail" type="Line2D" parent="."]
-width = 1.0
-antialiased = true
-
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("30_njjnf")
 

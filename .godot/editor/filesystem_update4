@@ -3,5 +3,7 @@ res://Textures/flash.gdshader
 res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Prefabs/Missile.tscn
-res://Scripts/Camera2D.gd
-res://Scripts/TileMap.gd
+res://Scenes/Meks_Scenes/PLAYER/R1.scn
+res://Scripts/Unit.gd
+res://Scripts/TurnManager.gd
+res://Scripts/Missile.gd
