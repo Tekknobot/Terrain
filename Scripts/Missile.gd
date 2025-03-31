@@ -105,6 +105,7 @@ func _process(delta):
 						occupant.shake()
 						await get_tree().create_timer(0.2).timeout
 						occupant.die()	
+						tilemap.get_unit_at_tile(dest_tile).take_damage(25)
 						if tilemap.get_structure_at_tile(dest_tile):
 							var anim_sprite = tilemap.get_structure_at_tile(dest_tile).get_node_or_null("AnimatedSprite2D")
 							if anim_sprite:

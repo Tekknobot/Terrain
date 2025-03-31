@@ -654,6 +654,9 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	
+	if target == null:
+		return
+	
 	# Use the unit's global_position instead of self.global_position.
 	var start_pos = unit.global_position
 	var target_pos = target.global_position
