@@ -58,6 +58,8 @@ var completed_units
 
 # Add a new variable at the top of your script.
 var hold_time: float = 0.0
+var borders_visible := false
+
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -96,15 +98,29 @@ func _input(event):
 				# If we're in attack mode (right click activated) and the clicked tile has an enemy:
 				if showing_attack:
 					var enemy = get_unit_at_tile(mouse_tile)
-					if enemy and not enemy.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
-						selected_unit.auto_attack_adjacent()
-						selected_unit.has_moved = true
-						var sprite := selected_unit.get_node("AnimatedSprite2D")
-						sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-						showing_attack = false
-						_clear_highlights()
-						play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-						return
+					if enemy and not enemy.is_player:
+						# Check if the selected unit is ranged or support.
+						if selected_unit.unit_type in ["Ranged", "Support"]:
+							# For ranged/support units, allow any enemy within attack_range.
+							if manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
+								selected_unit.auto_attack_ranged(enemy)
+								selected_unit.has_moved = true
+								var sprite := selected_unit.get_node("AnimatedSprite2D")
+								sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+								showing_attack = false
+								_clear_highlights()
+								return
+						else:
+							# For melee units, require the enemy to be exactly adjacent.
+							if manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+								selected_unit.auto_attack_adjacent()
+								selected_unit.has_moved = true
+								var sprite := selected_unit.get_node("AnimatedSprite2D")
+								sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+								showing_attack = false
+								_clear_highlights()
+								play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+								return
 				# Only allow manual movement if the selected unit is a player and we're not in attack mode.
 				if selected_unit.is_player and not showing_attack:
 					if highlighted_tiles.has(mouse_tile):
@@ -124,8 +140,6 @@ func _input(event):
 				_clear_highlights()
 				_show_range_for_selected_unit()
 						
-
-var borders_visible := false
 
 func toggle_borders():
 	borders_visible = not borders_visible
@@ -281,13 +295,11 @@ func _physics_process(delta):
 				
 				# Mark the unit as having moved and tint it
 				selected_unit.has_moved = true
-				sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dark gray tint
-				
+
 				# Run adjacent enemy check if applicable
 				if selected_unit and selected_unit.has_method("check_adjacent_and_attack"):
 					selected_unit.check_adjacent_and_attack()
 					
-
 
 func _clear_highlights():
 	# Restore all movement highlights
