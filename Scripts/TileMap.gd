@@ -104,7 +104,7 @@ func _input(event):
 					# If there's either an enemy (that isn't a player) or a structure:
 					if (enemy and not enemy.is_player) or structure:
 						# Check if the selected unit is ranged or support.
-						if selected_unit.unit_type in ["Ranged", "Support"]:
+						if selected_unit.unit_type in ["Ranged"]:
 							# If enemy exists, use its tile position.
 							if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 								selected_unit.auto_attack_ranged(enemy, selected_unit)

@@ -196,7 +196,7 @@ player_units = Array[PackedScene]([ExtResource("9_cq62f"), ExtResource("10_ijfy0
 enemy_units = Array[PackedScene]([ExtResource("9_tx01l"), ExtResource("10_jnxcy"), ExtResource("11_kslvh"), ExtResource("12_igjmq"), ExtResource("13_mmtes"), ExtResource("14_42888")])
 structure_scenes = Array[PackedScene]([ExtResource("29_u3kwq"), ExtResource("30_vr6ln"), ExtResource("31_u8ap8"), ExtResource("32_ebequ"), ExtResource("33_8ltv0"), ExtResource("34_r0hbk")])
 max_structures = 6
-max_enemy_units = 6
+max_enemy_units = 3
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
 
