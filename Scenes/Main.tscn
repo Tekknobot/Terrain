@@ -219,18 +219,29 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -40.0
-offset_top = -40.0
+offset_left = -448.0
+offset_top = -99.0
+offset_right = -408.0
+offset_bottom = -59.0
 grow_horizontal = 0
 grow_vertical = 0
 
-[node name="Button" type="Button" parent="CanvasLayer/Control"]
+[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control"]
 layout_mode = 0
-offset_left = -203.0
-offset_top = -82.0
-offset_right = -33.0
-offset_bottom = -29.0
+offset_right = 274.0
+offset_bottom = 53.0
+
+[node name="EndTurn" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "END TURN"
 
-[connection signal="pressed" from="CanvasLayer/Control/Button" to="TileMap" method="_on_end_turn_button_pressed"]
+[node name="Reset" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "RESET"
+
+[connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]

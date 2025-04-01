@@ -859,3 +859,7 @@ func spawn_new_enemy_units():
 	
 	# Optionally, update the AStar grid after spawning new units.
 	update_astar_grid()
+
+
+func _on_reset_pressed() -> void:
+	get_tree().reload_current_scene()

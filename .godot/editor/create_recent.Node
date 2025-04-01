@@ -1,6 +1,7 @@
+Button
+HBoxContainer
 CPUParticles2D
 Camera2D
-Button
 Control
 CanvasLayer
 Node2D
@@ -11,4 +12,3 @@ TileMap
 PathFollow2D
 Path2D
 Camera3D
-Node3D
