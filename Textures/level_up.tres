@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://85q7gfjifn67"]
+
+[ext_resource type="Shader" path="res://Textures/level_up.gdshader" id="1_04p1c"]
+
+[resource]
+shader = ExtResource("1_04p1c")
+shader_parameter/effect_strength = 0.5
+shader_parameter/pulse_speed_black = 7.5
+shader_parameter/pulse_speed_nonblack = 10.0

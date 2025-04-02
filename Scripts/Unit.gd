@@ -29,6 +29,9 @@ var true_position := Vector2.ZERO  # we manage this ourselves
 var visited_tiles: Array = []
 @export var water_tile_id := 6
 
+var level_up_material = preload("res://Textures/level_up.tres")
+var original_material : Material = null
+
 func _ready():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))  # 🔥 Set this!
@@ -146,10 +149,12 @@ func auto_attack_adjacent():
 					sprite.play("attack")
 					await sprite.animation_finished
 					sprite.play("default")
-
+				
+				gain_xp(25)
+				
 				# 🎖 Grant XP if the target died from the damage.
 				if died:
-					gain_xp(50)
+					gain_xp(25)
 					continue  # Stop further processing for this target.
 
 				# ➡ Push Logic:
@@ -184,6 +189,7 @@ func auto_attack_adjacent():
 									await get_tree().create_timer(0.2).timeout
 									occ.take_damage(damage)  # Adjust damage as needed.
 									occ.shake()
+							gain_xp(25)
 							unit.die()
 							tilemap.update_astar_grid()
 							continue
@@ -193,7 +199,7 @@ func auto_attack_adjacent():
 					died = unit.take_damage(water_damage)
 					if not died:
 						unit.shake()
-					
+						
 					await get_tree().create_timer(0.2).timeout
 					tilemap.update_astar_grid()
 					continue
@@ -208,6 +214,7 @@ func auto_attack_adjacent():
 						await get_tree().process_frame
 					# Optionally wait a short time to let the animation complete.
 					await get_tree().create_timer(0.2).timeout
+					gain_xp(25)
 					unit.die()
 					tilemap.update_astar_grid()
 					continue
@@ -237,6 +244,7 @@ func auto_attack_adjacent():
 									await get_tree().create_timer(0.2).timeout
 									occ.take_damage(damage)  # Adjust damage as needed.
 									occ.shake()
+							gain_xp(25)
 							unit.die()
 					tilemap.update_astar_grid()
 
@@ -302,8 +310,33 @@ func take_damage(amount: int) -> bool:
 	return false
 
 func gain_xp(amount):
-	xp = min(xp + amount, max_xp)
+	xp += amount
+	# Check for level up.
+	if xp >= max_xp:
+		# Carry over any extra XP.
+		xp -= max_xp
+		level += 1
+		# Optionally, adjust max_xp for the next level.
+		max_xp = int(max_xp * 1.5)
+		
+		health += 50
+		update_health_bar()
+		if health >= max_health:
+			health = max_health
+		
+		# Play level-up sound, shake the unit, and apply the level-up material effect.
+		play_level_up_sound()
+		shake()
+		apply_level_up_material()
 	update_xp_bar()
+
+
+func play_level_up_sound():
+	var level_up_audio = preload("res://Audio/SFX/powerUp.wav")  # Adjust the path to your sound file.
+	var audio_player = AudioStreamPlayer.new()
+	audio_player.stream = level_up_audio
+	add_child(audio_player)
+	audio_player.play()
 
 func update_health_bar():
 	if health_bar:
@@ -660,6 +693,7 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	
 	# Use the stored target position.
 	missile.set_target(global_position, target_pos)
+	gain_xp(25)
 	
 	# Await the missile's finished signal.
 	await missile.finished
@@ -697,3 +731,15 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	
 	# Await the missile's finished signal before returning.
 	await missile.finished
+
+func apply_level_up_material() -> void:
+	var sprite = $AnimatedSprite2D
+	if sprite:
+		# Store the original material if not already stored.
+		if original_material == null:
+			original_material = sprite.material
+		# Set the level-up material.
+		sprite.material = level_up_material
+		# Wait for 2 seconds before resetting.
+		await get_tree().create_timer(1.0).timeout
+		sprite.material = original_material
