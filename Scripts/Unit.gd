@@ -2,13 +2,14 @@ extends Area2D
 
 @export var is_player: bool = true  
 @export var unit_type: String = "Soldier"  
+@export var unit_name: String = "Hero"
+@export var portrait: Texture
 var health := 100
 var max_health := 100
 var xp := 0
 var max_xp := 100
-
+var level = 1
 var damage = 25
-
 @export var movement_range := 2  
 @export var attack_range := 3 
 
@@ -644,6 +645,9 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 		return
 
 	var sprite = $AnimatedSprite2D
+	# Store target position now, before any await.
+	var target_pos: Vector2 = target.global_position
+
 	if sprite:
 		sprite.play("attack")
 		await sprite.animation_finished
@@ -654,11 +658,12 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	
-	# Set the missile's trajectory.
-	missile.set_target(global_position, target.global_position)
+	# Use the stored target position.
+	missile.set_target(global_position, target_pos)
 	
 	# Await the missile's finished signal.
 	await missile.finished
+
 
 func _on_ranged_attack_finished(target: Node) -> void:
 	# When the missile “hits”, if the target is still valid, apply damage and show visual feedback.

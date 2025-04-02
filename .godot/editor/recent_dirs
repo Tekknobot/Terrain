@@ -1,10 +1,12 @@
+res://Scripts
+res://Sprites/Portraits/cockpits
+res://Sprites/Portraits/pilots
 /Users/machome/Godot/_Builds/Mek VS Mek
 res://Icon
 res://Sprites/Meks/M1
 /Users/machome/Godot/Terrain
 /Library/Java/JavaVirtualMachines
 res://Textures/
-res://Scripts
 res://Sprites/Terrain/roads
 res://Sprites/Terrain
 res://Sprites/Tiles_UI

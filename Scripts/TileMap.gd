@@ -60,6 +60,8 @@ var completed_units
 var hold_time: float = 0.0
 var borders_visible := false
 
+signal unit_selected(selected_unit)
+signal units_spawned
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -67,6 +69,7 @@ func _ready():
 	_generate_map()
 
 	call_deferred("_post_map_generation")  # Wait until the next frame
+
 
 # New _process function to check for a continuous press.
 func _process(delta):
@@ -177,30 +180,65 @@ func toggle_borders():
 				
 func _select_unit_at_mouse():
 	_clear_highlights()
-
+	
 	var mouse_pos = get_global_mouse_position()
-	mouse_pos.y += 16
+	mouse_pos.y += 16  # Adjust for any offset
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
-
-	# If no unit is found, clear selection.
+	
+	# If no unit is found, clear selection and update HUD accordingly.
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
+		# Assuming your HUD node is at "/root/YourMainScene/CanvasLayer/HUD"
+		var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+		hud.visible = false
 		return
-
-	# For a player unit, if it has already moved and attacked, disallow re-selection.
+	
+	# Prevent selecting a unit that has already moved and attacked (if needed).
 	if unit.is_player and unit.has_moved and unit.has_attacked:
 		selected_unit = null
 		showing_attack = false
 		play_beep_sound(tile)
+		var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+		hud.update_hud({
+			"name": "",
+			"portrait": null,
+			"current_hp": 0,
+			"max_hp": 0,
+			"current_xp": 0,
+			"max_xp": 0,
+			"level": 0,
+			"movement_range": 0,
+			"attack_range": 0,
+			"damage": 0
+		})
 		return
-
-	# Otherwise, select the unit (even if it has moved but not attacked).
+	
+	# Set the selected unit and update highlights, etc.
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
 	play_beep_sound(tile)
+	
+	# Build the dictionary from the unit's properties.
+	var hud_data = {
+		"name": unit.unit_name,           # Adjust this to unit.name if you use that.
+		"portrait": unit.portrait,          # Must be a Texture
+		"current_hp": unit.health,
+		"max_hp": unit.max_health,
+		"current_xp": unit.xp,
+		"max_xp": unit.max_xp,
+		"level": unit.level,
+		"movement_range": unit.movement_range,
+		"attack_range": unit.attack_range,
+		"damage": unit.damage
+	}
+	
+	# Update the HUD.
+	var hud = get_node("/root/BattleGrid/HUDLayer/Control")  # Adjust path as needed.
+	hud.visible = true
+	hud.update_hud(hud_data)
 
 func _show_range_for_selected_unit():
 	var range = 0
