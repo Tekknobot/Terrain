@@ -8,6 +8,7 @@ extends Control
 
 @onready var level_label = $VBoxContainer/Level
 @onready var hp_label = $VBoxContainer/HP
+@onready var xp_label = $VBoxContainer/XP
 @onready var movement_label = $VBoxContainer2/MovementRange
 @onready var attack_label = $VBoxContainer2/AttackRange
 @onready var damage_label = $VBoxContainer2/Damage
@@ -67,6 +68,7 @@ func update_hud(player):
 
 	# Update HP (RichTextLabel or Label)
 	hp_label.text = "HP: %d / %d" % [player.current_hp, player.max_hp]
+	xp_label.text = "XP: %d / %d" % [player.current_xp, player.max_xp]
 
 	# Update Movement, Attack Range, Damage
 	movement_label.text = "MOVEMENT: %d" % player.movement_range
