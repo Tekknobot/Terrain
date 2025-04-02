@@ -180,6 +180,8 @@ func toggle_borders():
 				
 func _select_unit_at_mouse():
 	_clear_highlights()
+	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+	hud.visible = true
 	
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 16  # Adjust for any offset
@@ -190,8 +192,6 @@ func _select_unit_at_mouse():
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
-		# Assuming your HUD node is at "/root/YourMainScene/CanvasLayer/HUD"
-		var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 		hud.visible = false
 		return
 	
@@ -200,7 +200,6 @@ func _select_unit_at_mouse():
 		selected_unit = null
 		showing_attack = false
 		play_beep_sound(tile)
-		var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 		hud.update_hud({
 			"name": "",
 			"portrait": null,
@@ -236,7 +235,6 @@ func _select_unit_at_mouse():
 	}
 	
 	# Update the HUD.
-	var hud = get_node("/root/BattleGrid/HUDLayer/Control")  # Adjust path as needed.
 	hud.visible = true
 	hud.update_hud(hud_data)
 

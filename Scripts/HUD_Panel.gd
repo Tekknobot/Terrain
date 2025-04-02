@@ -70,5 +70,5 @@ func update_hud(player):
 
 	# Update Movement, Attack Range, Damage
 	movement_label.text = "MOVEMENT: %d" % player.movement_range
-	attack_label.text = "ATTACK RANGE: %d" % player.attack_range
+	attack_label.text = "ATTACK: %d" % player.attack_range
 	damage_label.text = "DAMAGE: %d" % player.damage

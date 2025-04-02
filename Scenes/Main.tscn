@@ -283,6 +283,7 @@ text = "RESET"
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 
 [node name="Control" type="Control" parent="HUDLayer"]
+visible = false
 layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0
@@ -330,7 +331,6 @@ custom_minimum_size = Vector2(16, 256)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_fyk57")
 theme_override_styles/fill = SubResource("StyleBoxFlat_mofot")
-value = 100.0
 fill_mode = 3
 show_percentage = false
 
@@ -353,7 +353,7 @@ custom_minimum_size = Vector2(256, 64)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 32
 theme_override_styles/normal = SubResource("StyleBoxEmpty_vgpqy")
-text = "HP: 100/100"
+text = "HP: 100 / 100"
 
 [node name="XP" type="RichTextLabel" parent="HUDLayer/Control/VBoxContainer"]
 custom_minimum_size = Vector2(256, 64)
@@ -381,7 +381,7 @@ custom_minimum_size = Vector2(512, 64)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 32
 theme_override_styles/normal = SubResource("StyleBoxEmpty_vgpqy")
-text = "ATTACK: 3"
+text = "ATTACK: 1"
 
 [node name="Damage" type="RichTextLabel" parent="HUDLayer/Control/VBoxContainer2"]
 custom_minimum_size = Vector2(512, 64)
