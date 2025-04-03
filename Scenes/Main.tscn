@@ -267,8 +267,9 @@ grow_vertical = 0
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control"]
 layout_mode = 0
-offset_right = 404.0
-offset_bottom = 85.0
+offset_top = 19.0
+offset_right = 488.0
+offset_bottom = 104.0
 theme_override_constants/separation = 32
 
 [node name="EndTurn" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
