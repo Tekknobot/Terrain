@@ -324,11 +324,12 @@ func _find_ranged_target(unit) -> Node:
 	return null
 
 func _show_game_over_screen(result: String, stats: Dictionary, rewards: Dictionary) -> void:
+	# Now wait if needed
+	await get_tree().create_timer(1).timeout 
+	
 	var game_over_scene = preload("res://Scenes/GameOver.tscn").instantiate()
 	# Add it immediately so that _ready() is called
-	get_tree().get_current_scene().add_child(game_over_scene)
-	# Now wait if needed
-	await get_tree().create_timer(1).timeout  
+	get_tree().get_current_scene().add_child(game_over_scene) 
 	# Then set the result (which can also trigger updates in the UI)
 	game_over_scene.set_result(result, stats, rewards)
 
