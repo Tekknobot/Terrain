@@ -82,6 +82,9 @@ var player_data = {
 	"damage": 5
 }
 
+# Global ID to control the typewriter effect
+var _current_typing_id = 0
+
 func _ready():
 	randomize()
 	print("name_label:", name_label)
@@ -131,15 +134,18 @@ func update_hud(player):
 	attack_label.text = "ATK: %d" % player.attack_range
 	damage_label.text = "DMG: %d" % player.damage
 
-	# Update Quote: choose one randomly, double it, then type it out like a typewriter.
+	# Start a new typewriter effect:
+	_current_typing_id += 1
+	var current_id = _current_typing_id
 	var selected_quote = quotes[randi() % quotes.size()]
-	# Use await to run the typewriter effect (ensure update_hud is called in an async context)
-	await type_quote(selected_quote)
+	await type_quote(selected_quote, current_id)
 
 # Typewriter effect: gradually display the quote letter-by-letter.
-func type_quote(quote: String) -> void:
+func type_quote(quote: String, id: int) -> void:
 	quote_label.text = ""
-	# Loop over each character and append it with a delay.
 	for i in range(quote.length()):
+		# If a new typewriter effect has started, break out.
+		if _current_typing_id != id:
+			return
 		quote_label.text += quote[i]
 		await get_tree().create_timer(0.05).timeout
