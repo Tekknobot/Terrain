@@ -1,10 +1,10 @@
-VBoxContainer
 HBoxContainer
+Panel
+VBoxContainer
 Control
 RichTextLabel
 ProgressBar
 TextureRect
-Panel
 CanvasLayer
 Button
 CPUParticles2D
