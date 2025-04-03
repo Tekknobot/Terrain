@@ -303,8 +303,9 @@ func display_attack_range(range: int):
 
 ### HEALTH & XP ###
 func take_damage(amount: int) -> bool:
-	if is_player:
+	if !is_player:
 		TurnManager.record_damage(amount)
+		
 	health = max(health - amount, 0)
 	update_health_bar()
 	if health == 0:
@@ -352,6 +353,9 @@ func update_xp_bar():
 		xp_bar.value = float(xp) / max_xp * 100
 
 func die():
+	if is_player:
+		TurnManager.player_units_lost += 1
+			
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
 	explosion.position = global_position + Vector2(0, -8)

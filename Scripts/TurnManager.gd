@@ -333,12 +333,7 @@ func _show_game_over_screen(result: String, stats: Dictionary, rewards: Dictiona
 	game_over_scene.set_result(result, stats, rewards)
 
 func calculate_units_lost() -> int:
-	# Calculate current surviving player units.
-	var current_player_units = get_tree().get_nodes_in_group("Units").filter(
-		func(u): return u.is_player
-	).size()
-	# Units lost = initial count - current count.
-	return initial_player_unit_count - current_player_units
+	return TurnManager.player_units_lost
 
 func record_damage(amount: int) -> void:
 	total_damage_dealt += amount
