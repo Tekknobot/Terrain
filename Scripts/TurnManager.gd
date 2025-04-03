@@ -72,7 +72,6 @@ func start_turn():
 	emit_signal("turn_started", team)
 	_start_unit_action(team)
 
-
 # Helper to return adjacent positions (4-directional)
 func get_adjacent_tiles(tile: Vector2i) -> Array:
 	return [
@@ -380,3 +379,13 @@ func calculate_coins_reward() -> int:
 		coins_reward = 0
 
 	return coins_reward
+
+func reset_match_stats() -> void:
+	player_units_lost = 0
+	total_damage_dealt = 0
+	enemy_units_destroyed = 0
+	# Optionally, reset initial_player_unit_count here if needed.
+	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(
+		func(u): return u.is_player
+	).size()
+	print("Match stats reset!")

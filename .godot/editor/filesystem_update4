@@ -8,3 +8,4 @@ res://Scripts/TurnManager.gd
 res://Scenes/Main.tscn
 res://Scripts/Conclusion.gd
 res://Scripts/Unit.gd
+res://Scripts/TileMap.gd

@@ -898,4 +898,5 @@ func spawn_new_enemy_units():
 
 
 func _on_reset_pressed() -> void:
+	TurnManager.reset_match_stats()  # Reset stats first.
 	get_tree().reload_current_scene()
