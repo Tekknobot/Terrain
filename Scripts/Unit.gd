@@ -141,6 +141,7 @@ func auto_attack_adjacent():
 				if sprite:
 					# 🎵 Play attack sound before animation.
 					tilemap.play_attack_sound(global_position)
+					
 					# Face the appropriate direction.
 					if dir.x != 0:
 						sprite.flip_h = dir.x > 0
@@ -302,11 +303,13 @@ func display_attack_range(range: int):
 
 ### HEALTH & XP ###
 func take_damage(amount: int) -> bool:
+	if is_player:
+		TurnManager.record_damage(amount)
 	health = max(health - amount, 0)
 	update_health_bar()
 	if health == 0:
 		die()
-		return true  # 💀 Unit is dead
+		return true  # Unit is dead
 	return false
 
 func gain_xp(amount):

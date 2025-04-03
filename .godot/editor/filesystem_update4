@@ -1,7 +1,10 @@
-res://Scenes/Main.tscn
+res://Scenes/GameOver.tscn
 res://Textures/level_up.gdshader
 res://Textures/level_up.tres
 res://Textures/flash.gdshader
 res://Textures/in_water.gdshader
 res://Textures/in_water.tres
-res://Scripts/HUD_Panel.gd
+res://Scripts/TurnManager.gd
+res://Scenes/Main.tscn
+res://Scripts/Conclusion.gd
+res://Scripts/Unit.gd

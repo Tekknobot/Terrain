@@ -10,7 +10,13 @@ var current_turn_index := 0
 var active_units := []
 var active_unit_index := 0
 
+var initial_player_unit_count: int = 6
+var total_damage_dealt: int = 0
+
 func _ready():
+	# Record the initial number of player units.
+	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()
+
 	# Wait one frame so TileMap can spawn units first
 	await get_tree().create_timer(0.5).timeout
 	call_deferred("_initialize_turns")
@@ -35,9 +41,26 @@ func start_turn():
 			enemy_units_exist = true
 
 	if not player_units_exist or not enemy_units_exist:
+		var result = ""
+		if not player_units_exist:
+			result = "lose"
+		elif not enemy_units_exist:
+			result = "win"
+		
+		# Calculate stats and rewards (using your previously defined functions)
+		var stats = {
+			"units_lost": calculate_units_lost(),    # TODO: Ensure this function returns a valid value
+			"damage_dealt": calculate_damage_dealt()   # TODO: Ensure this function returns a valid value
+		}
+		var rewards = {
+			"xp": calculate_xp_reward(),               # TODO: Implement your XP logic
+			"coins": calculate_coins_reward()          # TODO: Implement your coins logic
+		}
+		
+		_show_game_over_screen(result, stats, rewards)
 		print("🏁 Game Over — no units remain for one team. Turn will not start.")
-		return  # ← Prevent starting turn if game over
-	
+		return  # Prevent starting turn if game over
+
 	var team_name = "UNKNOWN"
 	if team == Team.PLAYER:
 		team_name = "PLAYER"
@@ -186,15 +209,41 @@ func find_next_reachable_enemy(unit, exclude := []):
 	return null
 
 func end_turn(game_over: bool = false):
+   # Calculate or gather stats for display.
+	var stats = {
+		"units_lost": calculate_units_lost(),
+		"damage_dealt": calculate_damage_dealt()
+	}
+	var rewards = {
+		"xp": calculate_xp_reward(),
+		"coins": calculate_coins_reward()
+	}
+	
+	# Check game over conditions.
+	var player_units_exist = false
+	var enemy_units_exist = false
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.is_player:
+			player_units_exist = true
+		else:
+			enemy_units_exist = true
+	
+	if not player_units_exist:
+		print("Game Over - You Lost!")
+		_show_game_over_screen("lose", stats, rewards)
+		return
+	elif not enemy_units_exist:
+		print("Game Over - You Won!")
+		_show_game_over_screen("win", stats, rewards)
+		return
+
+	
 	emit_signal("turn_ended", turn_order[current_turn_index])
 
 	if game_over:
 		print("🏁 Game Over detected in end_turn, aborting spawn.")
 		return
 	
-	# Check if any team has no units left
-	var player_units_exist = false
-	var enemy_units_exist = false
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.is_player:
 			player_units_exist = true
@@ -273,3 +322,65 @@ func _find_ranged_target(unit) -> Node:
 		)
 		return candidates[0]
 	return null
+
+func _show_game_over_screen(result: String, stats: Dictionary, rewards: Dictionary) -> void:
+	var game_over_scene = preload("res://Scenes/GameOver.tscn").instantiate()
+	# Add it immediately so that _ready() is called
+	get_tree().get_current_scene().add_child(game_over_scene)
+	# Now wait if needed
+	await get_tree().create_timer(1).timeout  
+	# Then set the result (which can also trigger updates in the UI)
+	game_over_scene.set_result(result, stats, rewards)
+
+func calculate_units_lost() -> int:
+	# Calculate current surviving player units.
+	var current_player_units = get_tree().get_nodes_in_group("Units").filter(
+		func(u): return u.is_player
+	).size()
+	# Units lost = initial count - current count.
+	return initial_player_unit_count - current_player_units
+
+func record_damage(amount: int) -> void:
+	total_damage_dealt += amount
+
+func calculate_damage_dealt() -> int:
+	return total_damage_dealt
+
+# Global variables that should be updated during gameplay.
+var enemy_units_destroyed: int = 0  # Increment when an enemy dies.
+var player_units_lost: int = 0  # Increment when a player unit dies.
+
+func calculate_xp_reward() -> int:
+	# Calculate XP based on a combination of:
+	#  - XP from damage: 1 XP per 100 points of damage dealt.
+	#  - XP from enemy kills: 5 XP per enemy unit destroyed.
+	#  - Penalty for player losses: subtract 2 XP per player unit lost.
+	var xp_from_damage = total_damage_dealt / 100
+	var xp_from_enemies = enemy_units_destroyed * 5
+	var xp_loss_penalty = player_units_lost * 2
+
+	var xp_reward = xp_from_damage + xp_from_enemies - xp_loss_penalty
+
+	# Ensure XP reward is not negative.
+	if xp_reward < 0:
+		xp_reward = 0
+
+	# TODO: Adjust the formula or multipliers to better fit your desired progression.
+	return xp_reward
+
+func calculate_coins_reward() -> int:
+	# Example factors for coins reward:
+	# - Award 10 coins per enemy unit destroyed.
+	# - Award additional coins based on total damage dealt, here 1 coin per 200 damage points.
+	var coins_from_kills = enemy_units_destroyed * 10
+	var coins_from_damage = total_damage_dealt / 200  # You can adjust the divisor as needed.
+
+	var coins_reward = coins_from_kills + coins_from_damage
+
+	# TODO: Optionally, add bonuses or penalties based on mission objectives or player performance.
+
+	# Ensure the coins reward is at least zero.
+	if coins_reward < 0:
+		coins_reward = 0
+
+	return coins_reward

@@ -1,0 +1,66 @@
+[gd_scene load_steps=6 format=3 uid="uid://d1nrabrws4fy2"]
+
+[ext_resource type="Script" path="res://Scripts/Conclusion.gd" id="1_twcm3"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="2_ww6bq"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="3_0063a"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4pobx"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 8
+border_width_top = 8
+border_width_right = 8
+border_width_bottom = 8
+border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="Theme" id="Theme_t4xgv"]
+default_font = ExtResource("3_0063a")
+default_font_size = 48
+
+[node name="GameOver" type="Node2D"]
+script = ExtResource("1_twcm3")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Control" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -541.0
+offset_top = -620.0
+offset_right = -501.0
+offset_bottom = -580.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Control"]
+layout_mode = 0
+offset_right = 512.0
+offset_bottom = 366.0
+theme_override_constants/separation = 16
+
+[node name="ResultLabel" type="Label" parent="CanvasLayer/Control/VBoxContainer"]
+custom_minimum_size = Vector2(512, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_ww6bq")
+theme_override_font_sizes/font_size = 148
+theme_override_styles/normal = SubResource("StyleBoxFlat_4pobx")
+text = "RESULT"
+horizontal_alignment = 1
+
+[node name="StatsContainer" type="VBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+theme = SubResource("Theme_t4xgv")
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="RewardsContainer" type="VBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+theme = SubResource("Theme_t4xgv")
+theme_override_constants/separation = 16
+alignment = 1
