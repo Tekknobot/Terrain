@@ -4,6 +4,11 @@ extends Node2D
 @onready var result_label = $CanvasLayer/Control/VBoxContainer/ResultLabel
 @onready var stats_container = $CanvasLayer/Control/VBoxContainer/StatsContainer
 @onready var rewards_container = $CanvasLayer/Control/VBoxContainer/RewardsContainer
+@onready var audio_player = $AudioStreamPlayer2D
+
+# Preload your audio streams.
+@export var victory_sound: AudioStream
+@export var defeat_sound: AudioStream
 
 func _ready():
 	var path = "CanvasLayer/Control/VBoxContainer/ResultLabel"
@@ -16,25 +21,32 @@ func _ready():
 	else:
 		print("ResultLabel found:", r)
 
-
 # This function is used to update the screen with match data.
 func set_result(result: String, stats: Dictionary, rewards: Dictionary) -> void:
 	# Update the result label without using a ternary.
 	if result == "win":
 		result_label.text = "Victory!"
+		# Play the victory sound.
+		if victory_sound:
+			audio_player.stream = victory_sound
+			audio_player.play()
+		else:
+			push_warning("Victory sound not assigned!")
 	else:
 		result_label.text = "Defeat!"
+		# Play the defeat sound.
+		if defeat_sound:
+			audio_player.stream = defeat_sound
+			audio_player.play()
+		else:
+			push_warning("Defeat sound not assigned!")
 	
-	# Clear previous stats entries if needed.
-	#stats_container.clear_children()
 	# Iterate through the stats dictionary and create labels.
 	for key in stats.keys():
 		var stat_label = Label.new()
 		stat_label.text = "%s: %s" % [key.capitalize(), str(stats[key])]
 		stats_container.add_child(stat_label)
 	
-	# Clear previous rewards entries if needed.
-	#rewards_container.clear_children()
 	# Iterate through the rewards dictionary and create labels.
 	for key in rewards.keys():
 		var reward_label = Label.new()

@@ -58,6 +58,7 @@ func start_turn():
 		}
 		
 		_show_game_over_screen(result, stats, rewards)
+		
 		print("🏁 Game Over — no units remain for one team. Turn will not start.")
 		return  # Prevent starting turn if game over
 
