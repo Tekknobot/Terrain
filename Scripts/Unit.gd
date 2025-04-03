@@ -320,6 +320,8 @@ func gain_xp(amount):
 		max_xp = int(max_xp * 1.5)
 		
 		health += 50
+		max_health += 50
+		damage += 25
 		update_health_bar()
 		if health >= max_health:
 			health = max_health
