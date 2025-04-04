@@ -6,7 +6,7 @@ var coins: int = 0
 var xp: int = 0
 var current_level: int = 1
 var selected_upgrade: String = ""
-var max_enemy_units: int = 4
+var max_enemy_units: int = 3
 
 # Optional: Additional persistent data you may want to track.
 var player_stats: Dictionary = {

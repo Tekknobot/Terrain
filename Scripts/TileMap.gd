@@ -900,3 +900,14 @@ func spawn_new_enemy_units():
 func _on_reset_pressed() -> void:
 	TurnManager.reset_match_stats()  # Reset stats first.
 	get_tree().reload_current_scene()
+
+# When the player is ready to proceed.
+func _on_continue_pressed() -> void:
+	# Save the current level progress if needed.
+	GameData.current_level += 1
+	GameData.max_enemy_units += 1
+	
+	self.visible = false
+	
+	# Transition to the next mission/level.
+	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
