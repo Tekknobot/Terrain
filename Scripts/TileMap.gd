@@ -23,6 +23,8 @@ const DOWN_LEFT_ROAD = 13
 @export var player_units: Array[PackedScene]
 @export var enemy_units: Array[PackedScene]
 
+@export var map_details: RichTextLabel
+
 var noise := FastNoiseLite.new()
 var tile_size: Vector2
 
@@ -63,13 +65,22 @@ var borders_visible := false
 signal unit_selected(selected_unit)
 signal units_spawned
 
+var difficulty_tiers: Dictionary = {
+	1: "Novice",
+	2: "Apprentice",
+	3: "Adept",
+	4: "Expert",
+	5: "Master",
+	6: "Grandmaster"
+}
+
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
 	_generate_map()
 
 	call_deferred("_post_map_generation")  # Wait until the next frame
-
 
 # New _process function to check for a continuous press.
 func _process(delta):
@@ -434,6 +445,7 @@ func _generate_map():
 			var tile_id = _get_tile_id_from_noise(n)
 			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
 	_generate_roads()
+	map_details.text = "DIFFICULTY: " + difficulty_tiers[GameData.map_difficulty]
 
 func _get_tile_id_from_noise(n: float) -> int:
 	if n < water_threshold:

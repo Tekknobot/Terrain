@@ -1,3 +1,4 @@
+RichTextLabel
 Panel
 Label
 Control
@@ -8,7 +9,6 @@ HBoxContainer
 Button
 AudioStreamPlayer2D
 BoxContainer
-RichTextLabel
 ProgressBar
 TextureRect
 CPUParticles2D

@@ -222,7 +222,7 @@ border_color = Color(1, 1, 1, 1)
 
 [node name="BattleGrid" type="Node2D"]
 
-[node name="TileMap" type="TileMap" parent="."]
+[node name="TileMap" type="TileMap" parent="." node_paths=PackedStringArray("map_details")]
 y_sort_enabled = true
 tile_set = SubResource("TileSet_k2046")
 format = 2
@@ -233,6 +233,7 @@ grid_width = 8
 grid_height = 8
 player_units = Array[PackedScene]([ExtResource("9_cq62f"), ExtResource("10_ijfy0"), ExtResource("11_1jvt7"), ExtResource("12_g6pgr"), ExtResource("13_nlsfu"), ExtResource("14_usaop")])
 enemy_units = Array[PackedScene]([ExtResource("9_tx01l"), ExtResource("10_jnxcy"), ExtResource("11_kslvh"), ExtResource("12_igjmq"), ExtResource("13_mmtes"), ExtResource("14_42888")])
+map_details = NodePath("../CanvasLayer/Control/HBoxContainer/MapDetails")
 structure_scenes = Array[PackedScene]([ExtResource("29_u3kwq"), ExtResource("30_vr6ln"), ExtResource("31_u8ap8"), ExtResource("32_ebequ"), ExtResource("33_8ltv0"), ExtResource("34_r0hbk")])
 max_structures = 6
 max_enemy_units = 3
@@ -258,9 +259,9 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -317.0
+offset_left = -852.0
 offset_top = -135.0
-offset_right = -277.0
+offset_right = -812.0
 offset_bottom = -95.0
 grow_horizontal = 0
 grow_vertical = 0
@@ -272,6 +273,13 @@ offset_top = 19.0
 offset_right = 507.0
 offset_bottom = 104.0
 theme_override_constants/separation = 32
+
+[node name="MapDetails" type="RichTextLabel" parent="CanvasLayer/Control/HBoxContainer"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+theme_override_fonts/normal_font = ExtResource("39_jffjd")
+theme_override_font_sizes/normal_font_size = 64
+text = "DIFFICLUTY: NOVICE"
 
 [node name="EndTurn" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
 custom_minimum_size = Vector2(256, 72)

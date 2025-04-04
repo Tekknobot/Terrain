@@ -8,6 +8,8 @@ var current_level: int = 1
 var selected_upgrade: String = ""
 var max_enemy_units: int = 3
 
+var map_difficulty: int = 1
+
 # Optional: Additional persistent data you may want to track.
 var player_stats: Dictionary = {
 	"total_damage_dealt": 0,

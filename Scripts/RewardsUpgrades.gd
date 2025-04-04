@@ -53,6 +53,7 @@ func _on_continue_button_pressed() -> void:
 	# Save the current level progress if needed.
 	GameData.current_level += 1
 	GameData.max_enemy_units += 1
+	GameData.map_difficulty += 1
 	
 	self.visible = false
 	
