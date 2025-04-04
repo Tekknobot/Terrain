@@ -9,3 +9,6 @@ res://Scenes/Main.tscn
 res://Scripts/Conclusion.gd
 res://Scripts/Unit.gd
 res://Scripts/TileMap.gd
+res://Scripts/RewardsUpgrades.gd
+res://Scenes/RewardUpgrade.tscn
+res://Scripts/GameData.gd

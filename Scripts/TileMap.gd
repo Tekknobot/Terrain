@@ -842,12 +842,12 @@ func spawn_new_enemy_units():
 	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)
 	var current_count = enemy_units_on_board.size()
 	
-	if current_count >= max_enemy_units:
+	if current_count >= GameData.max_enemy_units:
 		print("Max enemy units reached:", current_count)
 		return  # Do not spawn any new units if at or above limit.
 	
 	# Determine how many new enemy units to spawn, limited to 1 per turn here.
-	var units_to_spawn = min(1, max_enemy_units - current_count)
+	var units_to_spawn = min(1, GameData.max_enemy_units - current_count)
 	
 	# Create an array to track occupied spawn tiles.
 	var used_tiles: Array[Vector2i] = []
