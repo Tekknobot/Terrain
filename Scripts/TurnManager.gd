@@ -387,7 +387,6 @@ func reset_match_stats() -> void:
 	player_units_lost = 0
 	total_damage_dealt = 0
 	enemy_units_destroyed = 0
-	GameData.max_enemy_units = 0
 	
 	# Optionally, reset initial_player_unit_count here if needed.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(

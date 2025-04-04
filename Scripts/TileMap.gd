@@ -71,9 +71,14 @@ var difficulty_tiers: Dictionary = {
 	3: "Adept",
 	4: "Expert",
 	5: "Master",
-	6: "Grandmaster"
+	6: "Grandmaster",
+	7: "Legendary",
+	8: "Mythic",
+	9: "Transcendent",
+	10: "Celestial",
+	11: "Divine",
+	12: "Omnipotent"
 }
-
 
 func _ready():
 	tile_size = get_tileset().tile_size
