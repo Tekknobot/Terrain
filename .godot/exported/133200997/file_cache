@@ -7,9 +7,10 @@ res://Scenes/Structures_Scenes/stadium.tscn::1887f4453c3a42281c12f4e39e4f868b::1
 res://Scenes/Structures_Scenes/tower.tscn::d9c466e5470a3644b7a49e041d473b81::1743192633::res://.godot/exported/133200997/export-c24d90934d18a010f48bc6d9401a9e39-tower.scn
 res://Scenes/VFX/Explosion.tscn::14848c90f51a575f6e2ddba9aa95e617::1743246618::res://.godot/exported/133200997/export-0bbec0715e1f5c77c03474c4caabc4d0-Explosion.scn
 res://Scenes/VFX/StarNight.tscn::3e27410aba44bf5852db1aede5c3556d::1743218036::res://.godot/exported/133200997/export-2ad2015dac44f8d400669fb8a4b4dbfa-StarNight.scn
-res://Scenes/Main.tscn::b847389d54db86d2ed853ff80895ebeb::1743832774::res://.godot/exported/133200997/export-a8e1520d83f25710dd4e3da8c6f32601-Main.scn
+res://Scenes/Main.tscn::5e1dce5bd2dc4e7edf39b068ee84728e::1743837187::res://.godot/exported/133200997/export-a8e1520d83f25710dd4e3da8c6f32601-Main.scn
 res://Textures/in_water.tres::85b3671767ac2977b6882d60c2c73c06::1743659606::res://.godot/exported/133200997/export-928fbd6ae5adbf811ed658bd759fcf39-in_water.res
 res://Textures/level_up.tres::f042007dcb052b6ba532229e639dd0a5::1743659606::res://.godot/exported/133200997/export-faf6b108f34bf342b6f23119315b7640-level_up.res
-res://Scenes/GameOver.tscn::92040f7550d64a28a048ad85e9c0cc05::1743832774::res://.godot/exported/133200997/export-65c7be664135646c8b1d80384e4ee831-GameOver.scn
+res://Scenes/GameOver.tscn::92040f7550d64a28a048ad85e9c0cc05::1743837187::res://.godot/exported/133200997/export-65c7be664135646c8b1d80384e4ee831-GameOver.scn
 res://Scenes/GameData.tscn::7eb01d90882d1203e1663d307b192e88::1743726555::res://.godot/exported/133200997/export-6b9c6d0b246437692d66ee04167f6954-GameData.scn
-res://Scenes/RewardUpgrade.tscn::c644465b70797ff2ca15e78cc42b28f7::1743832774::res://.godot/exported/133200997/export-da51e953d097ea621fd6ae799676d0cf-RewardUpgrade.scn
+res://Scenes/RewardUpgrade.tscn::c644465b70797ff2ca15e78cc42b28f7::1743837187::res://.godot/exported/133200997/export-da51e953d097ea621fd6ae799676d0cf-RewardUpgrade.scn
+res://Scenes/TitleScreen.tscn::4ca7f82033cdf3581671e6184dc09d2f::1743837203::res://.godot/exported/133200997/export-d5bf480432d23be8d7ee9621b49ab4de-TitleScreen.scn
