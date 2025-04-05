@@ -1,0 +1,58 @@
+[gd_scene load_steps=4 format=3 uid="uid://batrh3n2sl8lr"]
+
+[ext_resource type="Script" path="res://Scripts/TitleScreen.gd" id="1_86o6v"]
+[ext_resource type="Texture2D" uid="uid://wbeysxnh3igr" path="res://Sprites/TitleScreen/Mek_Logotype.png" id="1_dndpa"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="2_gujq3"]
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -506.0
+offset_top = -201.0
+offset_right = -506.0
+offset_bottom = -201.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_86o6v")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 0
+offset_top = -78.0
+offset_right = 1000.0
+offset_bottom = 484.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TextureRect" type="TextureRect" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(1000, 250)
+layout_mode = 2
+texture = ExtResource("1_dndpa")
+stretch_mode = 4
+
+[node name="Play" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_gujq3")
+theme_override_font_sizes/font_size = 72
+text = "PLAY"
+
+[node name="Options" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_gujq3")
+theme_override_font_sizes/font_size = 72
+text = "OPTIONS
+"
+
+[node name="Quit" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_gujq3")
+theme_override_font_sizes/font_size = 72
+text = "QUIT"

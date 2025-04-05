@@ -105,6 +105,7 @@ func _post_map_generation():
 	spawn_structures()  # Spawn structures after the map is generated.
 	_setup_camera()
 	update_astar_grid()
+	TurnManager.start_turn()
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:

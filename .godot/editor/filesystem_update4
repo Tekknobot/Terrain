@@ -12,3 +12,5 @@ res://Scripts/TileMap.gd
 res://Scripts/RewardsUpgrades.gd
 res://Scenes/RewardUpgrade.tscn
 res://Scripts/GameData.gd
+res://Scenes/TitleScreen.tscn
+res://Scripts/TitleScreen.gd

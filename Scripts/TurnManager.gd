@@ -25,7 +25,7 @@ func _ready():
 func _initialize_turns():
 	_populate_units()
 	print("TurnManager loaded units:", active_units.size(), active_units)
-	start_turn()
+	#start_turn()
 
 func _populate_units():
 	active_units = get_tree().get_nodes_in_group("Units")
