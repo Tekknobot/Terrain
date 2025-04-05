@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://wbeysxnh3igr"
-path="res://.godot/imported/Mek_Logotype.png-d949d8474aadbe25963b70f905711c0a.ctex"
+uid="uid://gxe16nmoq2wg"
+path="res://.godot/imported/Mek_Logotype3.png-2bb2497ff36003f30c7b08346bfe48d1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Sprites/TitleScreen/Mek_Logotype.png"
-dest_files=["res://.godot/imported/Mek_Logotype.png-d949d8474aadbe25963b70f905711c0a.ctex"]
+source_file="res://Sprites/TitleScreen/Mek_Logotype3.png"
+dest_files=["res://.godot/imported/Mek_Logotype3.png-2bb2497ff36003f30c7b08346bfe48d1.ctex"]
 
 [params]
 

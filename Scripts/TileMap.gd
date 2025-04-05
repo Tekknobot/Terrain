@@ -926,3 +926,8 @@ func _on_continue_pressed() -> void:
 	
 	# Transition to the next mission/level.
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+
+
+func _on_back_pressed() -> void:
+	# Transition to the next mission/level.
+	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")

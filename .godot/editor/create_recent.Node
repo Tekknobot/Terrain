@@ -1,3 +1,4 @@
+AnimatedSprite2D
 Button
 TextureRect
 Label
@@ -11,4 +12,3 @@ Node2D
 HBoxContainer
 AudioStreamPlayer2D
 BoxContainer
-ProgressBar

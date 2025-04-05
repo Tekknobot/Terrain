@@ -1,8 +1,27 @@
-[gd_scene load_steps=4 format=3 uid="uid://batrh3n2sl8lr"]
+[gd_scene load_steps=7 format=3 uid="uid://batrh3n2sl8lr"]
 
 [ext_resource type="Script" path="res://Scripts/TitleScreen.gd" id="1_86o6v"]
-[ext_resource type="Texture2D" uid="uid://wbeysxnh3igr" path="res://Sprites/TitleScreen/Mek_Logotype.png" id="1_dndpa"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="2_gujq3"]
+[ext_resource type="Texture2D" uid="uid://d1vnyhhkriimy" path="res://Sprites/TitleScreen/Mek_Logotype1.png" id="2_tmndk"]
+[ext_resource type="Texture2D" uid="uid://dj4fnoch5vla4" path="res://Sprites/TitleScreen/Mek_Logotype2.png" id="3_10bkj"]
+[ext_resource type="Texture2D" uid="uid://gxe16nmoq2wg" path="res://Sprites/TitleScreen/Mek_Logotype3.png" id="4_wxl8i"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_70vl7"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_tmndk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_10bkj")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_wxl8i")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
 
 [node name="Control" type="Control"]
 layout_mode = 3
@@ -11,10 +30,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -506.0
-offset_top = -201.0
-offset_right = -506.0
-offset_bottom = -201.0
+offset_left = -500.0
+offset_top = -65.0
+offset_right = -500.0
+offset_bottom = -65.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_86o6v")
@@ -29,21 +48,22 @@ offset_bottom = 484.0
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TextureRect" type="TextureRect" parent="CenterContainer/VBoxContainer"]
-custom_minimum_size = Vector2(1000, 250)
-layout_mode = 2
-texture = ExtResource("1_dndpa")
-stretch_mode = 4
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="CenterContainer/VBoxContainer"]
+position = Vector2(249, -152)
+scale = Vector2(8, 8)
+sprite_frames = SubResource("SpriteFrames_70vl7")
+autoplay = "default"
+frame_progress = 0.651043
 
 [node name="Play" type="Button" parent="CenterContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(500, 72)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 72
 text = "PLAY"
 
 [node name="Options" type="Button" parent="CenterContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(500, 72)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 72
@@ -51,7 +71,7 @@ text = "OPTIONS
 "
 
 [node name="Quit" type="Button" parent="CenterContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(500, 72)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 72
