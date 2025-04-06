@@ -20,7 +20,7 @@ func _ready():
 	# Wait one frame so TileMap can spawn units first
 	await get_tree().create_timer(0.5).timeout
 	call_deferred("_initialize_turns")
-	#_test_launch_reward_phase()
+	_test_launch_reward_phase()
 
 func _initialize_turns():
 	_populate_units()
@@ -397,7 +397,7 @@ func reset_match_stats() -> void:
 func _launch_reward_phase(rewards: Dictionary) -> void:
 	var reward_scene = preload("res://Scenes/RewardUpgrade.tscn").instantiate()
 	get_tree().get_current_scene().add_child(reward_scene)
-	#reward_scene.set_rewards(rewards["coins"], rewards["xp"])
+	reward_scene.set_rewards(rewards["coins"], rewards["xp"])
 
 func _test_launch_reward_phase() -> void:
 	var fake_rewards: Dictionary = {

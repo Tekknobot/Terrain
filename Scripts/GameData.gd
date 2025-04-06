@@ -1,4 +1,3 @@
-# GameData.gd
 extends Node
 
 # Global variables for persistent game progress.
@@ -6,6 +5,7 @@ var coins: int = 0
 var xp: int = 0
 var current_level: int = 1
 var selected_upgrade: String = ""
+var selected_special_ability: String = ""  # <-- Added property.
 var max_enemy_units: int = 4
 
 var map_difficulty: int = 1
@@ -23,6 +23,7 @@ func reset_data() -> void:
 	xp = 0
 	current_level = 1
 	selected_upgrade = ""
+	selected_special_ability = ""
 	player_stats = {
 		"total_damage_dealt": 0,
 		"units_lost": 0,

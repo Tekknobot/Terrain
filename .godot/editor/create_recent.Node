@@ -1,11 +1,11 @@
+Panel
+VBoxContainer
 AnimatedSprite2D
 Button
 TextureRect
 Label
-VBoxContainer
 CenterContainer
 RichTextLabel
-Panel
 Control
 CanvasLayer
 Node2D
