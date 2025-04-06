@@ -191,14 +191,14 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.healing_wave_mode = false
 
 			else:
-				ability_button.visible = false
 				tilemap.critical_strike_mode = false
 				tilemap.rapid_fire_mode = false
+				tilemap.healing_wave_mode = false
 		else:
 			# When toggled off, clear any mode flags and hide the ability button.
 			tilemap.critical_strike_mode = false
 			tilemap.rapid_fire_mode = false
-			ability_button.visible = false
+			tilemap.healing_wave_mode = false
 	else:
 		print("No selected unit available for ability toggling.")
 	

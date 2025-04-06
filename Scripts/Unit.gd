@@ -820,10 +820,11 @@ func healing_wave(target_tile: Vector2i) -> void:
 			target_unit.apply_level_up_material()
 		if target_unit.has_method("play_level_up_sound"):
 			target_unit.play_level_up_sound()
+
+		# Mark the unit as having acted.
+		has_attacked = true
+		has_moved = true
+		get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)			
+		
 	else:
 		print("No unit found on tile: ", target_tile, "; no healing applied.")
-
-	# Mark the unit as having acted.
-	has_attacked = true
-	has_moved = true
-	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
