@@ -1,4 +1,4 @@
-[gd_scene load_steps=64 format=3 uid="uid://npnv1wvwmhj3"]
+[gd_scene load_steps=65 format=3 uid="uid://npnv1wvwmhj3"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_2cdww"]
 [ext_resource type="Script" path="res://Scripts/TileMap.gd" id="1_juvca"]
@@ -219,6 +219,9 @@ border_width_top = 4
 border_width_right = 4
 border_width_bottom = 4
 border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xexin"]
+bg_color = Color(1, 0, 0, 1)
 
 [node name="BattleGrid" type="Node2D"]
 
@@ -450,6 +453,20 @@ theme_override_fonts/normal_font = ExtResource("39_jffjd")
 theme_override_font_sizes/normal_font_size = 64
 theme_override_styles/normal = SubResource("StyleBoxEmpty_vgpqy")
 text = "DMG: 25"
+
+[node name="Ability" type="Button" parent="HUDLayer/Control"]
+visible = false
+custom_minimum_size = Vector2(320, 85)
+layout_mode = 0
+offset_left = 321.0
+offset_top = 78.0
+offset_right = 591.0
+offset_bottom = 142.0
+theme_override_fonts/font = ExtResource("39_jffjd")
+theme_override_font_sizes/font_size = 64
+theme_override_styles/pressed = SubResource("StyleBoxFlat_xexin")
+toggle_mode = true
+text = "ABILITY"
 
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]

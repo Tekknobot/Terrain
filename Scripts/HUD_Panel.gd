@@ -15,6 +15,8 @@ extends Control
 
 @onready var quote_label = $VBoxContainer3/Quote
 
+@onready var ability_button = $Ability
+
 var quotes = [
 	"My mech is locked, loaded, and lethal.",
 	"Engaging enemy forces with calculated precision.",
@@ -134,7 +136,18 @@ func update_hud(player):
 	attack_label.text = "ATK: %d" % player.attack_range
 	damage_label.text = "DMG: %d" % player.damage
 
-	# Start a new typewriter effect:
+	ability_button.button_pressed = false
+	
+	# Update Ability Button:
+	# Check if GameData.unit_upgrades has an entry for this unit's name
+	# and that the value (after trimming whitespace) is not empty.
+	if GameData.unit_upgrades.has(player.name) and str(GameData.unit_upgrades[player.name]).strip_edges() != "":
+		ability_button.text = str(GameData.unit_upgrades[player.name])
+		ability_button.visible = true
+	else:
+		ability_button.visible = false
+
+	# Start a new typewriter effect for the quote.
 	_current_typing_id += 1
 	var current_id = _current_typing_id
 	var selected_quote = quotes[randi() % quotes.size()]

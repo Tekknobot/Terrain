@@ -1,11 +1,11 @@
+Label
+RichTextLabel
+Button
 Panel
 VBoxContainer
 AnimatedSprite2D
-Button
 TextureRect
-Label
 CenterContainer
-RichTextLabel
 Control
 CanvasLayer
 Node2D

@@ -206,7 +206,7 @@ func _select_unit_at_mouse():
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
-		hud.visible = false
+		#hud.visible = false
 		return
 	
 	# Prevent selecting a unit that has already moved and attacked (if needed).
@@ -512,7 +512,6 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 
 func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]):
 	var spawn_tile = _find_nearest_land(tile, used_tiles)
-
 	if spawn_tile == Vector2i(-1, -1):
 		print("⚠ No valid land tile found for unit near ", tile)
 		return
@@ -524,11 +523,26 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 	unit.tile_pos = spawn_tile
 	add_child(unit)
 
-	# Flip player unit sprite if applicable
+	# Flip player unit sprite if applicable.
 	if is_player:
 		var sprite = unit.get_node_or_null("AnimatedSprite2D")
 		if sprite:
 			sprite.flip_h = true
+
+		# Check for an upgrade for this unit type in GameData.
+		if GameData.unit_upgrades.has(unit.unit_name):
+			var ability = GameData.unit_upgrades[unit.unit_name]
+			# Apply the upgrade (e.g., using metadata or a property if available).
+			unit.set_meta("special_ability_name", ability)
+			print("Spawned unit ", unit.name, " receives ability: ", ability)
+			# Optionally, trigger a level-up effect.
+			if unit.has_method("play_level_up_effect"):
+				unit.play_level_up_effect()
+			else:
+				if unit.has_method("play_level_up_sound"):
+					unit.play_level_up_sound()
+				if unit.has_method("apply_level_up_material"):
+					unit.apply_level_up_material()
 
 	used_tiles.append(spawn_tile)
 
