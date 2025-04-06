@@ -162,29 +162,35 @@ func type_quote(quote: String, id: int) -> void:
 		quote_label.text += quote[i]
 		await get_tree().create_timer(0.05).timeout
 
-
 func _on_ability_toggled(toggled_on: bool) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	
 	if tilemap.selected_unit != null:
-		if GameData.unit_upgrades.has(tilemap.selected_unit.unit_name) and str(GameData.unit_upgrades[tilemap.selected_unit.unit_name]).strip_edges() != "":
-			ability_button.text = str(GameData.unit_upgrades[tilemap.selected_unit.unit_name])
-			ability_button.visible = true
-			
-			# Set flags based on the ability type and toggle state.
-			if ability_button.text == "Critical Strike" and ability_button.pressed:
-				tilemap.critical_strike_mode = true
-				tilemap.rapid_fire_mode = false
-			elif ability_button.text == "Rapid Fire" and ability_button.pressed:
-				tilemap.rapid_fire_mode = true
-				tilemap.critical_strike_mode = false
+		if toggled_on:
+			# When toggled on, if the selected unit has an assigned ability…
+			if GameData.unit_upgrades.has(tilemap.selected_unit.unit_name) and str(GameData.unit_upgrades[tilemap.selected_unit.unit_name]).strip_edges() != "":
+				ability_button.text = str(GameData.unit_upgrades[tilemap.selected_unit.unit_name])
+				ability_button.visible = true
+				
+				# Enable mode based on the ability type.
+				if ability_button.text == "Critical Strike":
+					tilemap.critical_strike_mode = true
+					tilemap.rapid_fire_mode = false
+				elif ability_button.text == "Rapid Fire":
+					tilemap.rapid_fire_mode = true
+					tilemap.critical_strike_mode = false
+				else:
+					tilemap.critical_strike_mode = false
+					tilemap.rapid_fire_mode = false
 			else:
+				ability_button.visible = false
 				tilemap.critical_strike_mode = false
 				tilemap.rapid_fire_mode = false
 		else:
-			ability_button.visible = false
+			# When toggled off, clear any mode flags and hide the ability button.
 			tilemap.critical_strike_mode = false
 			tilemap.rapid_fire_mode = false
+			ability_button.visible = false
 	else:
 		print("No selected unit available for ability toggling.")
 	

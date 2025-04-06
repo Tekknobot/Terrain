@@ -124,7 +124,7 @@ func _input(event):
 		var mouse_tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
 		if moving:
 			return
-
+		
 		# If Critical Strike mode is active and the click is not on the toggle:
 		if critical_strike_mode:
 			if selected_unit and selected_unit.is_player:
@@ -960,3 +960,8 @@ func _on_continue_pressed() -> void:
 func _on_back_pressed() -> void:
 	# Transition to the next mission/level.
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
+
+func set_abilities_off() -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	critical_strike_mode = false
+	rapid_fire_mode = false
