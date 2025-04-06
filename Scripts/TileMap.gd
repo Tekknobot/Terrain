@@ -82,6 +82,7 @@ var difficulty_tiers: Dictionary = {
 
 var critical_strike_mode: bool = false
 var rapid_fire_mode: bool = false
+var healing_wave_mode: bool = false
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -150,6 +151,20 @@ func _input(event):
 			else:
 				print("No player unit selected for Rapid Fire.")
 			return  # Exit input processing for this click.
+
+		# If Healing wave mode is active and the click is not on the toggle:
+		if healing_wave_mode:
+			if selected_unit and selected_unit.is_player:
+				_clear_highlights()
+				selected_unit.healing_wave(mouse_tile)
+				print("Healing wave activated by unit: ", selected_unit.name)
+				# Clear the mode so it fires only once.
+				healing_wave_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Healing Wave.")
+			return  # Exit input processing for this click.
+
 
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:

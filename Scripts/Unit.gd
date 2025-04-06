@@ -803,3 +803,27 @@ func rapid_fire(target_tile: Vector2i) -> void:
 	has_moved = true
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
 	print("Rapid Fire activated by unit: ", name)
+
+func healing_wave(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	# Look up the unit at the target tile.
+	var target_unit = tilemap.get_unit_at_tile(target_tile)
+	if target_unit:
+		target_unit.health += 50
+		if target_unit.health > target_unit.max_health:
+			target_unit.health = target_unit.max_health
+		target_unit.update_health_bar()  # Update the UI/health bar.
+		print("Healing Wave: ", target_unit.name, " healed by 25 HP. Current HP: ", target_unit.health)
+		
+		# Play a level-up effect and/or sound to indicate the ability was used.
+		if target_unit.has_method("apply_level_up_material"):
+			target_unit.apply_level_up_material()
+		if target_unit.has_method("play_level_up_sound"):
+			target_unit.play_level_up_sound()
+	else:
+		print("No unit found on tile: ", target_tile, "; no healing applied.")
+
+	# Mark the unit as having acted.
+	has_attacked = true
+	has_moved = true
+	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
