@@ -171,15 +171,21 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 			ability_button.text = str(GameData.unit_upgrades[tilemap.selected_unit.unit_name])
 			ability_button.visible = true
 			
-			# Only enable critical strike mode if the ability is Critical Strike AND the button is pressed.
+			# Set flags based on the ability type and toggle state.
 			if ability_button.text == "Critical Strike" and ability_button.pressed:
 				tilemap.critical_strike_mode = true
+				tilemap.rapid_fire_mode = false
+			elif ability_button.text == "Rapid Fire" and ability_button.pressed:
+				tilemap.rapid_fire_mode = true
+				tilemap.critical_strike_mode = false
 			else:
 				tilemap.critical_strike_mode = false
+				tilemap.rapid_fire_mode = false
 		else:
 			ability_button.visible = false
 			tilemap.critical_strike_mode = false
+			tilemap.rapid_fire_mode = false
 	else:
 		print("No selected unit available for ability toggling.")
-		
-	tilemap._clear_highlights()	
+	
+	tilemap._clear_highlights()

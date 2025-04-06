@@ -81,6 +81,7 @@ var difficulty_tiers: Dictionary = {
 }
 
 var critical_strike_mode: bool = false
+var rapid_fire_mode: bool = false
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -136,7 +137,20 @@ func _input(event):
 			else:
 				print("No player unit selected for Critical Strike.")
 			return  # Exit input processing for this click.
-		
+
+		# If Rapid Fire mode is active and the click is not on the toggle:
+		if rapid_fire_mode:
+			if selected_unit and selected_unit.is_player:
+				_clear_highlights()
+				selected_unit.rapid_fire(mouse_tile)
+				print("Rapid Fire activated by unit: ", selected_unit.name)
+				# Clear the mode so it fires only once.
+				rapid_fire_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Rapid Fire.")
+			return  # Exit input processing for this click.
+
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			# Check if a unit is selected and is still valid.

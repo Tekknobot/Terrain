@@ -1,0 +1,59 @@
+[gd_scene load_steps=12 format=3 uid="uid://boyq7us0djwjt"]
+
+[ext_resource type="Script" path="res://Scripts/RapidFireProjectile.gd" id="1_fcohc"]
+[ext_resource type="Texture2D" uid="uid://bvhexu5mr62x0" path="res://Sprites/Projectiles/default/proj1.png" id="2_gy8tl"]
+[ext_resource type="Texture2D" uid="uid://dbv0bex6ohc4l" path="res://Sprites/Projectiles/default/proj2.png" id="3_7busw"]
+[ext_resource type="Texture2D" uid="uid://d1e0w6lu4yq8y" path="res://Sprites/Projectiles/default/proj3.png" id="4_ptt07"]
+[ext_resource type="Texture2D" uid="uid://bw3ov6dpfp8mm" path="res://Sprites/Projectiles/default/proj4.png" id="5_1lqcr"]
+[ext_resource type="Texture2D" uid="uid://dd6f6n3o1h8ki" path="res://Sprites/Projectiles/default/proj5.png" id="6_ovfp3"]
+[ext_resource type="Texture2D" uid="uid://debqlggwwsxq" path="res://Sprites/Projectiles/default/proj6.png" id="7_3v17d"]
+[ext_resource type="Texture2D" uid="uid://lihdct3l2b5e" path="res://Sprites/Projectiles/default/proj7.png" id="8_1jjqh"]
+[ext_resource type="Texture2D" uid="uid://bavxou5lkbjfv" path="res://Sprites/Projectiles/default/proj8.png" id="9_pahbn"]
+[ext_resource type="AudioStream" uid="uid://0mkpvkxg630j" path="res://Audio/SFX/rusty_machine_gun_fire_single.wav" id="10_mojl5"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_rngvo"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_gy8tl")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_7busw")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_ptt07")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_1lqcr")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_ovfp3")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_3v17d")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_1jjqh")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_pahbn")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
+
+[node name="Projectile" type="Node2D"]
+script = ExtResource("1_fcohc")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -17)
+sprite_frames = SubResource("SpriteFrames_rngvo")
+autoplay = "default"
+frame_progress = 0.158683
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("10_mojl5")
+autoplay = true

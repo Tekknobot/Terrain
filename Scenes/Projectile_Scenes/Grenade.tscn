@@ -1,0 +1,35 @@
+[gd_scene load_steps=6 format=3 uid="uid://dbxtg4tiv3fih"]
+
+[ext_resource type="Script" path="res://scripts/Grenade.gd" id="1_k0bdn"]
+[ext_resource type="Texture2D" uid="uid://ba60lg7qfcswu" path="res://assets/projectiles/default/grenade/grenade1.png" id="3_q8s6q"]
+[ext_resource type="Texture2D" uid="uid://jvilfrpui01o" path="res://assets/projectiles/default/grenade/grenade2.png" id="4_1f5va"]
+[ext_resource type="AudioStream" uid="uid://cue0f2dfa4w6t" path="res://audio/SFX/rusty_machine_gun_fire_single.wav" id="5_snbs4"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_rngvo"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_q8s6q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_1f5va")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
+
+[node name="Grenade" type="Node2D"]
+script = ExtResource("1_k0bdn")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -17)
+sprite_frames = SubResource("SpriteFrames_rngvo")
+autoplay = "default"
+frame_progress = 0.321217
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("5_snbs4")
+autoplay = true

@@ -773,3 +773,33 @@ func critical_strike(target_tile: Vector2i) -> void:
 	has_attacked = true
 	has_moved = true
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+# Call this method when the Rapid Fire ability is used.
+func rapid_fire(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	
+	# Loop through a 3x3 grid centered on target_tile.
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var this_tile = target_tile + Vector2i(x, y)
+			# Convert tile coordinate to global position.
+			var target_pos = tilemap.to_global(tilemap.map_to_local(this_tile))
+			
+			# Preload and instantiate the Rapid Fire projectile.
+			var projectile_scene = preload("res://Scenes/Projectile_Scenes/Projectile.tscn")
+			var projectile = projectile_scene.instantiate()
+			get_tree().get_current_scene().add_child(projectile)
+			
+			# Launch the projectile from the unit's position toward the target tile.
+			projectile.global_position = global_position
+			projectile.set_target(global_position, target_pos)
+			
+			print("Rapid Fire projectile launched toward tile: ", this_tile)
+		
+			await get_tree().create_timer(0.1).timeout
+		
+	# Mark the unit as having acted.
+	has_attacked = true
+	has_moved = true
+	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
+	print("Rapid Fire activated by unit: ", name)

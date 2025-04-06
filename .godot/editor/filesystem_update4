@@ -18,3 +18,5 @@ res://Scripts/HUD_Panel.gd
 res://Prefabs/CriticalStrikeMissile.tscn
 res://Scripts/CriticalStrikeMissile.gd
 res://Prefabs/Missile.tscn
+res://Scenes/Projectile_Scenes/Projectile.tscn
+res://Scripts/RapidFireProjectile.gd
