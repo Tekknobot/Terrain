@@ -758,6 +758,7 @@ func critical_strike(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	# Convert the target tile to global coordinates.
 	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, Y_OFFSET)
+	target_pos.y -= 8
 	
 	# Preload and instantiate the missile.
 	var missile_scene = preload("res://Prefabs/CriticalStrikeMissile.tscn")
@@ -768,3 +769,10 @@ func critical_strike(target_tile: Vector2i) -> void:
 	missile.global_position = global_position
 	missile.set_target(global_position, target_pos)
 	print("Unit ", name, " launched Critical Strike missile toward ", target_tile)
+	
+	has_attacked = true
+	has_moved = true
+	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
+	
+	var hud_panel = get_node("/root/BattleGrid/HUDLayer/Control")
+	hud_panel._on_ability_toggled(false)

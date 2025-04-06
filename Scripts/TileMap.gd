@@ -127,6 +127,7 @@ func _input(event):
 		# If Critical Strike mode is active and the click is not on the toggle:
 		if critical_strike_mode:
 			if selected_unit and selected_unit.is_player:
+				_clear_highlights()
 				selected_unit.critical_strike(mouse_tile)
 				print("Critical Strike activated by unit: ", selected_unit.name)
 				# Clear the mode so it fires only once.
@@ -217,34 +218,9 @@ func _select_unit_at_mouse():
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
-		#hud.visible = false
+		hud.visible = false
 		return
-	
-	# Prevent selecting a unit that has already moved and attacked (if needed).
-	if unit.is_player and unit.has_moved and unit.has_attacked:
-		selected_unit = null
-		showing_attack = false
-		play_beep_sound(tile)
-		hud.update_hud({
-			"name": "",
-			"portrait": null,
-			"current_hp": 0,
-			"max_hp": 0,
-			"current_xp": 0,
-			"max_xp": 0,
-			"level": 0,
-			"movement_range": 0,
-			"attack_range": 0,
-			"damage": 0
-		})
-		return
-	
-	# Set the selected unit and update highlights, etc.
-	selected_unit = unit
-	showing_attack = false
-	_show_range_for_selected_unit()
-	play_beep_sound(tile)
-	
+
 	# Build the dictionary from the unit's properties.
 	var hud_data = {
 		"name": unit.unit_name,           # Adjust this to unit.name if you use that.
@@ -258,6 +234,20 @@ func _select_unit_at_mouse():
 		"attack_range": unit.attack_range,
 		"damage": unit.damage
 	}
+	
+	# Prevent selecting a unit that has already moved and attacked (if needed).
+	if unit.is_player and unit.has_moved and unit.has_attacked:
+		selected_unit = null
+		showing_attack = false
+		play_beep_sound(tile)
+		hud.update_hud(hud_data)
+		return
+	
+	# Set the selected unit and update highlights, etc.
+	selected_unit = unit
+	showing_attack = false
+	_show_range_for_selected_unit()
+	play_beep_sound(tile)
 	
 	# Update the HUD.
 	hud.visible = true
@@ -951,7 +941,6 @@ func _on_continue_pressed() -> void:
 	
 	# Transition to the next mission/level.
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
-
 
 func _on_back_pressed() -> void:
 	# Transition to the next mission/level.

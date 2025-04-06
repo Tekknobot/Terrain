@@ -93,6 +93,7 @@ func spawn_explosions() -> void:
 			var explosion = explosion_scene.instantiate()
 			# Position the explosion at the center of the tile.
 			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
+			explosion.global_position.y -= 8
 			get_tree().get_current_scene().add_child(explosion)
 			
 			# Determine damage for this tile.

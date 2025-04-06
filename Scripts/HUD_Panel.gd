@@ -181,3 +181,5 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 			tilemap.critical_strike_mode = false
 	else:
 		print("No selected unit available for ability toggling.")
+		
+	tilemap._clear_highlights()	
