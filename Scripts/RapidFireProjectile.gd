@@ -104,6 +104,7 @@ func explode() -> void:
 	if unit:
 		unit.take_damage(primary_damage)
 		unit.flash_white()
+		unit.shake()
 
 	print("Rapid Fire missile exploded at tile: ", impact_tile)
 	z_index = int(global_position.y)
