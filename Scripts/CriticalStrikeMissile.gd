@@ -107,6 +107,7 @@ func spawn_explosions() -> void:
 			var unit = tilemap.get_unit_at_tile(tile)
 			if unit:
 				unit.take_damage(damage)
+				unit.shake()
 				unit.flash_white()
 				
 			# Optionally, damage structures on this tile.

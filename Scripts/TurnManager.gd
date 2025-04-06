@@ -263,7 +263,9 @@ func end_turn(game_over: bool = false):
 
 	current_turn_index = (current_turn_index + 1) % turn_order.size()
 	active_unit_index = 0
-
+	
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap.critical_strike_mode = false
 	call_deferred("start_turn")
 
 

@@ -773,6 +773,3 @@ func critical_strike(target_tile: Vector2i) -> void:
 	has_attacked = true
 	has_moved = true
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
-	
-	var hud_panel = get_node("/root/BattleGrid/HUDLayer/Control")
-	hud_panel._on_ability_toggled(false)
