@@ -20,7 +20,7 @@ func _ready():
 	# Wait one frame so TileMap can spawn units first
 	await get_tree().create_timer(0.5).timeout
 	call_deferred("_initialize_turns")
-	_test_launch_reward_phase()
+	#_test_launch_reward_phase()
 
 func _initialize_turns():
 	_populate_units()
@@ -232,10 +232,12 @@ func end_turn(game_over: bool = false):
 	if not player_units_exist:
 		print("Game Over - You Lost!")
 		_show_game_over_screen("lose", stats, rewards)
+		hide_end_turn_button()
 		return
 	elif not enemy_units_exist:
 		print("Game Over - You Won!")
 		_show_game_over_screen("win", stats, rewards)
+		hide_end_turn_button()
 		_launch_reward_phase(rewards)
 		return
 
@@ -268,6 +270,12 @@ func end_turn(game_over: bool = false):
 	tilemap.critical_strike_mode = false
 	call_deferred("start_turn")
 
+func hide_end_turn_button() -> void:
+	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
+	if end_turn_button:
+		end_turn_button.visible = false
+	else:
+		print("EndTurn button not found!")
 
 func unit_finished_action(unit):
 	active_unit_index += 1

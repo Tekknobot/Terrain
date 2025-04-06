@@ -139,7 +139,8 @@ func _input(event):
 		
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if selected_unit:
+			# Check if a unit is selected and is still valid.
+			if selected_unit and is_instance_valid(selected_unit):
 				if selected_unit.is_player:
 					if showing_attack:
 						var enemy = get_unit_at_tile(mouse_tile)
