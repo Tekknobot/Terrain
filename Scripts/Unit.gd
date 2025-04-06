@@ -752,3 +752,19 @@ func apply_level_up_material() -> void:
 		# Wait for 2 seconds before resetting.
 		await get_tree().create_timer(1.0).timeout
 		sprite.material = original_material
+
+# Call this method when the Critical Strike ability is used.
+func critical_strike(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	# Convert the target tile to global coordinates.
+	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, Y_OFFSET)
+	
+	# Preload and instantiate the missile.
+	var missile_scene = preload("res://Prefabs/CriticalStrikeMissile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+	
+	# Launch the missile from the unit's position.
+	missile.global_position = global_position
+	missile.set_target(global_position, target_pos)
+	print("Unit ", name, " launched Critical Strike missile toward ", target_tile)

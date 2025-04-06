@@ -15,3 +15,6 @@ res://Scripts/GameData.gd
 res://Scenes/TitleScreen.tscn
 res://Scripts/TitleScreen.gd
 res://Scripts/HUD_Panel.gd
+res://Prefabs/CriticalStrikeMissile.tscn
+res://Scripts/CriticalStrikeMissile.gd
+res://Prefabs/Missile.tscn

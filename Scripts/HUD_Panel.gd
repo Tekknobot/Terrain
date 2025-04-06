@@ -137,16 +137,15 @@ func update_hud(player):
 	damage_label.text = "DMG: %d" % player.damage
 
 	ability_button.button_pressed = false
-	
+
 	# Update Ability Button:
-	# Check if GameData.unit_upgrades has an entry for this unit's name
-	# and that the value (after trimming whitespace) is not empty.
 	if GameData.unit_upgrades.has(player.name) and str(GameData.unit_upgrades[player.name]).strip_edges() != "":
 		ability_button.text = str(GameData.unit_upgrades[player.name])
 		ability_button.visible = true
 	else:
 		ability_button.visible = false
-
+		var tilemap = get_node("/root/BattleGrid/TileMap")
+			
 	# Start a new typewriter effect for the quote.
 	_current_typing_id += 1
 	var current_id = _current_typing_id
@@ -162,3 +161,23 @@ func type_quote(quote: String, id: int) -> void:
 			return
 		quote_label.text += quote[i]
 		await get_tree().create_timer(0.05).timeout
+
+
+func _on_ability_toggled(toggled_on: bool) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	
+	if tilemap.selected_unit != null:
+		if GameData.unit_upgrades.has(tilemap.selected_unit.unit_name) and str(GameData.unit_upgrades[tilemap.selected_unit.unit_name]).strip_edges() != "":
+			ability_button.text = str(GameData.unit_upgrades[tilemap.selected_unit.unit_name])
+			ability_button.visible = true
+			
+			# Only enable critical strike mode if the ability is Critical Strike AND the button is pressed.
+			if ability_button.text == "Critical Strike" and ability_button.pressed:
+				tilemap.critical_strike_mode = true
+			else:
+				tilemap.critical_strike_mode = false
+		else:
+			ability_button.visible = false
+			tilemap.critical_strike_mode = false
+	else:
+		print("No selected unit available for ability toggling.")

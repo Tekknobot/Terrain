@@ -80,6 +80,8 @@ var difficulty_tiers: Dictionary = {
 	12: "Omnipotent"
 }
 
+var critical_strike_mode: bool = false
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -109,24 +111,40 @@ func _post_map_generation():
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
-		var mouse_tile = local_to_map(to_local(Vector2(get_global_mouse_position().x, get_global_mouse_position().y + 16)))
+		var mouse_pos = get_global_mouse_position()
+
+		# Convert the mouse position to a tile coordinate.
+		var tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
+		
+		# If the click is off the map, return.
+		if tile.x < 0 or tile.x >= grid_width or tile.y < 0 or tile.y >= grid_height:
+			return
+
+		var mouse_tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
 		if moving:
 			return
 
+		# If Critical Strike mode is active and the click is not on the toggle:
+		if critical_strike_mode:
+			if selected_unit and selected_unit.is_player:
+				selected_unit.critical_strike(mouse_tile)
+				print("Critical Strike activated by unit: ", selected_unit.name)
+				# Clear the mode so it fires only once.
+				critical_strike_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Critical Strike.")
+			return  # Exit input processing for this click.
+		
+		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit:
-				# Only process attack/move commands if the selected unit is a player.
 				if selected_unit.is_player:
-					# If we're in attack mode (right click activated) and the clicked tile has an enemy, structure, or is empty:
 					if showing_attack:
 						var enemy = get_unit_at_tile(mouse_tile)
 						var structure = get_structure_at_tile(mouse_tile)
-						
-						# If there's an enemy (that isn't a player) or a structure, or the tile is empty:
 						if (enemy and not enemy.is_player) or structure or (enemy == null and structure == null):
-							# Check if the selected unit is ranged or support.
 							if selected_unit.unit_type in ["Ranged", "Support"]:
-								# If an enemy exists, use its tile position.
 								if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 									selected_unit.auto_attack_ranged(enemy, selected_unit)
 									var sprite := selected_unit.get_node("AnimatedSprite2D")
@@ -134,7 +152,6 @@ func _input(event):
 									showing_attack = false
 									_clear_highlights()
 									return
-								# Otherwise, if a structure exists, use its tile position.
 								elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
 									selected_unit.auto_attack_ranged(structure, selected_unit)
 									var sprite := selected_unit.get_node("AnimatedSprite2D")
@@ -142,7 +159,6 @@ func _input(event):
 									showing_attack = false
 									_clear_highlights()
 									return
-								# Otherwise, if both enemy and structure are null, allow a missile to strike an empty tile.
 								elif enemy == null and structure == null and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 									selected_unit.auto_attack_ranged_empty(mouse_tile, selected_unit)
 									var sprite := selected_unit.get_node("AnimatedSprite2D")
@@ -151,7 +167,6 @@ func _input(event):
 									_clear_highlights()
 									return
 							else:
-								# For melee units, require the enemy to be exactly adjacent.
 								if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 									selected_unit.auto_attack_adjacent()
 									selected_unit.has_moved = true
@@ -161,7 +176,6 @@ func _input(event):
 									_clear_highlights()
 									play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 									return
-					# Allow manual movement if not in attack mode.
 					if not showing_attack:
 						if highlighted_tiles.has(mouse_tile):
 							if selected_unit.has_moved:
@@ -171,18 +185,15 @@ func _input(event):
 							sprite.self_modulate = Color(1, 0.6, 0.6, 1)
 							return
 				else:
-					# If the selected unit is an enemy, do not initiate any attacks—just show its range.
 					_show_range_for_selected_unit()
 			_select_unit_at_mouse()
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			# Right click sets up attack mode.
 			if selected_unit:
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()
-					
-
+								
 func toggle_borders():
 	borders_visible = not borders_visible
 

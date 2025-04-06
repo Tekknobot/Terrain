@@ -471,3 +471,4 @@ text = "ABILITY"
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Quit" to="TileMap" method="_on_back_pressed"]
+[connection signal="toggled" from="HUDLayer/Control/Ability" to="HUDLayer/Control" method="_on_ability_toggled"]
