@@ -773,6 +773,7 @@ func critical_strike(target_tile: Vector2i) -> void:
 	has_attacked = true
 	has_moved = true
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
+	tilemap.critical_strike_mode = false
 
 # Call this method when the Rapid Fire ability is used.
 func rapid_fire(target_tile: Vector2i) -> void:
@@ -803,3 +804,4 @@ func rapid_fire(target_tile: Vector2i) -> void:
 	has_moved = true
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
 	print("Rapid Fire activated by unit: ", name)
+	tilemap.rapid_fire_mode = false
