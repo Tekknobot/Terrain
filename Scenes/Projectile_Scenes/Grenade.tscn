@@ -1,9 +1,9 @@
 [gd_scene load_steps=6 format=3 uid="uid://dbxtg4tiv3fih"]
 
-[ext_resource type="Script" path="res://scripts/Grenade.gd" id="1_k0bdn"]
-[ext_resource type="Texture2D" uid="uid://ba60lg7qfcswu" path="res://assets/projectiles/default/grenade/grenade1.png" id="3_q8s6q"]
-[ext_resource type="Texture2D" uid="uid://jvilfrpui01o" path="res://assets/projectiles/default/grenade/grenade2.png" id="4_1f5va"]
-[ext_resource type="AudioStream" uid="uid://cue0f2dfa4w6t" path="res://audio/SFX/rusty_machine_gun_fire_single.wav" id="5_snbs4"]
+[ext_resource type="Script" path="res://Scripts/ExplosiveRoundsProjectile.gd" id="1_0e24m"]
+[ext_resource type="Texture2D" uid="uid://ba60lg7qfcswu" path="res://Sprites/Projectiles/default/grenade/grenade1.png" id="3_q8s6q"]
+[ext_resource type="Texture2D" uid="uid://jvilfrpui01o" path="res://Sprites/Projectiles/default/grenade/grenade2.png" id="4_1f5va"]
+[ext_resource type="AudioStream" uid="uid://0mkpvkxg630j" path="res://audio/SFX/rusty_machine_gun_fire_single.wav" id="5_snbs4"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_rngvo"]
 animations = [{
@@ -20,7 +20,7 @@ animations = [{
 }]
 
 [node name="Grenade" type="Node2D"]
-script = ExtResource("1_k0bdn")
+script = ExtResource("1_0e24m")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -17)

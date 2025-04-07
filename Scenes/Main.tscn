@@ -239,7 +239,7 @@ enemy_units = Array[PackedScene]([ExtResource("9_tx01l"), ExtResource("10_jnxcy"
 map_details = NodePath("../CanvasLayer/Control/HBoxContainer/MapDetails")
 structure_scenes = Array[PackedScene]([ExtResource("29_u3kwq"), ExtResource("30_vr6ln"), ExtResource("31_u8ap8"), ExtResource("32_ebequ"), ExtResource("33_8ltv0"), ExtResource("34_r0hbk")])
 max_structures = 6
-max_enemy_units = 4
+max_enemy_units = 0
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
 
@@ -262,9 +262,9 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -852.0
+offset_left = -798.0
 offset_top = -135.0
-offset_right = -812.0
+offset_right = -758.0
 offset_bottom = -95.0
 grow_horizontal = 0
 grow_vertical = 0
@@ -278,11 +278,11 @@ offset_bottom = 104.0
 theme_override_constants/separation = 32
 
 [node name="MapDetails" type="RichTextLabel" parent="CanvasLayer/Control/HBoxContainer"]
-custom_minimum_size = Vector2(400, 0)
+custom_minimum_size = Vector2(350, 0)
 layout_mode = 2
 theme_override_fonts/normal_font = ExtResource("39_jffjd")
 theme_override_font_sizes/normal_font_size = 64
-text = "DIFFICLUTY: NOVICE"
+text = "NOVICE"
 
 [node name="EndTurn" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
 custom_minimum_size = Vector2(256, 72)

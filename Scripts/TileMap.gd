@@ -77,13 +77,26 @@ var difficulty_tiers: Dictionary = {
 	9: "Transcendent",
 	10: "Celestial",
 	11: "Divine",
-	12: "Omnipotent"
+	12: "Omnipotent",
+	13: "Ascendant",
+	14: "Ethereal",
+	15: "Supreme",
+	16: "Sovereign",
+	17: "Infallible",
+	18: "Immortal",
+	19: "Omniscient",
+	20: "Absolute",
+	21: "Unstoppable",
+	22: "Cosmic",
+	23: "Infinite",
+	24: "Ultimate"
 }
 
 var critical_strike_mode: bool = false
 var rapid_fire_mode: bool = false
 var healing_wave_mode: bool = false
 var overcharge_attack_mode: bool = false
+var explosive_rounds_mode: bool = false
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -179,6 +192,18 @@ func _input(event):
 				print("No player unit selected for Overcharge.")
 			return  # Exit input processing for this click.
 
+		# If Explosive Rounds mode is active and the click is not on the toggle:
+		if explosive_rounds_mode:
+			if selected_unit and selected_unit.is_player:
+				_clear_highlights()
+				selected_unit.explosive_rounds(mouse_tile)
+				print("Explosive Rounds activated by unit: ", selected_unit.name)
+				# Clear the mode so it fires only once.
+				explosive_rounds_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Explosive Rounds.")
+			return  # Exit input processing for this click.
 
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -496,7 +521,7 @@ func _generate_map():
 			var tile_id = _get_tile_id_from_noise(n)
 			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
 	_generate_roads()
-	map_details.text = "DIFFICULTY: " + difficulty_tiers[GameData.map_difficulty]
+	map_details.text = difficulty_tiers[GameData.map_difficulty]
 
 func _get_tile_id_from_noise(n: float) -> int:
 	if n < water_threshold:

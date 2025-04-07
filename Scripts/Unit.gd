@@ -877,3 +877,30 @@ func overcharge_attack(target_tile: Vector2i) -> void:
 
 	if sprite:
 		sprite.play("default")	
+
+func explosive_rounds(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	# Convert the target tile to global coordinates.
+	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, Y_OFFSET)
+	target_pos.y -= 8  # Adjust vertical offset as needed.
+	
+	# Preload and instantiate the explosive rounds missile.
+	var missile_scene = preload("res://Scenes/Projectile_Scenes/Grenade.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+
+	var sprite = $AnimatedSprite2D
+	if sprite:
+		sprite.play("attack")	
+	
+	# Launch the missile from the unit's position toward the target position.
+	missile.global_position = global_position
+	missile.set_target(global_position, target_pos)
+	print("Unit ", name, " launched Explosive Rounds missile toward tile ", target_tile)
+	
+	has_attacked = true
+	has_moved = true
+	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
+	
+	if sprite:
+		sprite.play("default")		

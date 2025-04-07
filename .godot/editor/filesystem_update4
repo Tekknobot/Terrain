@@ -20,3 +20,5 @@ res://Scripts/CriticalStrikeMissile.gd
 res://Prefabs/Missile.tscn
 res://Scenes/Projectile_Scenes/Projectile.tscn
 res://Scripts/RapidFireProjectile.gd
+res://Scenes/Projectile_Scenes/Grenade.tscn
+res://Scripts/ExplosiveRoundsProjectile.gd

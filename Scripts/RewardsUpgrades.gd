@@ -13,8 +13,8 @@ var ability_pool: Array[String] = [
 	"Overcharge",  
 	"Critical Strike", 
 	"Rapid Fire",  
-	"Healing Wave"
-	#"Explosive Rounds",	
+	"Healing Wave",
+	"Explosive Rounds"	
 	#"Shield Boost"	
 ]
 
@@ -36,7 +36,7 @@ func _populate_ability_options() -> void:
 	for ability in ability_pool:
 		var btn = Button.new()
 		btn.text = ability
-		btn.custom_minimum_size = Vector2(0, 85)  # Set minimum height to 64 pixels.
+		btn.custom_minimum_size = Vector2(0, 64)  # Set minimum height to 64 pixels.
 		btn.pressed.connect(self._on_ability_selected.bind(btn, ability))
 		ability_options_container.add_child(btn)
 

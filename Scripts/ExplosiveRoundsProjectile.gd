@@ -11,18 +11,20 @@ var control_point: Vector2 = Vector2.ZERO
 var progress: float = 0.0
 var is_ready: bool = false
 
+@export var primary_damage: int = 30   # Damage at center tile.
+@export var splash_damage: int = 20    # Damage for cardinal adjacent tiles.
+@export var diagonal_damage: int = 15  # Damage for diagonal tiles.
+@export var knockback_distance: int = 1  # How many tiles to push (optional).
+
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var line_renderer: Line2D = $Line2D
-
-# Damage parameters (you can tweak these)
-@export var primary_damage: int = 40
-@export var secondary_damage: int = 25
 
 func _ready() -> void:
 	visible = false
 	progress = 0.0
 	is_ready = false
-	# Use the local Line2D node (if available) for a missile trail.
+	
+	# Configure the local Line2D (missile trail).
 	if line_renderer:
 		line_renderer.clear_points()
 		line_renderer.width = pixel_size
@@ -42,15 +44,15 @@ func _process(delta: float) -> void:
 		update_rotation()
 		if line_renderer:
 			line_renderer.add_point(global_position)
-		
+			
 		# Update the projectile's z-index based on its current tile position.
 		var tilemap = get_node("/root/BattleGrid/TileMap")
 		if tilemap:
 			var current_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 			# Example: use a base z-index and add a multiple of the tile's y coordinate.
 			var base_z = 1000  # Adjust as needed.
-			z_index = base_z + current_tile.y * 10
-			
+			z_index = base_z + current_tile.y * 10	
+					
 	elif is_ready and progress >= 1.0:
 		is_ready = false
 		if line_renderer:
@@ -59,25 +61,21 @@ func _process(delta: float) -> void:
 		emit_signal("finished")
 		queue_free()
 
-
 # Calculate a quadratic Bezier point.
 func bezier_point(t: float) -> Vector2:
-	# B(t) = (1-t)^2 * p0 + 2(1-t)t * p1 + t^2 * p2
 	return (1 - t) * (1 - t) * start_pos + 2 * (1 - t) * t * control_point + t * t * end_pos
 
-# Update the missile's rotation to face its direction.
+# Update the missile's rotation to face its direction of travel.
 func update_rotation() -> void:
 	var next_pos = bezier_point(min(progress + 0.05, 1.0))
 	var dir = next_pos - global_position
-	#sprite.rotation = dir.angle()
 
 # Call this function to set the missile's path.
-# For Rapid Fire, the first projectile uses set_target as normal.
 func set_target(start: Vector2, target: Vector2) -> void:
 	start_pos = start
 	end_pos = target
-	# Set a control point for an arcing trajectory (offset upward by 200 pixels).
-	control_point = (start + target) / 2 + Vector2(0, 0)
+	# Set a control point for an arcing trajectory (adjust offset as desired).
+	control_point = (start + target) / 2 + Vector2(0, -200)
 	global_position = start_pos
 	visible = true
 	is_ready = true
@@ -94,19 +92,35 @@ func explode() -> void:
 		return
 	var impact_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 	
-	# Spawn a primary explosion at the impact tile.
+	# Instantiate an explosion effect at the center.
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
 	var explosion = explosion_scene.instantiate()
 	explosion.global_position = tilemap.to_global(tilemap.map_to_local(impact_tile))
 	get_tree().get_current_scene().add_child(explosion)
 	
-	# Damage the impact tile.
-	var unit = tilemap.get_unit_at_tile(impact_tile)
-	if unit:
-		unit.take_damage(primary_damage)
-		unit.flash_white()
-		unit.shake()
-
-	print("Rapid Fire missile exploded at tile: ", impact_tile)
+	# Loop over the 3x3 grid around the impact tile.
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var tile = impact_tile + Vector2i(x, y)
+			var damage: int = 0
+			# Determine damage based on distance:
+			if x == 0 and y == 0:
+				damage = primary_damage
+			elif abs(x) + abs(y) == 1:
+				damage = splash_damage
+			else:
+				damage = diagonal_damage
+			
+			# Damage any enemy unit on this tile.
+			var enemy_unit = tilemap.get_unit_at_tile(tile)
+			if enemy_unit and not enemy_unit.is_player:
+				enemy_unit.take_damage(damage)
+				enemy_unit.flash_white()
+				enemy_unit.shake()
+				print("Explosive Rounds: ", enemy_unit.name, " took ", damage, " damage at tile ", tile)
+		
+	
+	print("Explosive Rounds missile exploded at tile: ", impact_tile)
+	# Update z-index based on current position.
 	z_index = int(global_position.y)
 	z_as_relative = false
