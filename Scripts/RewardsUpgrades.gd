@@ -9,9 +9,12 @@ var earned_coins: int = 0
 var earned_xp: int = 0
 
 # Define a pool of special abilities available for unlocking.
-var ability_pool: Array[String] = [ 
+var ability_pool: Array[String] = [
+	"Overcharge", 
+	"Shield Boost", 
 	"Critical Strike", 
-	"Rapid Fire",  
+	"Rapid Fire", 
+	"Explosive Rounds", 
 	"Healing Wave"
 ]
 

@@ -83,6 +83,7 @@ var difficulty_tiers: Dictionary = {
 var critical_strike_mode: bool = false
 var rapid_fire_mode: bool = false
 var healing_wave_mode: bool = false
+var overcharge_attack_mode: bool = false
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -163,6 +164,19 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Healing Wave.")
+			return  # Exit input processing for this click.
+
+		# If Overchage attack mode is active and the click is not on the toggle:
+		if overcharge_attack_mode:
+			if selected_unit and selected_unit.is_player:
+				_clear_highlights()
+				selected_unit.overcharge_attack(mouse_tile)
+				print("Overcharge wave activated by unit: ", selected_unit.name)
+				# Clear the mode so it fires only once.
+				overcharge_attack_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Overcharge.")
 			return  # Exit input processing for this click.
 
 

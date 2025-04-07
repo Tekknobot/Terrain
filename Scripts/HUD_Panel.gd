@@ -177,28 +177,38 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.critical_strike_mode = true
 					tilemap.rapid_fire_mode = false
 					tilemap.healing_wave_mode = false
+					tilemap.overcharge_attack_mode = false
 				elif ability_button.text == "Rapid Fire":
 					tilemap.rapid_fire_mode = true
 					tilemap.critical_strike_mode = false
 					tilemap.healing_wave_mode = false
+					tilemap.overcharge_attack_mode = false
 				elif ability_button.text == "Healing Wave":
 					tilemap.healing_wave_mode = true
 					tilemap.critical_strike_mode = false
 					tilemap.rapid_fire_mode = false
+					tilemap.overcharge_attack_mode = false
+				elif ability_button.text == "Overcharge":
+					tilemap.overcharge_attack_mode = true
+					tilemap.critical_strike_mode = false
+					tilemap.rapid_fire_mode = false
+					tilemap.healing_wave_mode = false
 				else:
 					tilemap.critical_strike_mode = false
 					tilemap.rapid_fire_mode = false
 					tilemap.healing_wave_mode = false
-
+					tilemap.overcharge_attack_mode = false
 			else:
 				tilemap.critical_strike_mode = false
 				tilemap.rapid_fire_mode = false
 				tilemap.healing_wave_mode = false
+				tilemap.overcharge_attack_mode = false
 		else:
 			# When toggled off, clear any mode flags and hide the ability button.
 			tilemap.critical_strike_mode = false
 			tilemap.rapid_fire_mode = false
 			tilemap.healing_wave_mode = false
+			tilemap.overcharge_attack_mode = false
 	else:
 		print("No selected unit available for ability toggling.")
 	
