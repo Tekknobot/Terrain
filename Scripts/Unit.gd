@@ -706,7 +706,9 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	
 	# Await the missile's finished signal.
 	await missile.finished
-
+	
+	has_moved = true
+	has_attacked = true
 
 func _on_ranged_attack_finished(target: Node) -> void:
 	# When the missile “hits”, if the target is still valid, apply damage and show visual feedback.

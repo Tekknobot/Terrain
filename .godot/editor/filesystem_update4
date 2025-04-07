@@ -12,3 +12,5 @@ res://Prefabs/Missile.tscn
 res://Scenes/Projectile_Scenes/Projectile.tscn
 res://Scenes/Projectile_Scenes/Grenade.tscn
 res://Scripts/TileMap.gd
+res://Scripts/TurnManager.gd
+res://Scripts/Unit.gd

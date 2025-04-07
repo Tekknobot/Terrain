@@ -142,7 +142,7 @@ func _input(event):
 		
 		# If Critical Strike mode is active and the click is not on the toggle:
 		if critical_strike_mode:
-			if selected_unit and selected_unit.is_player:
+			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.critical_strike(mouse_tile)
 				print("Critical Strike activated by unit: ", selected_unit.name)
@@ -155,7 +155,7 @@ func _input(event):
 
 		# If Rapid Fire mode is active and the click is not on the toggle:
 		if rapid_fire_mode:
-			if selected_unit and selected_unit.is_player:
+			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.rapid_fire(mouse_tile)
 				print("Rapid Fire activated by unit: ", selected_unit.name)
@@ -168,7 +168,7 @@ func _input(event):
 
 		# If Healing wave mode is active and the click is not on the toggle:
 		if healing_wave_mode:
-			if selected_unit and selected_unit.is_player:
+			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.healing_wave(mouse_tile)
 				print("Healing wave activated by unit: ", selected_unit.name)
@@ -181,7 +181,7 @@ func _input(event):
 
 		# If Overchage attack mode is active and the click is not on the toggle:
 		if overcharge_attack_mode:
-			if selected_unit and selected_unit.is_player:
+			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.overcharge_attack(mouse_tile)
 				print("Overcharge wave activated by unit: ", selected_unit.name)
@@ -194,7 +194,7 @@ func _input(event):
 
 		# If Explosive Rounds mode is active and the click is not on the toggle:
 		if explosive_rounds_mode:
-			if selected_unit and selected_unit.is_player:
+			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.explosive_rounds(mouse_tile)
 				print("Explosive Rounds activated by unit: ", selected_unit.name)
@@ -209,7 +209,7 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			# Check if a unit is selected and is still valid.
 			if selected_unit and is_instance_valid(selected_unit):
-				if selected_unit.is_player:
+				if selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 					if showing_attack:
 						var enemy = get_unit_at_tile(mouse_tile)
 						var structure = get_structure_at_tile(mouse_tile)
