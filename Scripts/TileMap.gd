@@ -97,6 +97,7 @@ var rapid_fire_mode: bool = false
 var healing_wave_mode: bool = false
 var overcharge_attack_mode: bool = false
 var explosive_rounds_mode: bool = false
+var spider_blast_mode: bool = false
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -142,72 +143,78 @@ func _input(event):
 		
 		# If Critical Strike mode is active and the click is not on the toggle:
 		if critical_strike_mode:
-			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.critical_strike(mouse_tile)
 				print("Critical Strike activated by unit: ", selected_unit.name)
-				# Clear the mode so it fires only once.
 				critical_strike_mode = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Critical Strike.")
 			return  # Exit input processing for this click.
-
+		
 		# If Rapid Fire mode is active and the click is not on the toggle:
 		if rapid_fire_mode:
-			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.rapid_fire(mouse_tile)
 				print("Rapid Fire activated by unit: ", selected_unit.name)
-				# Clear the mode so it fires only once.
 				rapid_fire_mode = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Rapid Fire.")
 			return  # Exit input processing for this click.
-
-		# If Healing wave mode is active and the click is not on the toggle:
+		
+		# If Healing Wave mode is active and the click is not on the toggle:
 		if healing_wave_mode:
-			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.healing_wave(mouse_tile)
-				print("Healing wave activated by unit: ", selected_unit.name)
-				# Clear the mode so it fires only once.
+				print("Healing Wave activated by unit: ", selected_unit.name)
 				healing_wave_mode = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Healing Wave.")
 			return  # Exit input processing for this click.
-
-		# If Overchage attack mode is active and the click is not on the toggle:
+		
+		# If Overcharge attack mode is active and the click is not on the toggle:
 		if overcharge_attack_mode:
-			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.overcharge_attack(mouse_tile)
-				print("Overcharge wave activated by unit: ", selected_unit.name)
-				# Clear the mode so it fires only once.
+				print("Overcharge attack activated by unit: ", selected_unit.name)
 				overcharge_attack_mode = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Overcharge.")
 			return  # Exit input processing for this click.
-
+		
 		# If Explosive Rounds mode is active and the click is not on the toggle:
 		if explosive_rounds_mode:
-			if selected_unit and selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.explosive_rounds(mouse_tile)
 				print("Explosive Rounds activated by unit: ", selected_unit.name)
-				# Clear the mode so it fires only once.
 				explosive_rounds_mode = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Explosive Rounds.")
 			return  # Exit input processing for this click.
-
+		
+		# NEW: If Spider Blast mode is active and the click is not on the toggle:
+		if spider_blast_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.spider_blast(mouse_tile)
+				print("Spider Blast activated by unit: ", selected_unit.name)
+				spider_blast_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Spider Blast.")
+			return  # Exit input processing for this click.
+		
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			# Check if a unit is selected and is still valid.
 			if selected_unit and is_instance_valid(selected_unit):
 				if selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 					if showing_attack:

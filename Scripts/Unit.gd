@@ -906,3 +906,35 @@ func explosive_rounds(target_tile: Vector2i) -> void:
 	
 	if sprite:
 		sprite.play("default")		
+
+func spider_blast(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	
+	# Loop over a 3x3 grid centered on target_tile.
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var blast_tile = target_tile + Vector2i(x, y)
+			# Convert the blast tile to a global coordinate.
+			var target_pos = tilemap.to_global(tilemap.map_to_local(blast_tile)) + Vector2(0, Y_OFFSET)
+			target_pos.y -= 8  # Adjust vertical offset if needed.
+			
+			# Preload and instantiate the Spider Blast missile.
+			var missile_scene = preload("res://Prefabs/SpiderBlastMissile.tscn")
+			var missile = missile_scene.instantiate()
+			get_tree().get_current_scene().add_child(missile)
+			
+			# Launch the missile from the unit's current position toward the blast tile.
+			missile.global_position = global_position
+			missile.set_target(global_position, target_pos)
+			
+			print("Spider Blast missile launched toward tile: ", blast_tile)
+			await get_tree().create_timer(0.2).timeout
+			
+	print("Unit ", name, " activated Spider Blast toward tile ", target_tile)
+	
+	has_attacked = true
+	has_moved = true
+	# Tint the unit's sprite to indicate it has acted.
+	var sprite = get_child(0)
+	if sprite:
+		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)

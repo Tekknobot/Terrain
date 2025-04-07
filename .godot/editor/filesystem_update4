@@ -14,3 +14,7 @@ res://Scenes/Projectile_Scenes/Grenade.tscn
 res://Scripts/TileMap.gd
 res://Scripts/TurnManager.gd
 res://Scripts/Unit.gd
+res://Scripts/RewardsUpgrades.gd
+res://Scripts/HUD_Panel.gd
+res://Prefabs/SpiderBlastMissile.tscn
+res://Scripts/SpiderBlastMissile.gd
