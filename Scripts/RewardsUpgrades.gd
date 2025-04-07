@@ -10,12 +10,12 @@ var earned_xp: int = 0
 
 # Define a pool of special abilities available for unlocking.
 var ability_pool: Array[String] = [
-	"Overcharge", 
-	"Shield Boost", 
+	"Overcharge",  
 	"Critical Strike", 
-	"Rapid Fire", 
-	"Explosive Rounds", 
+	"Rapid Fire",  
 	"Healing Wave"
+	#"Explosive Rounds",	
+	#"Shield Boost"	
 ]
 
 # Store the player's selection.
@@ -32,12 +32,11 @@ func set_rewards(coins: int, xp: int) -> void:
 	#xp_label.text = "XP Earned: %d" % xp
 	_populate_ability_options()
 
-# Populate the container with a button for each special ability.
 func _populate_ability_options() -> void:
 	for ability in ability_pool:
 		var btn = Button.new()
 		btn.text = ability
-		# Bind both the button and ability so that when pressed, the handler receives both.
+		btn.custom_minimum_size = Vector2(0, 85)  # Set minimum height to 64 pixels.
 		btn.pressed.connect(self._on_ability_selected.bind(btn, ability))
 		ability_options_container.add_child(btn)
 

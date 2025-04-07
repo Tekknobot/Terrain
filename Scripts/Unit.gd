@@ -854,9 +854,9 @@ func overcharge_attack(target_tile: Vector2i) -> void:
 			if x == 0 and y == 0:
 				damage = 25  # Center tile gets the highest damage.
 			elif abs(x) + abs(y) == 1:
-				damage = 20  # Adjacent (cardinal) tiles get moderate damage.
+				damage = 25  # Adjacent (cardinal) tiles get moderate damage.
 			else:
-				damage = 15  # Diagonals get the least damage.
+				damage = 25  # Diagonals get the least damage.
 			
 			# Attempt to retrieve an enemy unit on this tile.
 			var enemy_unit = tilemap.get_unit_at_tile(tile)
@@ -867,7 +867,7 @@ func overcharge_attack(target_tile: Vector2i) -> void:
 				enemy_unit.shake()
 				tilemap.play_attack_sound(global_position)
 				print("Overcharge: ", enemy_unit.name, " took ", damage, " damage at tile ", tile)
-				await get_tree().create_timer(0.5).timeout
+				await get_tree().create_timer(0.2).timeout
 				
 	# Mark the unit as having used its action.
 	has_attacked = true
