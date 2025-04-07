@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/ExplosiveRoundsProjectile.gd" id="1_0e24m"]
 [ext_resource type="Texture2D" uid="uid://ba60lg7qfcswu" path="res://Sprites/Projectiles/default/grenade/grenade1.png" id="3_q8s6q"]
 [ext_resource type="Texture2D" uid="uid://jvilfrpui01o" path="res://Sprites/Projectiles/default/grenade/grenade2.png" id="4_1f5va"]
-[ext_resource type="AudioStream" uid="uid://0mkpvkxg630j" path="res://audio/SFX/rusty_machine_gun_fire_single.wav" id="5_snbs4"]
+[ext_resource type="AudioStream" uid="uid://0mkpvkxg630j" path="res://Audio/SFX/rusty_machine_gun_fire_single.wav" id="5_snbs4"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_rngvo"]
 animations = [{

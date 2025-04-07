@@ -277,12 +277,13 @@ offset_right = 819.0
 offset_bottom = 104.0
 theme_override_constants/separation = 32
 
-[node name="MapDetails" type="RichTextLabel" parent="CanvasLayer/Control/HBoxContainer"]
+[node name="MapDetails" type="Label" parent="CanvasLayer/Control/HBoxContainer"]
 custom_minimum_size = Vector2(350, 0)
 layout_mode = 2
-theme_override_fonts/normal_font = ExtResource("39_jffjd")
-theme_override_font_sizes/normal_font_size = 64
+theme_override_fonts/font = ExtResource("39_jffjd")
+theme_override_font_sizes/font_size = 64
 text = "NOVICE"
+horizontal_alignment = 2
 
 [node name="EndTurn" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
 custom_minimum_size = Vector2(256, 72)
@@ -308,7 +309,6 @@ text = "Menu"
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 
 [node name="Control" type="Control" parent="HUDLayer"]
-visible = false
 layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0
@@ -382,7 +382,7 @@ theme_override_font_sizes/normal_font_size = 48
 theme_override_styles/normal = SubResource("StyleBoxEmpty_vgpqy")
 
 [node name="Quote" type="RichTextLabel" parent="HUDLayer/Control/VBoxContainer3"]
-custom_minimum_size = Vector2(1024, 64)
+custom_minimum_size = Vector2(1240, 96)
 layout_mode = 2
 theme_override_fonts/normal_font = ExtResource("39_mfbvt")
 theme_override_font_sizes/normal_font_size = 48

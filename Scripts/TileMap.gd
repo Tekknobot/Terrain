@@ -23,7 +23,7 @@ const DOWN_LEFT_ROAD = 13
 @export var player_units: Array[PackedScene]
 @export var enemy_units: Array[PackedScene]
 
-@export var map_details: RichTextLabel
+@export var map_details: Label
 
 var noise := FastNoiseLite.new()
 var tile_size: Vector2
