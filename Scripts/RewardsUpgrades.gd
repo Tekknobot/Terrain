@@ -97,6 +97,7 @@ func _on_ability_selected(btn: Button, ability: String) -> void:
 	else:
 		print("No eligible units to receive a new ability upgrade.")
 
+	_on_continue_button_pressed()
 				
 # Called when the player presses the Continue button.
 func _on_continue_button_pressed() -> void:

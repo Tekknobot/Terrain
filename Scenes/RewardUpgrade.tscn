@@ -86,6 +86,7 @@ theme = SubResource("Theme_pilyr")
 horizontal_alignment = 1
 
 [node name="ContinueButton" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
+visible = false
 custom_minimum_size = Vector2(0, 85)
 layout_mode = 2
 theme = SubResource("Theme_a70fr")
