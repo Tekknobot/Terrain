@@ -20,3 +20,12 @@ res://Prefabs/SpiderBlastMissile.tscn
 res://Scripts/SpiderBlastMissile.gd
 res://Scripts/Transition.gd
 res://Scenes/Transition.tscn
+res://Scripts/Parallax.gd
+res://Scripts/CloudsAlignBottom.gd
+res://Scripts/CloudsAlign.gd
+res://Textures/DissolveShader.gdshader
+res://Textures/pixel_dissolve.tres
+res://Textures/dissolveshader.gdshader
+res://Scripts/DissolveEffect.gd
+res://Textures/pixel_effect.tres
+res://Textures/pixel_effect.gdshader

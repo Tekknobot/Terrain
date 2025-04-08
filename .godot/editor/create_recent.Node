@@ -1,3 +1,9 @@
+ParallaxBackground
+Control
+CenterContainer
+Sprite2D
+ParallaxLayer
+Parallax2D
 CanvasLayer
 ColorRect
 Label
@@ -6,9 +12,3 @@ Button
 Panel
 VBoxContainer
 AnimatedSprite2D
-TextureRect
-CenterContainer
-Control
-Node2D
-HBoxContainer
-AudioStreamPlayer2D

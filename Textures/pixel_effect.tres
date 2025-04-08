@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3 uid="uid://bkgl5fav4fvd4"]
+
+[ext_resource type="Shader" path="res://Textures/pixel_effect.gdshader" id="1_76rrl"]
+[ext_resource type="Texture2D" uid="uid://yg5yj5h5dn2l" path="res://Sprites/Clouds/Dissolve_Noise_Texture.png" id="2_1sd8v"]
+
+[resource]
+shader = ExtResource("1_76rrl")
+shader_parameter/shatter_progress = 0.0
+shader_parameter/noise_scale = 1.0
+shader_parameter/blocks_count = 128.0
+shader_parameter/max_displacement = 200.0
+shader_parameter/noise_texture = ExtResource("2_1sd8v")
