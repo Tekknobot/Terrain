@@ -29,3 +29,7 @@ res://Textures/dissolveshader.gdshader
 res://Scripts/DissolveEffect.gd
 res://Textures/pixel_effect.tres
 res://Textures/pixel_effect.gdshader
+res://Scenes/Meks_Scenes/CPU/R2.scn
+res://Scenes/Meks_Scenes/PLAYER/R4.scn
+res://Scenes/Meks_Scenes/PLAYER/R2.scn
+res://Scenes/Meks_Scenes/CPU/R4.scn

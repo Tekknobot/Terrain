@@ -1,3 +1,4 @@
+AnimatedSprite2D
 ParallaxBackground
 Control
 CenterContainer
@@ -11,4 +12,3 @@ RichTextLabel
 Button
 Panel
 VBoxContainer
-AnimatedSprite2D
