@@ -113,7 +113,7 @@ func _on_continue_button_pressed() -> void:
 	
 	self.visible = false
 	# Transition to the next mission/level.
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+	TurnManager.transition_to_next_level()
 
 func apply_special_ability(unit, ability: String) -> void:
 	unit.set_meta("special_ability_name", ability)

@@ -18,3 +18,5 @@ res://Scripts/RewardsUpgrades.gd
 res://Scripts/HUD_Panel.gd
 res://Prefabs/SpiderBlastMissile.tscn
 res://Scripts/SpiderBlastMissile.gd
+res://Scripts/Transition.gd
+res://Scenes/Transition.tscn

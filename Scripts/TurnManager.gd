@@ -13,6 +13,8 @@ var active_unit_index := 0
 var initial_player_unit_count: int = 6
 var total_damage_dealt: int = 0
 
+var current_transition: Node = null  # Member variable to store the active transition.
+
 func _ready():
 	# Record the initial number of player units.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()
@@ -413,3 +415,54 @@ func _test_launch_reward_phase() -> void:
 		"xp": 50
 	}
 	_launch_reward_phase(fake_rewards)
+
+func transition_to_next_level() -> void:
+	var transition_scene = preload("res://Scenes/Transition.tscn")
+	var transition = transition_scene.instantiate()
+	# Optionally, add to a dedicated overlay layer if available.
+	var overlay_layer = get_tree().get_current_scene().get_node("OverlayLayer")
+	if overlay_layer:
+		overlay_layer.add_child(transition)
+	else:
+		get_tree().get_current_scene().add_child(transition)
+	
+	# Ensure the transition is fully opaque before starting (if needed).
+	transition.fade_duration = 2
+	
+	# Fade out the current scene.
+	var tween = transition.fade_out()
+	tween.connect("finished", Callable(self, "_on_fade_out_finished"))
+
+func transition_to_level() -> void:
+	var transition_scene = preload("res://Scenes/Transition.tscn")
+	var transition = transition_scene.instantiate()
+	# Optionally, add to a dedicated overlay layer if available.
+	var overlay_layer = get_tree().get_current_scene().get_node("OverlayLayer")
+	if overlay_layer:
+		overlay_layer.add_child(transition)
+	else:
+		get_tree().get_current_scene().add_child(transition)
+	
+	# Ensure the transition is fully opaque before starting (if needed).
+	transition.modulate.a = 1.0
+	transition.fade_duration = 2
+	
+	# Fade in the current scene by gradually making the transition transparent.
+	var tween = transition.fade_in()
+
+	
+func _on_fade_out_finished() -> void:
+	# Change to the next level/mission.
+	var next_scene_path = "res://Scenes/Main.tscn"  # or the desired next scene
+	var err = get_tree().change_scene_to_file(next_scene_path)
+	if err != OK:
+		print("Error changing scene!")
+	
+	# Optionally, wait a short time before fading in.
+	await get_tree().create_timer(0.1).timeout
+	
+	# Now instantiate a fresh Transition node for the fade in.
+	var transition_scene = preload("res://Scenes/Transition.tscn")
+	var new_transition = transition_scene.instantiate()
+	get_tree().get_current_scene().add_child(new_transition)
+	new_transition.fade_in()

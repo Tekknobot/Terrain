@@ -105,7 +105,7 @@ func _ready():
 	_generate_map()
 
 	call_deferred("_post_map_generation")  # Wait until the next frame
-
+	
 # New _process function to check for a continuous press.
 func _process(delta):
 	# Only accumulate hold time if the left mouse button is pressed and a unit is selected.
@@ -125,6 +125,7 @@ func _post_map_generation():
 	_setup_camera()
 	update_astar_grid()
 	TurnManager.start_turn()
+	TurnManager.transition_to_level()
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
@@ -1005,7 +1006,7 @@ func spawn_new_enemy_units():
 
 func _on_reset_pressed() -> void:
 	TurnManager.reset_match_stats()  # Reset stats first.
-	get_tree().reload_current_scene()
+	TurnManager.transition_to_next_level()
 
 # When the player is ready to proceed.
 func _on_continue_pressed() -> void:

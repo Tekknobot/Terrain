@@ -469,6 +469,8 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_xexin")
 toggle_mode = true
 text = "ABILITY"
 
+[node name="OverlayLayer" type="CanvasLayer" parent="."]
+
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Menu" to="TileMap" method="_on_back_pressed"]
