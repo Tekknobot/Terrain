@@ -1,5 +1,7 @@
-/Users/machome/Godot/_Builds/Mek VS Mek
 /Users/machome/Godot/_Builds/Mek VS Mek/Windows
+/Users/machome/Godot/_Builds/Mek VS Mek
+res://Scenes/Meks_Scenes/PLAYER
+res://Sprites/Portraits
 res://Sprites/Meks/R4
 res://Sprites/Meks/R2
 res://Sprites/Meks/S3
@@ -8,7 +10,6 @@ res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel 
 res://Scenes
 res://Audio/SFX
 res://Sprites/TitleScreen
-res://Sprites/Portraits
 res://Sprites/Portraits/pilots
 res://Sprites/Portraits/cockpits
 res://Icon
@@ -19,4 +20,3 @@ res://Textures/
 res://Sprites/Terrain/roads
 res://Sprites/Terrain
 res://Sprites/Tiles_UI
-res://Prefabs/
