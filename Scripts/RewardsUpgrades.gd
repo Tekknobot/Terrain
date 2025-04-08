@@ -15,7 +15,8 @@ var ability_pool: Array[String] = [
 	"Rapid Fire",  
 	"Healing Wave",
 	"Explosive Rounds",	
-	"Spider Blast"	
+	"Spider Blast",
+	"Thread Attack"	
 ]
 
 # Store the player's selection.

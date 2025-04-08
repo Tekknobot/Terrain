@@ -466,3 +466,51 @@ func _on_fade_out_finished() -> void:
 	var new_transition = transition_scene.instantiate()
 	get_tree().get_current_scene().add_child(new_transition)
 	new_transition.fade_in()
+
+# Generates a Manhattan path from 'start' to 'end' that only uses horizontal and vertical moves.
+func manhattan_line(start: Vector2i, end: Vector2i) -> Array:
+	var path = []
+	var current = Vector2i(start.x, start.y)
+	path.append(current)
+	
+	var dx = end.x - start.x
+	var dy = end.y - start.y
+	
+	var step_x := 0
+	if dx > 0:
+		step_x = 1
+	elif dx < 0:
+		step_x = -1
+	
+	var step_y := 0
+	if dy > 0:
+		step_y = 1
+	elif dy < 0:
+		step_y = -1
+	
+	var moves = []
+	# Append horizontal moves.
+	var abs_dx = abs(dx)
+	for i in range(abs_dx):
+		moves.append("H")
+	# Append vertical moves.
+	var abs_dy = abs(dy)
+	for i in range(abs_dy):
+		moves.append("V")
+	
+	# Shuffle the moves array randomly to vary the Manhattan path.
+	for i in range(moves.size()):
+		var j = randi() % moves.size()
+		var temp = moves[i]
+		moves[i] = moves[j]
+		moves[j] = temp
+	
+	# Follow the moves.
+	for move in moves:
+		if move == "H":
+			current.x += step_x
+		elif move == "V":
+			current.y += step_y
+		path.append(Vector2i(current.x, current.y))
+		
+	return path

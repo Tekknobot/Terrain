@@ -313,6 +313,7 @@ text = "Menu"
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 
 [node name="Control" type="Control" parent="HUDLayer"]
+visible = false
 layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0

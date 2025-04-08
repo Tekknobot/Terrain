@@ -98,6 +98,7 @@ var healing_wave_mode: bool = false
 var overcharge_attack_mode: bool = false
 var explosive_rounds_mode: bool = false
 var spider_blast_mode: bool = false
+var thread_attack_mode: bool = false
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -212,6 +213,19 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Spider Blast.")
+			return  # Exit input processing for this click.
+
+		# If Thread Attack mode is active and the click is not on the toggle:
+		if thread_attack_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.thread_attack(mouse_tile)
+				print("Thread Attack activated by unit: ", selected_unit.name)
+				# Clear the mode so it fires only once.
+				thread_attack_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Thread Attack.")
 			return  # Exit input processing for this click.
 		
 		# ... continue with your normal input processing ...

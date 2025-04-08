@@ -938,3 +938,82 @@ func spider_blast(target_tile: Vector2i) -> void:
 	var sprite = get_child(0)
 	if sprite:
 		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+func thread_attack(target_tile: Vector2i) -> void:
+	# Get the TileMap node.
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	
+	# Use the unit’s tile_pos as the start.
+	var start_tile: Vector2i = tile_pos
+	
+	# Compute the Manhattan line (using only orthogonal moves) from start_tile to target_tile.
+	var line_tiles: Array = TurnManager.manhattan_line(start_tile, target_tile)
+	
+	# Define a westward offset of 8 tiles (west means negative X direction).
+	var offset: Vector2i = Vector2i(0, -3)
+	
+	# Convert each tile coordinate (with the offset) to a global position.
+	var global_path: Array = []
+	for tile in line_tiles:
+		global_path.append(tilemap.to_global(tilemap.map_to_local(tile + offset)))
+	
+	#Offset each coordinate
+	for i in range(global_path.size()):
+		var p = global_path[i]
+		p.y -= 24
+		global_path[i] = p
+
+	# Instance the missile.
+	var missile_scene = preload("res://Prefabs/ThreadAttackMissile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+
+	# Launch the missile from the adjusted starting position.
+	missile.global_position = global_path[0]
+	missile.follow_path(global_path)
+	
+	# Connect the missile’s reached_target signal to trigger an explosion.
+	missile.connect("reached_target", Callable(self, "_on_thread_attack_reached").bind(target_tile))
+	
+	# Mark that this unit has used its ability.
+	has_attacked = true
+	has_moved = true
+	# Optionally adjust the sprite tint for feedback.
+	var sprite = get_node("AnimatedSprite2D")
+	if sprite:
+		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+func _on_thread_attack_reached(target_tile: Vector2i) -> void:
+	spawn_explosions_at_tile(target_tile)
+	print("Thread Attack exploded at tile: ", target_tile)
+
+func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+	
+	# Loop over a 3x3 grid around the target tile.
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var tile = target_tile + Vector2i(x, y)
+			
+			# Instantiate an explosion effect at the center of the tile.
+			var explosion = explosion_scene.instantiate()
+			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
+			get_tree().get_current_scene().add_child(explosion)
+			
+			# Determine damage for this tile.
+			var damage: int = 0
+			if x == 0 and y == 0:
+				damage = 40  # Center tile gets higher damage.
+			else:
+				damage = 25  # Surrounding tiles get lower damage.
+			
+			# Damage any unit on this tile.
+			var unit = tilemap.get_unit_at_tile(tile)
+			if unit:
+				unit.take_damage(damage)
+				unit.flash_white()
+				unit.shake()
+		await get_tree().create_timer(0.2).timeout		
+			
+	print("Explosions spawned at and around tile: ", target_tile)

@@ -161,7 +161,6 @@ func type_quote(quote: String, id: int) -> void:
 			return
 		quote_label.text += quote[i]
 		await get_tree().create_timer(0.05).timeout
-
 func _on_ability_toggled(toggled_on: bool) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	
@@ -180,6 +179,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.overcharge_attack_mode = false
 					tilemap.explosive_rounds_mode = false
 					tilemap.spider_blast_mode = false
+					tilemap.thread_attack_mode = false
 				elif ability_button.text == "Rapid Fire":
 					tilemap.rapid_fire_mode = true
 					tilemap.critical_strike_mode = false
@@ -187,6 +187,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.overcharge_attack_mode = false
 					tilemap.explosive_rounds_mode = false
 					tilemap.spider_blast_mode = false
+					tilemap.thread_attack_mode = false
 				elif ability_button.text == "Healing Wave":
 					tilemap.healing_wave_mode = true
 					tilemap.critical_strike_mode = false
@@ -194,6 +195,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.overcharge_attack_mode = false
 					tilemap.explosive_rounds_mode = false
 					tilemap.spider_blast_mode = false
+					tilemap.thread_attack_mode = false
 				elif ability_button.text == "Overcharge":
 					tilemap.overcharge_attack_mode = true
 					tilemap.critical_strike_mode = false
@@ -201,6 +203,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.healing_wave_mode = false
 					tilemap.explosive_rounds_mode = false
 					tilemap.spider_blast_mode = false
+					tilemap.thread_attack_mode = false
 				elif ability_button.text == "Explosive Rounds":
 					tilemap.explosive_rounds_mode = true
 					tilemap.critical_strike_mode = false
@@ -208,6 +211,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.healing_wave_mode = false
 					tilemap.overcharge_attack_mode = false
 					tilemap.spider_blast_mode = false
+					tilemap.thread_attack_mode = false
 				elif ability_button.text == "Spider Blast":
 					tilemap.spider_blast_mode = true
 					tilemap.critical_strike_mode = false
@@ -215,6 +219,15 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.healing_wave_mode = false
 					tilemap.overcharge_attack_mode = false
 					tilemap.explosive_rounds_mode = false
+					tilemap.thread_attack_mode = false
+				elif ability_button.text == "Thread Attack":
+					tilemap.thread_attack_mode = true
+					tilemap.critical_strike_mode = false
+					tilemap.rapid_fire_mode = false
+					tilemap.healing_wave_mode = false
+					tilemap.overcharge_attack_mode = false
+					tilemap.explosive_rounds_mode = false
+					tilemap.spider_blast_mode = false
 				else:
 					tilemap.critical_strike_mode = false
 					tilemap.rapid_fire_mode = false
@@ -222,6 +235,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 					tilemap.overcharge_attack_mode = false
 					tilemap.explosive_rounds_mode = false
 					tilemap.spider_blast_mode = false
+					tilemap.thread_attack_mode = false
 			else:
 				tilemap.critical_strike_mode = false
 				tilemap.rapid_fire_mode = false
@@ -229,6 +243,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 				tilemap.overcharge_attack_mode = false
 				tilemap.explosive_rounds_mode = false
 				tilemap.spider_blast_mode = false
+				tilemap.thread_attack_mode = false
 		else:
 			# When toggled off, clear any mode flags and hide the ability button.
 			tilemap.critical_strike_mode = false
@@ -237,6 +252,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 			tilemap.overcharge_attack_mode = false
 			tilemap.explosive_rounds_mode = false
 			tilemap.spider_blast_mode = false
+			tilemap.thread_attack_mode = false
 	else:
 		print("No selected unit available for ability toggling.")
 	
