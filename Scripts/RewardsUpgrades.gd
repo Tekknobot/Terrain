@@ -38,7 +38,7 @@ func set_rewards(coins: int, xp: int) -> void:
 func _ready() -> void:
 	# Only call _populate_ability_options() here if set_rewards() isn't called afterward.
 	# If set_rewards() is always called externally, you can remove this call.
-	#_populate_ability_options()
+	_populate_ability_options()
 	continue_button.pressed.connect(_on_continue_button_pressed)
 
 # Populate the container with a button for each ability in the pool.
