@@ -1,9 +1,10 @@
 extends Node2D
 
+# UI elements (adjust paths to match your scene)
 @onready var coins_label = $CanvasLayer/Control/VBoxContainer/HBoxContainer/CoinsLabel
 @onready var xp_label = $CanvasLayer/Control/VBoxContainer/HBoxContainer/XPLabel
-@onready var ability_options_container = $CanvasLayer/Control/VBoxContainer/AbilityOptionsContainer
 @onready var continue_button = $CanvasLayer/Control/VBoxContainer/ContinueButton
+@onready var ability_options_container = $CanvasLayer/Control/VBoxContainer/AbilityOptionsContainer
 
 var earned_coins: int = 0
 var earned_xp: int = 0
@@ -14,109 +15,102 @@ var ability_pool: Array[String] = [
 	"Critical Strike", 
 	"Rapid Fire",  
 	"Healing Wave",
-	"Explosive Rounds",	
+	"Explosive Rounds",    
 	"Spider Blast",
-	"Thread Attack"	
+	"Thread Attack"
 ]
 
-# Store the player's selection.
-var selected_ability: String = ""
-# Cycle index to assign ability to each player unit in turn.
+# This array tracks which abilities have already been assigned.
+var used_abilities: Array[String] = []
+# This index is used for cycling through eligible player units.
 var next_unit_index: int = 0
 
-# Called when the reward screen is activated.
+# Exported properties to pick the button size and font.
+@export var button_min_size: Vector2 = Vector2(200, 64)
+@export var button_font: Font = preload("res://Fonts/magofonts/mago2.ttf")  # Change the path accordingly.
+
 func set_rewards(coins: int, xp: int) -> void:
 	self.visible = true
 	earned_coins = coins
 	earned_xp = xp
-	#coins_label.text = "Coins Earned: %d" % coins
-	#xp_label.text = "XP Earned: %d" % xp
 	_populate_ability_options()
 
+func _ready() -> void:
+	# Only call _populate_ability_options() here if set_rewards() isn't called afterward.
+	# If set_rewards() is always called externally, you can remove this call.
+	#_populate_ability_options()
+	continue_button.pressed.connect(_on_continue_button_pressed)
+
+# Populate the container with a button for each ability in the pool.
 func _populate_ability_options() -> void:
 	for ability in ability_pool:
 		var btn = Button.new()
 		btn.text = ability
-		btn.custom_minimum_size = Vector2(0, 64)  # Set minimum height to 64 pixels.
-		btn.pressed.connect(self._on_ability_selected.bind(btn, ability))
+		# Set the custom minimum size (width and height) for each button.
+		btn.custom_minimum_size = button_min_size
+		# Assign the custom font if provided.
+		if button_font:
+			btn.add_theme_font_override("font", button_font)
+		# Connect the button signal so that when pressed, it calls _on_ability_pressed with the button and ability.
+		btn.pressed.connect(Callable(self, "_on_ability_pressed").bind(btn, ability))
 		ability_options_container.add_child(btn)
 
-# Called when a special ability is selected.
-func _on_ability_selected(btn: Button, ability: String) -> void:
-	# If an ability is already selected, exit early.
-	if selected_ability != "":
-		print("An ability has already been selected.")
+# Called when an ability button is pressed.
+func _on_ability_pressed(btn: Button, ability: String) -> void:
+	# If this ability is already used on any unit, do not allow re‑assignment.
+	if ability in used_abilities:
+		print("Ability", ability, "is already assigned.")
 		return
 
-	print("Special Ability selected: ", ability)
-	
-	# Check if the ability is already assigned to any unit.
-	if ability in GameData.unit_upgrades.values():
-		print("Ability ", ability, " is already assigned to a unit. It cannot be assigned again.")
-		return  # Do not assign the ability again.
+	# Obtain eligible player units (ones that do not have an assigned ability).
+	var eligible_units = get_tree().get_nodes_in_group("Units").filter(
+		func(u):
+			return u.is_player and (not u.has_meta("special_ability_name") or str(u.get_meta("special_ability_name")).strip_edges() == "")
+	)
 
-	selected_ability = ability
-	GameData.selected_special_ability = ability
+	if eligible_units.size() == 0:
+		print("No eligible units for ability assignment.")
+		return
 
-	# Unhighlight all ability buttons.
+	# Select the next eligible unit based on next_unit_index.
+	var chosen_unit = eligible_units[next_unit_index % eligible_units.size()]
+	next_unit_index = (next_unit_index + 1) % eligible_units.size()
+
+	print("Assigning ability", ability, "to unit", chosen_unit.name)
+	# Record the assignment in GameData.
+	GameData.unit_upgrades[chosen_unit.unit_name] = ability
+	# Store the ability on the unit using metadata.
+	chosen_unit.set_meta("special_ability_name", ability)
+	used_abilities.append(ability)
+
+	# Trigger any visual or audio level-up effect on the chosen unit.
+	if chosen_unit.has_method("play_level_up_effect"):
+		chosen_unit.play_level_up_effect()
+	elif chosen_unit.has_method("play_level_up_sound"):
+		chosen_unit.play_level_up_sound()
+	elif chosen_unit.has_method("apply_level_up_material"):
+		chosen_unit.apply_level_up_material()
+
+	# Disable all ability buttons so further selection is not allowed.
 	for child in ability_options_container.get_children():
 		if child is Button:
-			child.modulate = Color(1, 1, 1)
-	# Highlight the selected button.
-	btn.modulate = Color(0.7, 0.7, 1.0)
+			child.disabled = true
 
-	# Filter eligible units: only include player units that do NOT already have an ability.
-	var eligible_units = get_tree().get_nodes_in_group("Units").filter(func(u):
-		return u.is_player and (not u.has_meta("special_ability_name") or str(u.get_meta("special_ability_name")).strip_edges() == "")
-	)
-	
-	if eligible_units.size() > 0:
-		# Cycle through eligible units using the next_unit_index.
-		var chosen_unit = eligible_units[next_unit_index % eligible_units.size()]
-		next_unit_index = (next_unit_index + 1) % eligible_units.size()
-		print("Assigning ability ", ability, " to unit: ", chosen_unit.name)
-		
-		# Apply the special ability to the chosen unit using metadata.
-		apply_special_ability(chosen_unit, ability)
-		
-		# Record this upgrade in GameData so that future spawns get this ability.
-		GameData.unit_upgrades[chosen_unit.unit_name] = ability
-		
-		# Trigger the unit level-up effect.
-		if chosen_unit.has_method("play_level_up_effect"):
-			chosen_unit.play_level_up_effect()
-		else:
-			if chosen_unit.has_method("play_level_up_sound"):
-				chosen_unit.play_level_up_sound()
-			if chosen_unit.has_method("apply_level_up_material"):
-				chosen_unit.apply_level_up_material()
-				
-		# Disable further selection by disabling all ability buttons.
-		for child in ability_options_container.get_children():
-			if child is Button:
-				child.disabled = true
-	else:
-		print("No eligible units to receive a new ability upgrade.")
-
+	# Immediately proceed.
 	_on_continue_button_pressed()
-				
-# Called when the player presses the Continue button.
+
 func _on_continue_button_pressed() -> void:
-	# Update persistent data with the earned rewards.
 	GameData.coins += earned_coins
 	GameData.xp += earned_xp
 	GameData.current_level += 1
 	GameData.max_enemy_units += 1
 	GameData.map_difficulty += 1
-	
-	# Optionally, apply the selected special ability to a unit.
-	# For example, if you have a reference to the unit that should receive the upgrade:
-	# apply_special_ability(upgraded_unit, selected_ability)
-	
 	self.visible = false
-	# Transition to the next mission/level.
 	TurnManager.transition_to_next_level()
 
-func apply_special_ability(unit, ability: String) -> void:
-	unit.set_meta("special_ability_name", ability)
-	print("Applied special ability (via meta): ", ability, " to unit: ", unit.name)
+func _find_unit_by_name(button_name: String) -> Node:
+	# Iterate through the "Units" group and return the unit whose name matches the button name.
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.name == button_name:
+			return u
+	return null

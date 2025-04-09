@@ -36,3 +36,4 @@ res://Scenes/Meks_Scenes/CPU/R4.scn
 res://Scenes/Meks_Scenes/PLAYER/R1.scn
 res://Prefabs/ThreadAttackMissile.tscn
 res://Scripts/ThreadAttackMissile.gd
+res://Prefabs/UpgradeWindow.tscn
