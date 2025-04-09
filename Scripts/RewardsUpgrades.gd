@@ -38,22 +38,41 @@ func set_rewards(coins: int, xp: int) -> void:
 func _ready() -> void:
 	# Only call _populate_ability_options() here if set_rewards() isn't called afterward.
 	# If set_rewards() is always called externally, you can remove this call.
-	_populate_ability_options()
+	#_populate_ability_options()
 	continue_button.pressed.connect(_on_continue_button_pressed)
 
-# Populate the container with a button for each ability in the pool.
 func _populate_ability_options() -> void:
-	for ability in ability_pool:
+	# Create two HBoxContainers. The first will always be created.
+	var row1 = HBoxContainer.new()
+	# Set a minimum size on row1 if needed.
+	row1.custom_minimum_size = Vector2(button_min_size.x * 4, button_min_size.y)
+	
+	# Create a second row only if there are more than 4 abilities.
+	var row2: HBoxContainer = null
+	if ability_pool.size() > 4:
+		row2 = HBoxContainer.new()
+		row2.custom_minimum_size = Vector2(button_min_size.x * 4, button_min_size.y)
+	# Now iterate over the abilities.
+	for i in range(ability_pool.size()):
+		var ability = ability_pool[i]
 		var btn = Button.new()
 		btn.text = ability
-		# Set the custom minimum size (width and height) for each button.
-		btn.custom_minimum_size = button_min_size
-		# Assign the custom font if provided.
+		btn.custom_minimum_size = button_min_size  # Set the button's minimum size.
 		if button_font:
 			btn.add_theme_font_override("font", button_font)
-		# Connect the button signal so that when pressed, it calls _on_ability_pressed with the button and ability.
+		# Connect the button's pressed signal to our handler, passing this button and its ability.
 		btn.pressed.connect(Callable(self, "_on_ability_pressed").bind(btn, ability))
-		ability_options_container.add_child(btn)
+		
+		# Add the button to row1 if it's one of the first four, otherwise to row2.
+		if i < 4:
+			row1.add_child(btn)
+		elif row2:
+			row2.add_child(btn)
+	# Add the rows to the ability_options_container.
+	ability_options_container.add_child(row1)
+	if row2:
+		ability_options_container.add_child(row2)
+
 
 # Called when an ability button is pressed.
 func _on_ability_pressed(btn: Button, ability: String) -> void:
