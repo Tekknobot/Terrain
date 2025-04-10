@@ -17,7 +17,8 @@ var ability_pool: Array[String] = [
 	"Healing Wave",
 	"Explosive Rounds",    
 	"Spider Blast",
-	"Thread Attack"
+	"Thread Attack",
+	"Lightning Surge"
 ]
 
 # This array tracks which abilities have already been assigned.

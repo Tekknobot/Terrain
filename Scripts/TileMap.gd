@@ -99,6 +99,7 @@ var overcharge_attack_mode: bool = false
 var explosive_rounds_mode: bool = false
 var spider_blast_mode: bool = false
 var thread_attack_mode: bool = false
+var lightning_surge_mode: bool = false   # New lightning surge mode
 
 func _ready():
 	tile_size = get_tileset().tile_size
@@ -131,7 +132,7 @@ func _post_map_generation():
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_pos = get_global_mouse_position()
-
+		
 		# Convert the mouse position to a tile coordinate.
 		var tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
 		
@@ -142,7 +143,7 @@ func _input(event):
 		var mouse_tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
 		if moving:
 			return
-		
+
 		# If Critical Strike mode is active and the click is not on the toggle:
 		if critical_strike_mode:
 			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
@@ -155,7 +156,7 @@ func _input(event):
 				print("No player unit selected for Critical Strike.")
 			return  # Exit input processing for this click.
 		
-		# If Rapid Fire mode is active and the click is not on the toggle:
+		# If Rapid Fire mode is active...
 		if rapid_fire_mode:
 			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
@@ -165,9 +166,9 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Rapid Fire.")
-			return  # Exit input processing for this click.
-		
-		# If Healing Wave mode is active and the click is not on the toggle:
+			return
+
+		# If Healing Wave mode is active...
 		if healing_wave_mode:
 			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
@@ -177,9 +178,9 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Healing Wave.")
-			return  # Exit input processing for this click.
-		
-		# If Overcharge attack mode is active and the click is not on the toggle:
+			return
+
+		# If Overcharge attack mode is active...
 		if overcharge_attack_mode:
 			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
@@ -189,9 +190,9 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Overcharge.")
-			return  # Exit input processing for this click.
-		
-		# If Explosive Rounds mode is active and the click is not on the toggle:
+			return
+
+		# If Explosive Rounds mode is active...
 		if explosive_rounds_mode:
 			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
@@ -201,9 +202,9 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Explosive Rounds.")
-			return  # Exit input processing for this click.
-		
-		# NEW: If Spider Blast mode is active and the click is not on the toggle:
+			return
+
+		# If Spider Blast mode is active...
 		if spider_blast_mode:
 			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
@@ -213,7 +214,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Spider Blast.")
-			return  # Exit input processing for this click.
+			return
 
 		# If Thread Attack mode is active and the click is not on the toggle:
 		if thread_attack_mode:
@@ -226,6 +227,18 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Thread Attack.")
+			return  # Exit input processing for this click.
+			
+		# NEW: If Lightning Surge mode is active and the click is not on the toggle:
+		if lightning_surge_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.lightning_surge(mouse_tile)
+				print("Lightning Surge activated by unit: ", selected_unit.name)
+				lightning_surge_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Lightning Surge.")
 			return  # Exit input processing for this click.
 		
 		# ... continue with your normal input processing ...
@@ -284,8 +297,8 @@ func _input(event):
 			if selected_unit:
 				showing_attack = true
 				_clear_highlights()
-				_show_range_for_selected_unit()
-								
+				_show_range_for_selected_unit()		
+										
 func toggle_borders():
 	borders_visible = not borders_visible
 

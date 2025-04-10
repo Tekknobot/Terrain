@@ -37,3 +37,5 @@ res://Scenes/Meks_Scenes/PLAYER/R1.scn
 res://Prefabs/ThreadAttackMissile.tscn
 res://Scripts/ThreadAttackMissile.gd
 res://Prefabs/UpgradeWindow.tscn
+res://Scripts/LightningSurgeMissile.gd
+res://Prefabs/LightningSurgeMissile.tscn

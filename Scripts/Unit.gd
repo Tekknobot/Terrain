@@ -987,6 +987,66 @@ func _on_thread_attack_reached(target_tile: Vector2i) -> void:
 	spawn_explosions_at_tile(target_tile)
 	print("Thread Attack exploded at tile: ", target_tile)
 
+func lightning_surge(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	# Convert the target tile to global coordinates.
+	var target_pos: Vector2 = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, Y_OFFSET)
+	target_pos.y -= 8  # Adjust vertical offset as needed.
+
+	# Preload and instantiate the Lightning Surge missile.
+	var missile_scene = preload("res://Prefabs/LightningSurgeMissile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+
+	tilemap.play_attack_sound(global_position)
+
+	# Launch the missile from the unit's current position to the target position.
+	missile.global_position = global_position
+	missile.set_target(global_position, target_pos)
+	print("Unit ", name, " launched Lightning Surge missile toward tile ", target_tile)
+
+	# Mark that this unit has used its action.
+	has_attacked = true
+	has_moved = true
+	var sprite := get_node("AnimatedSprite2D")
+	if sprite:
+		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+	# Connect the missile’s reached_target signal so that when it reaches the target,
+	# our on_lightning_surge_reached() is called with target_tile as parameter.
+	missile.connect("reached_target", Callable(self, "on_lightning_surge_reached").bind(target_tile))
+
+func on_lightning_surge_reached(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+	
+	# Loop over a 3×3 grid around the target tile.
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var tile = target_tile + Vector2i(x, y)
+			var explosion = explosion_scene.instantiate()
+			# Position the explosion at the center of the current tile.
+			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
+			get_tree().get_current_scene().add_child(explosion)
+			
+			# Determine damage for this tile.
+			var damage: int = 0
+			if x == 0 and y == 0:
+				damage = 50  # Center tile takes heavy damage.
+			else:
+				damage = 30  # Surrounding tiles take moderate damage.
+			
+			# Damage any enemy unit on this tile.
+			var enemy_unit = tilemap.get_unit_at_tile(tile)
+			if enemy_unit and not enemy_unit.is_player:
+				enemy_unit.take_damage(damage)
+				enemy_unit.flash_white()
+				enemy_unit.shake()
+				print("Lightning Surge: ", enemy_unit.name, "took", damage, "damage at tile", tile)
+	
+	print("Lightning Surge exploded at tile:", target_tile)
+
+
 func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")

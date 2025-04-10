@@ -1,10 +1,10 @@
 /Users/machome/Godot/_Builds/Mek VS Mek/macOS
-/Users/machome/Godot/_Builds/Mek VS Mek
 /Users/machome/Godot/_Builds/Mek VS Mek/Windows
-res://Sprites/Thumbnails/Mek_hover
+/Users/machome/Godot/_Builds/Mek VS Mek
 res://Prefabs
-res://Sprites/Meks/M1
 res://Scripts
+res://Sprites/Thumbnails/Mek_hover
+res://Sprites/Meks/M1
 res://Scenes/Meks_Scenes/PLAYER
 res://Sprites/Portraits
 res://Sprites/Meks/R4
@@ -20,4 +20,3 @@ res://Icon
 /Users/machome/Godot/Terrain
 /Library/Java/JavaVirtualMachines
 res://Textures/
-res://Sprites/Terrain/roads

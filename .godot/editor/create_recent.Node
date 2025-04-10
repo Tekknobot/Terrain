@@ -1,3 +1,5 @@
+CPUParticles2D
+Line2D
 Button
 VBoxContainer
 CanvasLayer
@@ -9,7 +11,4 @@ Label
 HBoxContainer
 TextureButton
 GridContainer
-CPUParticles2D
 AnimatedSprite2D
-ParallaxBackground
-CenterContainer

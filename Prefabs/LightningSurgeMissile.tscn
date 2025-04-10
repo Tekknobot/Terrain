@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://cg58q7ro3t3s"]
+
+[ext_resource type="Script" path="res://Scripts/LightningSurgeMissile.gd" id="1_fcauj"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_fcauj")
+
+[node name="Line2D" type="Line2D" parent="."]
+width = 1.0
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+amount = 256
+lifetime = 3.0
+gravity = Vector2(0, 0)
