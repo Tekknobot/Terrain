@@ -1,9 +1,16 @@
 extends ProgressBar
 
-func _process(_delta):
+func _ready() -> void:
+	# Duplicate the fill style (if it exists) so we have an instance-specific style.
+	var style = get("theme_override_styles/fill")
+	if style:
+		style = style.duplicate()
+		set("theme_override_styles/fill", style)
+
+func _process(_delta: float) -> void:
 	update_fill_color()
 
-func update_fill_color():
+func update_fill_color() -> void:
 	var percent := value / max_value
 	
 	if percent > 0.66:
@@ -16,7 +23,11 @@ func update_fill_color():
 		# Low health = red
 		set_fill_color(Color(1, 0.2, 0.2))
 
-func set_fill_color(color: Color):
+func set_fill_color(color: Color) -> void:
+	# Get the progress bar's unique fill style.
 	var style = get("theme_override_styles/fill")
 	if style:
-		style.bg_color = color
+		# We duplicate it before modifying it to ensure we're not modifying a shared resource.
+		var new_style = style.duplicate()
+		new_style.bg_color = color
+		set("theme_override_styles/fill", new_style)

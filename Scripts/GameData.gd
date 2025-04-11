@@ -1,3 +1,4 @@
+# GameData.gd
 extends Node
 
 var coins: int = 0
@@ -5,33 +6,26 @@ var xp: int = 0
 var current_level: int = 1
 var selected_upgrade: String = ""
 var selected_special_ability: String = ""
-var max_enemy_units: int = 4
+var max_enemy_units: int = 8
+
 var map_difficulty: int = 1
 
-# Store special ability upgrades for units.
-# Use a key that identifies the unit type (e.g., unit.unit_name)
+# Track unit upgrades by unit name.
 var unit_upgrades: Dictionary = {}
 
-# Optional additional stats…
-var player_stats: Dictionary = {
-	"total_damage_dealt": 0,
-	"units_lost": 0,
-	"enemy_units_destroyed": 0
-}
+# Flag to mark if the first enemy spawn for this level has been performed.
+var first_enemy_spawn_done: bool = false
 
+# Reset all persistent data to the defaults.
 func reset_data() -> void:
 	coins = 0
 	xp = 0
 	current_level = 1
 	selected_upgrade = ""
 	selected_special_ability = ""
-	unit_upgrades = {}
-	player_stats = {
-		"total_damage_dealt": 0,
-		"units_lost": 0,
-		"enemy_units_destroyed": 0
-	}
-	
+	unit_upgrades.clear()
+	first_enemy_spawn_done = false
+
 func add_coins(amount: int) -> void:
 	coins += amount
 
@@ -40,3 +34,5 @@ func add_xp(amount: int) -> void:
 
 func advance_level() -> void:
 	current_level += 1
+	# Reset the first enemy spawn flag for the new level.
+	first_enemy_spawn_done = false

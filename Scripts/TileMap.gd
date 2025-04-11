@@ -56,8 +56,6 @@ var completed_units
 @export var structure_scenes: Array[PackedScene]  # Add 6 structure scenes here
 @export var max_structures: int = 10
 
-@export var max_enemy_units: int = 10
-
 # Add a new variable at the top of your script.
 var hold_time: float = 0.0
 var borders_visible := false
@@ -980,8 +978,11 @@ func spawn_new_enemy_units():
 		print("Max enemy units reached:", current_count)
 		return  # Do not spawn any new units if at or above limit.
 	
-	# Determine how many new enemy units to spawn, limited to 1 per turn here.
-	var units_to_spawn = min(1, GameData.max_enemy_units - current_count)
+	# Determine how many new enemy units to spawn.
+	var units_to_spawn: int = GameData.current_level - 1  # Default: spawn 1 enemy per turn.
+	
+	# Limit spawn count to the maximum allowed.
+	units_to_spawn = min(units_to_spawn, GameData.max_enemy_units - current_count)
 	
 	# Create an array to track occupied spawn tiles.
 	var used_tiles: Array[Vector2i] = []
@@ -1030,13 +1031,14 @@ func spawn_new_enemy_units():
 	# Optionally, update the AStar grid after spawning new units.
 	update_astar_grid()
 
-
 func _on_reset_pressed() -> void:
 	TurnManager.reset_match_stats()  # Reset stats first.
 	TurnManager.transition_to_next_level()
 
 # When the player is ready to proceed.
 func _on_continue_pressed() -> void:
+	TurnManager.reset_match_stats()
+	
 	# Save the current level progress if needed.
 	GameData.current_level += 1
 	GameData.max_enemy_units += 1

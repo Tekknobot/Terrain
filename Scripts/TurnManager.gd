@@ -393,10 +393,8 @@ func calculate_coins_reward() -> int:
 
 	return coins_reward
 
-func reset_match_stats() -> void:
-	player_units_lost = 0
-	total_damage_dealt = 0
-	enemy_units_destroyed = 0
+func reset_match_stats() -> void:	
+	GameData.first_enemy_spawn_done = false
 	
 	# Optionally, reset initial_player_unit_count here if needed.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(

@@ -39,3 +39,6 @@ res://Scripts/ThreadAttackMissile.gd
 res://Prefabs/UpgradeWindow.tscn
 res://Scripts/LightningSurgeMissile.gd
 res://Prefabs/LightningSurgeMissile.tscn
+res://Scripts/GameData.gd
+res://Scripts/HealthBar.gd
+res://Scenes/Meks_Scenes/CPU/M1.scn
