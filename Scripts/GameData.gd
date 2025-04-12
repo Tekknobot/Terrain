@@ -16,6 +16,8 @@ var unit_upgrades: Dictionary = {}
 # Flag to mark if the first enemy spawn for this level has been performed.
 var first_enemy_spawn_done: bool = false
 
+var current_zoom_index: int = 0
+
 # Reset all persistent data to the defaults.
 func reset_data() -> void:
 	coins = 0
@@ -36,3 +38,27 @@ func advance_level() -> void:
 	current_level += 1
 	# Reset the first enemy spawn flag for the new level.
 	first_enemy_spawn_done = false
+
+func save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("Camera", "zoom_index", current_zoom_index)
+	var err = cfg.save("user://settings.cfg")
+	if err != OK:
+		push_error("Failed to save settings: %s" % str(err))
+	else:
+		print("Settings saved successfully.")
+
+func load_settings() -> void:
+	print("Loading settings from user://settings.cfg...")
+	var cfg = ConfigFile.new()
+	var err = cfg.load("user://settings.cfg")
+	if err == OK:
+		if cfg.has_section_key("Camera", "zoom_index"):
+			current_zoom_index = cfg.get_value("Camera", "zoom_index")
+			print("Loaded zoom index:", current_zoom_index)
+		else:
+			print("Camera zoom_index not found in settings. Using default.")
+			current_zoom_index = 0
+	else:
+		print("Failed to load settings; using default values.")
+		current_zoom_index = 0

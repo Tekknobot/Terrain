@@ -701,7 +701,7 @@ func _setup_camera():
 	
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
 	camera.global_position = to_global(map_to_local(center_tile))
-	camera.zoom = Vector2(4, 4)
+	#camera.zoom = Vector2(4, 4)
 	
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.global_position)
 
@@ -1049,6 +1049,7 @@ func _on_continue_pressed() -> void:
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _on_back_pressed() -> void:
+	GameData.save_settings()
 	# Transition to the next mission/level.
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
 

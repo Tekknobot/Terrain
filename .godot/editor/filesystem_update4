@@ -42,3 +42,5 @@ res://Prefabs/LightningSurgeMissile.tscn
 res://Scripts/GameData.gd
 res://Scripts/HealthBar.gd
 res://Scenes/Meks_Scenes/CPU/M1.scn
+res://Scripts/Camera2D.gd
+res://Scripts/TitleScreen.gd
