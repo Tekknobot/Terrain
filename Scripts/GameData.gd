@@ -17,6 +17,7 @@ var unit_upgrades: Dictionary = {}
 var first_enemy_spawn_done: bool = false
 
 var current_zoom_index: int = 0
+var available_abilities: Array[String] = []
 
 # Reset all persistent data to the defaults.
 func reset_data() -> void:
@@ -26,6 +27,7 @@ func reset_data() -> void:
 	selected_upgrade = ""
 	selected_special_ability = ""
 	unit_upgrades.clear()
+	available_abilities.clear()
 	first_enemy_spawn_done = false
 
 func add_coins(amount: int) -> void:
