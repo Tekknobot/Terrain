@@ -6,7 +6,7 @@ extends Node2D
 func _ready():
 	# Set the node's z_index based on its global Y position.
 	z_index = int(global_position.y)
-	print("Structure placed at tile:", tile_pos, "with z_index:", z_index)
+	#print("Structure placed at tile:", tile_pos, "with z_index:", z_index)
 	
 func set_tile_pos(new_tile_pos: Vector2i) -> void:
 	tile_pos = new_tile_pos
@@ -26,6 +26,6 @@ func set_tile_pos(new_tile_pos: Vector2i) -> void:
 			push_warning("Current scene not available!")
 	else:
 		push_warning("No SceneTree available!")
-	print("Tile position set to:", tile_pos)
+	#print("Tile position set to:", tile_pos)
 	
 	global_position.y -= 8

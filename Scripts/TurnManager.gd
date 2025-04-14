@@ -26,7 +26,7 @@ func _ready():
 
 func _initialize_turns():
 	_populate_units()
-	print("TurnManager loaded units:", active_units.size(), active_units)
+	#print("TurnManager loaded units:", active_units.size(), active_units)
 	#start_turn()
 
 func _populate_units():

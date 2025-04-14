@@ -1,0 +1,56 @@
+[gd_scene load_steps=3 format=3 uid="uid://cpnma18es220b"]
+
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="2_lk8b7"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wvccq"]
+content_margin_left = 16.0
+
+[node name="CanvasLayer" type="CanvasLayer"]
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -206.0
+offset_top = 562.0
+offset_right = -206.0
+offset_bottom = 562.0
+grow_horizontal = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+layout_mode = 0
+offset_left = -41.0
+offset_top = -372.0
+offset_right = 359.0
+offset_bottom = 16.0
+theme_override_constants/separation = 16
+
+[node name="HostButton" type="Button" parent="Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 85)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_lk8b7")
+theme_override_font_sizes/font_size = 64
+text = "HOST"
+
+[node name="JoinButton" type="Button" parent="Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 85)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_lk8b7")
+theme_override_font_sizes/font_size = 64
+text = "JOIN"
+
+[node name="BackButton" type="Button" parent="Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 85)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_lk8b7")
+theme_override_font_sizes/font_size = 64
+text = "Back"
+
+[node name="AddressLineEdit" type="TextEdit" parent="Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 85)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_lk8b7")
+theme_override_font_sizes/font_size = 64
+theme_override_styles/normal = SubResource("StyleBoxEmpty_wvccq")
+placeholder_text = "Enter address here."

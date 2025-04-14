@@ -89,16 +89,16 @@ var _current_typing_id = 0
 
 func _ready():
 	randomize()
-	print("name_label:", name_label)
-	print("portrait:", portrait)
-	print("hp_bar:", hp_bar)
-	print("xp_bar:", xp_bar)
-	print("level_label:", level_label)
-	print("hp_label:", hp_label)
-	print("movement_label:", movement_label)
-	print("attack_label:", attack_label)
-	print("damage_label:", damage_label)
-	print("quote_label:", quote_label)
+	#print("name_label:", name_label)
+	#print("portrait:", portrait)
+	#print("hp_bar:", hp_bar)
+	#print("xp_bar:", xp_bar)
+	#print("level_label:", level_label)
+	#print("hp_label:", hp_label)
+	#print("movement_label:", movement_label)
+	#print("attack_label:", attack_label)
+	#print("damage_label:", damage_label)
+	#print("quote_label:", quote_label)
 		
 	var game = get_node("/root/BattleGrid")  # Adjust path accordingly.
 	game.connect("units_spawned", Callable(self, "_on_units_spawned"))
