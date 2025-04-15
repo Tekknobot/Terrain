@@ -60,7 +60,7 @@ func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: 
 	# Get a reference to the TileMap node in the current (client) main scene.
 	var tile_map: Node = await wait_for_tilemap()
 	if tile_map:
-		tile_map._generate_client_map(map_data)
+		tile_map._generate_client_map(map_data, unit_data, structure_data)
 		tile_map.import_unit_data(unit_data)
 		tile_map.import_structure_data(structure_data)
 		tile_map.update_astar_grid()

@@ -19,6 +19,8 @@ var first_enemy_spawn_done: bool = false
 var current_zoom_index: int = 0
 var available_abilities: Array[String] = []
 
+var multiplayer_mode = false
+
 # Reset all persistent data to the defaults.
 func reset_data() -> void:
 	coins = 0

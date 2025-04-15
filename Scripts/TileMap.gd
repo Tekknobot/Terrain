@@ -64,6 +64,9 @@ var borders_visible := false
 signal unit_selected(selected_unit)
 signal units_spawned
 
+@export var reset_button: Button
+@export var menu_button: Button
+
 var difficulty_tiers: Dictionary = {
 	1: "Novice",
 	2: "Apprentice",
@@ -134,6 +137,11 @@ func _process(delta):
 			hold_time = 0.0  # reset the timer so holding continues to toggle every 2 seconds.
 	else:
 		hold_time = 0.0  # reset if the mouse button is released.
+
+	if GameData.multiplayer_mode:
+		reset_button.visible = false
+		menu_button.visible = false	
+
 
 func _post_map_generation():
 	_spawn_teams()
@@ -643,53 +651,51 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 		print("⚠ No valid land tile found for unit near ", tile)
 		return
 
-	var unit = scene.instantiate()
-	unit.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit.Y_OFFSET)
-	unit.set_team(is_player)
-	unit.add_to_group("Units")
-	unit.tile_pos = spawn_tile
-	add_child(unit)
+	var unit_instance = scene.instantiate()
+	unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
+	unit_instance.set_team(is_player)
+	unit_instance.add_to_group("Units")
+	unit_instance.tile_pos = spawn_tile
+	# Store the scene path for exporting later:
+	unit_instance.set_meta("scene_path", scene.resource_path)
+	add_child(unit_instance)
 
-	# Flip player unit sprite if applicable.
 	if is_player:
-		var sprite = unit.get_node_or_null("AnimatedSprite2D")
+		var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 		if sprite:
 			sprite.flip_h = true
-
-		# Check for an upgrade for this unit type in GameData.
-		if GameData.unit_upgrades.has(unit.unit_name):
-			var ability = GameData.unit_upgrades[unit.unit_name]
-			# Apply the upgrade (e.g., using metadata or a property if available).
-			unit.set_meta("special_ability_name", ability)
-			print("Spawned unit ", unit.name, " receives ability: ", ability)
-			# Optionally, trigger a level-up effect.
-			if unit.has_method("play_level_up_effect"):
-				unit.play_level_up_effect()
-			else:
-				if unit.has_method("play_level_up_sound"):
-					unit.play_level_up_sound()
-				if unit.has_method("apply_level_up_material"):
-					unit.apply_level_up_material()
 
 	used_tiles.append(spawn_tile)
 
 
 func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
-	var direction := -1  # default = upward
-	# For enemy units, we might want to move downward.
-	if start.y == 0:
-		direction = 1
+	var visited = {}      # Dictionary to track visited tiles.
+	var queue = [start]   # Start BFS from the given start tile.
 
-	var pos := start
-	while is_within_bounds(pos):
-		# Check that the tile is not water, not already used, and not occupied.
-		if not is_water_tile(pos) and not used_tiles.has(pos) and not is_tile_occupied(pos):
-			return pos
-		pos.y += direction
+	while queue.size() > 0:
+		var current: Vector2i = queue.pop_front()
+		
+		# Skip if we're out of bounds (safety check).
+		if not is_within_bounds(current):
+			continue
 
-	push_warning("⚠ No valid land tile found in straight path from %s" % start)
-	return Vector2i(-1, -1)
+		# If current is valid (not water, not in used_tiles, and not occupied), return it.
+		if not is_water_tile(current) and not used_tiles.has(current) and not is_tile_occupied(current):
+			return current
 
+		# Mark current as visited.
+		visited[current] = true
+
+		# Check neighboring tiles in four cardinal directions.
+		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var neighbor = current + dir
+			# If neighbor is within bounds and not visited, add it to the queue.
+			if is_within_bounds(neighbor) and not visited.has(neighbor):
+				queue.append(neighbor)
+				visited[neighbor] = true
+	# If no valid tile is found, warn and return a fallback.
+	push_warning("⚠ No valid land tile found near %s" % str(start))
+	return start  # Fallback: return the original position (or Vector2i(-1, -1)) depending on your design.
 
 func is_water_tile(tile: Vector2i) -> bool:
 	return get_cell_source_id(0, tile) == water_tile_id
@@ -935,7 +941,7 @@ func spawn_structures():
 
 	var count = 0  # Counter for spawned structures.
 	var attempts = 0
-	var max_attempts = grid_width * grid_height * 5  # Arbitrary limit to avoid infinite loops
+	var max_attempts = grid_width * grid_height * 5  # Limit to avoid infinite loops
 
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
@@ -961,6 +967,9 @@ func spawn_structures():
 		var structure_scene = structure_scenes[random_index]
 		var structure = structure_scene.instantiate()
 		
+		# Store the scene's resource path in metadata so that you can export and import later.
+		structure.set_meta("scene_path", structure_scene.resource_path)
+		
 		# Position the structure in world space.
 		structure.global_position = to_global(map_to_local(pos))
 		
@@ -972,15 +981,15 @@ func spawn_structures():
 		
 		# Randomly modulate the structure's color within a mid-range.
 		# This keeps the RGB values between 0.4 and 0.8.
-		var r = randf_range(0.4, 0.8)
-		var g = randf_range(0.4, 0.8)
-		var b = randf_range(0.4, 0.8)
-		structure.modulate = Color(r, g, b, 1)
+		var r_val = randf_range(0.4, 0.8)
+		var g_val = randf_range(0.4, 0.8)
+		var b_val = randf_range(0.4, 0.8)
+		structure.modulate = Color(r_val, g_val, b_val, 1)
 		
 		# Add the structure to the "Structures" group.
 		structure.add_to_group("Structures")
 		
-		# Add the structure as a child to the TileMap (or your dedicated parent node).
+		# Add the structure as a child to this TileMap (or your dedicated parent node).
 		add_child(structure)
 		
 		# Mark this tile as occupied in the AStar grid.
@@ -1073,6 +1082,7 @@ func _on_continue_pressed() -> void:
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _on_back_pressed() -> void:
+	GameData.multiplayer_mode = false
 	GameData.save_settings()
 	# Transition to the next mission/level.
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
@@ -1120,58 +1130,103 @@ func import_map_data(data: Dictionary) -> void:
 func export_unit_data() -> Array:
 	var data = []
 	for unit in get_tree().get_nodes_in_group("Units"):
+		var scene_path: String = ""
+		if unit.has_meta("scene_path"):
+			scene_path = unit.get_meta("scene_path")
+		else:
+			print("Warning: Unit ", unit.name, " does not have a scene path stored!")
 		data.append({
-			"scene_path": unit.filename if unit.has_meta("scene_path") else "",  # Ensure you store path in each unit when spawning
+			"scene_path": scene_path,
 			"tile_pos": unit.tile_pos,
 			"is_player": unit.is_player,
 			"health": unit.health
-			# Add more properties as needed
+			# Add additional properties as needed.
 		})
+	print("Exported unit data: ", data)
 	return data
+
 
 # Exports structure data similarly.
 func export_structure_data() -> Array:
 	var data = []
 	for structure in get_tree().get_nodes_in_group("Structures"):
+		var scene_path: String = ""
+		if structure.has_meta("scene_path"):
+			scene_path = structure.get_meta("scene_path")
+		else:
+			print("Warning: Structure ", structure.name, " does not have a scene path stored!")
 		data.append({
-			"scene_path": structure.filename if structure.has_meta("scene_path") else "",
+			"scene_path": scene_path,
 			"tile_pos": structure.tile_pos
-			# Add additional properties if needed
+			# Add additional properties if needed.
 		})
+	print("Exported structure data: ", data)
 	return data
+
 
 # On the client, use these functions to instantiate units and structures.
 func import_unit_data(unit_data: Array) -> void:
-	# First, remove any existing units if needed.
+	# Remove any existing units.
 	for unit in get_tree().get_nodes_in_group("Units"):
 		unit.queue_free()
-	# For each unit data dictionary, instance the scene and set its properties.
 	for info in unit_data:
 		var scene_path: String = info.get("scene_path", "")
 		if scene_path == "":
-			continue  # Skip if you don’t have a valid path.
-		var scene = load(scene_path)  # Make sure the scene is loadable
+			print("Skipping unit import; scene path missing.")
+			continue  # Skip if no valid scene path.
+		var scene = load(scene_path)
+		if scene == null:
+			print("Error loading unit scene at: ", scene_path)
+			continue
 		var unit_instance = scene.instantiate()
 		add_child(unit_instance)
 		unit_instance.tile_pos = info.get("tile_pos", Vector2i.ZERO)
 		unit_instance.is_player = info.get("is_player", true)
 		unit_instance.health = info.get("health", 100)
-		# Optionally set metadata so the unit can later export its scene_path.
+		unit_instance.position = map_to_local(unit_instance.tile_pos)
+		unit_instance.position.y -= 8
+		if unit_instance.is_player:
+			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
+			if sprite:
+				sprite.flip_h = true		
+				
+		if !unit_instance.is_player:
+			unit_instance.get_child(0).modulate = Color8(255, 110, 255)
+			
+		# Save the scene path for potential future exports.
 		unit_instance.set_meta("scene_path", scene_path)
+	print("Imported unit data.")
 
 func import_structure_data(structure_data: Array) -> void:
-	# Clear existing structures if needed
+	# Remove any existing structures.
 	for structure in get_tree().get_nodes_in_group("Structures"):
 		structure.queue_free()
 	for info in structure_data:
 		var scene_path: String = info.get("scene_path", "")
 		if scene_path == "":
+			print("Skipping structure import; scene path missing.")
 			continue
 		var scene = load(scene_path)
+		if scene == null:
+			print("Error loading structure scene at: ", scene_path)
+			continue
 		var structure_instance = scene.instantiate()
 		add_child(structure_instance)
 		structure_instance.tile_pos = info.get("tile_pos", Vector2i.ZERO)
 		structure_instance.set_meta("scene_path", scene_path)
+		structure_instance.position = map_to_local(structure_instance.tile_pos)
+		structure_instance.position.y -= 8
+		
+		astar.set_point_solid(structure_instance.tile_pos, false)
+		
+		# Randomly modulate the structure's color within a mid-range.
+		# This keeps the RGB values between 0.4 and 0.8.
+		var r_val = randf_range(0.4, 0.8)
+		var g_val = randf_range(0.4, 0.8)
+		var b_val = randf_range(0.4, 0.8)
+		structure_instance.modulate = Color(r_val, g_val, b_val, 1)
+		
+	print("Imported structure data.")
 
 func broadcast_game_state() -> void:
 	var map_data = export_map_data()
@@ -1183,19 +1238,19 @@ func broadcast_game_state() -> void:
 
 @rpc
 func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
-	_generate_client_map(map_data)
-	import_unit_data(unit_data)
-	import_structure_data(structure_data)
-	update_astar_grid()
+	_generate_client_map(map_data, unit_data, structure_data)
 	print("Game state successfully received and rebuilt on the client.")
 	
-	# Now switch to the main game scene
+	# Now switch to the main game scene.
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
-func _generate_client_map(map_data: Dictionary) -> void:
-	# Rebuild the map tile for tile using the exported host data.
+
+func _generate_client_map(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
+	# Rebuild the tile map from the host's map data.
 	import_map_data(map_data)
-	# Optionally set up the camera and update pathfinding, matching what _post_map_generation() does on the host.
+	# Rebuild units and structures.
+	import_unit_data(unit_data)
+	import_structure_data(structure_data)
 	_setup_camera()
 	update_astar_grid()
-	print("Client map generated from game state.")
+	print("Client map generated from host data.")

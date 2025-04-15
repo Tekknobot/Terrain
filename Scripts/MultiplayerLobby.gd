@@ -9,6 +9,8 @@ const MAX_CLIENTS = 4
 @onready var address_line_edit = $VBoxContainer/AddressLineEdit
 
 func _ready():
+	GameData.multiplayer_mode = true
+	
 	# Connect signals using Callable syntax
 	host_button.connect("pressed", Callable(self, "_on_HostButton_pressed"))
 	join_button.connect("pressed", Callable(self, "_on_JoinButton_pressed"))
