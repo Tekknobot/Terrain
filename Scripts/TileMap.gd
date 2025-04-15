@@ -100,13 +100,28 @@ var spider_blast_mode: bool = false
 var thread_attack_mode: bool = false
 var lightning_surge_mode: bool = false   # New lightning surge mode
 
+var stored_map_data: Dictionary = {}
+var stored_unit_data: Array = []
+var stored_structure_data: Array = []
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
-	_generate_map()
-
-	call_deferred("_post_map_generation")  # Wait until the next frame
 	
+	if is_multiplayer_authority():
+		# Host: generate the map and then postprocess it.
+		_generate_map()
+		call_deferred("_post_map_generation")
+	else:
+		# Client: clear any pre-existing map (or simply do nothing) and wait for the game state.
+		clear_map()
+
+func clear_map() -> void:
+	for x in range(grid_width):
+		for y in range(grid_height):
+			set_cell(0, Vector2i(x, y), -1)  # Remove any tile.
+	print("Map cleared – waiting for host data.")
+
 # New _process function to check for a continuous press.
 func _process(delta):
 	# Only accumulate hold time if the left mouse button is pressed and a unit is selected.
@@ -127,6 +142,14 @@ func _post_map_generation():
 	update_astar_grid()
 	TurnManager.start_turn()
 	TurnManager.transition_to_level()
+
+	# If you are the host, store the game state for later broadcasting.
+	if is_multiplayer_authority():
+		GameState.stored_map_data = export_map_data()
+		GameState.stored_unit_data = export_unit_data()
+		GameState.stored_structure_data = export_structure_data()
+		# Optionally, if peers are already connected:
+		broadcast_game_state()
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
@@ -1058,3 +1081,121 @@ func set_abilities_off() -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	critical_strike_mode = false
 	rapid_fire_mode = false
+
+# Export the complete map data as a Dictionary.
+func export_map_data() -> Dictionary:
+	var data = {}
+	data["grid_width"] = grid_width
+	data["grid_height"] = grid_height
+	var tiles = []
+	for x in range(grid_width):
+		var col = []
+		for y in range(grid_height):
+			# Get the tile's source ID for the given cell.
+			col.append(get_cell_source_id(0, Vector2i(x, y)))
+		tiles.append(col)
+	data["tiles"] = tiles
+	return data
+
+# Import map data and rebuild the tile map.
+func import_map_data(data: Dictionary) -> void:
+	grid_width = data.get("grid_width", grid_width)
+	grid_height = data.get("grid_height", grid_height)
+	var tiles = data.get("tiles", [])
+	if tiles.size() != grid_width:
+		push_error("Tile data width mismatch!")
+		return
+	# Clear the current map (if needed)
+	for x in range(grid_width):
+		for y in range(grid_height):
+			set_cell(0, Vector2i(x, y), -1) # clear previous tile
+	# Set the cells with the data provided.
+	for x in range(grid_width):
+		for y in range(grid_height):
+			var tile_id = tiles[x][y]
+			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
+	print("Map successfully imported from host data.")
+
+# Exports all unit data into an array.
+func export_unit_data() -> Array:
+	var data = []
+	for unit in get_tree().get_nodes_in_group("Units"):
+		data.append({
+			"scene_path": unit.filename if unit.has_meta("scene_path") else "",  # Ensure you store path in each unit when spawning
+			"tile_pos": unit.tile_pos,
+			"is_player": unit.is_player,
+			"health": unit.health
+			# Add more properties as needed
+		})
+	return data
+
+# Exports structure data similarly.
+func export_structure_data() -> Array:
+	var data = []
+	for structure in get_tree().get_nodes_in_group("Structures"):
+		data.append({
+			"scene_path": structure.filename if structure.has_meta("scene_path") else "",
+			"tile_pos": structure.tile_pos
+			# Add additional properties if needed
+		})
+	return data
+
+# On the client, use these functions to instantiate units and structures.
+func import_unit_data(unit_data: Array) -> void:
+	# First, remove any existing units if needed.
+	for unit in get_tree().get_nodes_in_group("Units"):
+		unit.queue_free()
+	# For each unit data dictionary, instance the scene and set its properties.
+	for info in unit_data:
+		var scene_path: String = info.get("scene_path", "")
+		if scene_path == "":
+			continue  # Skip if you don’t have a valid path.
+		var scene = load(scene_path)  # Make sure the scene is loadable
+		var unit_instance = scene.instantiate()
+		add_child(unit_instance)
+		unit_instance.tile_pos = info.get("tile_pos", Vector2i.ZERO)
+		unit_instance.is_player = info.get("is_player", true)
+		unit_instance.health = info.get("health", 100)
+		# Optionally set metadata so the unit can later export its scene_path.
+		unit_instance.set_meta("scene_path", scene_path)
+
+func import_structure_data(structure_data: Array) -> void:
+	# Clear existing structures if needed
+	for structure in get_tree().get_nodes_in_group("Structures"):
+		structure.queue_free()
+	for info in structure_data:
+		var scene_path: String = info.get("scene_path", "")
+		if scene_path == "":
+			continue
+		var scene = load(scene_path)
+		var structure_instance = scene.instantiate()
+		add_child(structure_instance)
+		structure_instance.tile_pos = info.get("tile_pos", Vector2i.ZERO)
+		structure_instance.set_meta("scene_path", scene_path)
+
+func broadcast_game_state() -> void:
+	var map_data = export_map_data()
+	var unit_data = export_unit_data()
+	var structure_data = export_structure_data()
+	# Use an RPC so that every connected client receives the game state.
+	rpc("receive_game_state", map_data, unit_data, structure_data)
+	print("Game state broadcasted to all peers.")
+
+@rpc
+func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
+	_generate_client_map(map_data)
+	import_unit_data(unit_data)
+	import_structure_data(structure_data)
+	update_astar_grid()
+	print("Game state successfully received and rebuilt on the client.")
+	
+	# Now switch to the main game scene
+	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+
+func _generate_client_map(map_data: Dictionary) -> void:
+	# Rebuild the map tile for tile using the exported host data.
+	import_map_data(map_data)
+	# Optionally set up the camera and update pathfinding, matching what _post_map_generation() does on the host.
+	_setup_camera()
+	update_astar_grid()
+	print("Client map generated from game state.")

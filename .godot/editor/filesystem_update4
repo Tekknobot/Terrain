@@ -17,3 +17,4 @@ res://Scripts/Unit.gd
 res://Scripts/NetworkManager.gd
 res://Scripts/TitleScreen.gd
 res://Scripts/MultiplayerLobby.gd
+res://Scripts/GameState.gd
