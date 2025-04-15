@@ -51,20 +51,19 @@ func start_turn():
 		elif not enemy_units_exist:
 			result = "win"
 		
-		# Calculate stats and rewards (using your previously defined functions)
 		var stats = {
-			"units_lost": calculate_units_lost(),    # TODO: Ensure this function returns a valid value
-			"damage_dealt": calculate_damage_dealt()   # TODO: Ensure this function returns a valid value
+			"units_lost": calculate_units_lost(),
+			"damage_dealt": calculate_damage_dealt()
 		}
 		var rewards = {
-			"xp": calculate_xp_reward(),               # TODO: Implement your XP logic
-			"coins": calculate_coins_reward()          # TODO: Implement your coins logic
+			"xp": calculate_xp_reward(),
+			"coins": calculate_coins_reward()
 		}
 		
 		_show_game_over_screen(result, stats, rewards)
 		
 		print("🏁 Game Over — no units remain for one team. Turn will not start.")
-		return  # Prevent starting turn if game over
+		return
 
 	var team_name = "UNKNOWN"
 	if team == Team.PLAYER:
@@ -73,6 +72,13 @@ func start_turn():
 		team_name = "ENEMY"
 	
 	print("🔁 Starting turn for:", team_name)
+	
+	# Update EndTurn button visibility based on whose turn it is.
+	var endTurnButton = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
+	if team == Team.PLAYER:
+		endTurnButton.visible = true
+	else:
+		endTurnButton.visible = false
 	
 	emit_signal("turn_started", team)
 	_start_unit_action(team)

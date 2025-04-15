@@ -66,6 +66,7 @@ signal units_spawned
 
 @export var reset_button: Button
 @export var menu_button: Button
+@export var endturn_button: Button
 
 var difficulty_tiers: Dictionary = {
 	1: "Novice",

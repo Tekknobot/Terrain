@@ -14,3 +14,4 @@ res://Scripts/TileMap.gd
 res://Scripts/TitleScreen.gd
 res://Scripts/MultiplayerLobby.gd
 res://Scripts/Structure.gd
+res://Scripts/TurnManager.gd
