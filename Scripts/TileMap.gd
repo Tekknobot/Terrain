@@ -142,7 +142,9 @@ func _process(delta):
 	if GameData.multiplayer_mode:
 		reset_button.visible = false
 		menu_button.visible = false	
-
+		endturn_button.visible = false
+		
+		map_details.text = "Multiplayer Mode"
 
 func _post_map_generation():
 	_spawn_teams()
@@ -587,6 +589,7 @@ func _generate_map():
 			var tile_id = _get_tile_id_from_noise(n)
 			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
 	_generate_roads()
+	
 	map_details.text = difficulty_tiers[GameData.map_difficulty]
 
 func _get_tile_id_from_noise(n: float) -> int:
