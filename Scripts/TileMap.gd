@@ -1,3 +1,4 @@
+#TileMap.gd
 extends TileMap
 
 const INTERSECTION = 12

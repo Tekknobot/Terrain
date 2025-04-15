@@ -12,3 +12,8 @@ res://Scenes/MultiplayerLobby.tscn
 res://Scripts/Structure.gd
 res://Scripts/HUD_Panel.gd
 res://Scripts/TurnManager.gd
+res://Scripts/TileMap.gd
+res://Scripts/Unit.gd
+res://Scripts/NetworkManager.gd
+res://Scripts/TitleScreen.gd
+res://Scripts/MultiplayerLobby.gd

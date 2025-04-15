@@ -2,7 +2,7 @@ extends Control
 
 # Get references to the UI elements.
 @onready var play_button = $CenterContainer/VBoxContainer/Play
-@onready var options_button = $CenterContainer/VBoxContainer/Options
+@onready var multiplayer_button = $CenterContainer/VBoxContainer/Multiplayer
 @onready var quit_button = $CenterContainer/VBoxContainer/Quit
 
 func _ready() -> void:
@@ -12,19 +12,17 @@ func _ready() -> void:
 	
 	# Connect signals if you haven't connected them in the editor.
 	play_button.pressed.connect(_on_PlayButton_pressed)
-	options_button.pressed.connect(_on_OptionsButton_pressed)
+	multiplayer_button.pressed.connect(_on_MultiplayerButton_pressed)
 	quit_button.pressed.connect(_on_QuitButton_pressed)
 
 func _on_PlayButton_pressed() -> void:
 	# Transition to your main game scene.
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
-func _on_OptionsButton_pressed() -> void:
+func _on_MultiplayerButton_pressed() -> void:
 	# You can either open an options popup or switch to an options scene.
-	print("Options button pressed")
-	# For example, show an options dialog:
-	# var options_dialog = preload("res://Scenes/OptionsDialog.tscn").instantiate()
-	# add_child(options_dialog)
+	print("Multiplayer button pressed")
+	get_tree().change_scene_to_file("res://Scenes/MultiplayerLobby.tscn")	# add_child(options_dialog)
 
 func _on_QuitButton_pressed() -> void:
 	get_tree().quit()

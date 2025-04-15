@@ -1,3 +1,4 @@
+#Unit.gd
 extends Area2D
 
 @export var is_player: bool = true  
