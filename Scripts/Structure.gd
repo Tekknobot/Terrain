@@ -3,6 +3,7 @@ extends Node2D
 @export var tile_pos: Vector2i = Vector2i.ZERO
 @export var y_offset: int = 8  # Y offset in pixels
 
+
 func _ready():
 	# Set the node's z_index based on its global Y position.
 	z_index = int(global_position.y)

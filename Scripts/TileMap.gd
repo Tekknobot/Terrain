@@ -645,27 +645,25 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		var x = clamp(start_x + i, 0, grid_width - 1)
 		_spawn_unit(units[i], Vector2i(x, row), is_player, used_tiles)
 
-func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]):
+func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]) -> void:
 	var spawn_tile = _find_nearest_land(tile, used_tiles)
 	if spawn_tile == Vector2i(-1, -1):
 		print("⚠ No valid land tile found for unit near ", tile)
 		return
-
 	var unit_instance = scene.instantiate()
 	unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
 	unit_instance.set_team(is_player)
 	unit_instance.add_to_group("Units")
-	unit_instance.tile_pos = spawn_tile
-	# Store the scene path for exporting later:
+	unit_instance.tile_pos = spawn_tile  # Make sure this is valid!
+	# Store the scene path for later export.
 	unit_instance.set_meta("scene_path", scene.resource_path)
 	add_child(unit_instance)
-
 	if is_player:
 		var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 		if sprite:
 			sprite.flip_h = true
-
 	used_tiles.append(spawn_tile)
+	print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile)
 
 
 func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
@@ -1185,6 +1183,8 @@ func import_unit_data(unit_data: Array) -> void:
 		unit_instance.health = info.get("health", 100)
 		unit_instance.position = map_to_local(unit_instance.tile_pos)
 		unit_instance.position.y -= 8
+		unit_instance.add_to_group("Units")
+		
 		if unit_instance.is_player:
 			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
@@ -1216,8 +1216,10 @@ func import_structure_data(structure_data: Array) -> void:
 		structure_instance.set_meta("scene_path", scene_path)
 		structure_instance.position = map_to_local(structure_instance.tile_pos)
 		structure_instance.position.y -= 8
+		structure_instance.add_to_group("Structures")
+		structure_instance.z_index = int(structure_instance.global_position.y)
 		
-		astar.set_point_solid(structure_instance.tile_pos, false)
+		astar.set_point_solid(structure_instance.tile_pos, true)
 		
 		# Randomly modulate the structure's color within a mid-range.
 		# This keeps the RGB values between 0.4 and 0.8.
