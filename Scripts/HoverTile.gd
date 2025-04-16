@@ -34,7 +34,7 @@ func _process(delta):
 		position = tilemap.map_to_local(current_tile)
 		# Update z-index so that the sprite layers properly (for isometric, you might use tile.y).
 		z_index = calculate_z_index(current_tile)
-		print("Local hover tile updated to: ", current_tile)
+		#print("Local hover tile updated to: ", current_tile)
 
 func calculate_z_index(tile_pos: Vector2i) -> int:
 	# For basic layering, we simply use tile_pos.y.

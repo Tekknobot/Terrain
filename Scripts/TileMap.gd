@@ -108,6 +108,8 @@ var stored_map_data: Dictionary = {}
 var stored_unit_data: Array = []
 var stored_structure_data: Array = []
 
+var next_unit_id: int = 1
+
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
@@ -656,12 +658,19 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 	if spawn_tile == Vector2i(-1, -1):
 		print("⚠ No valid land tile found for unit near ", tile)
 		return
+
 	var unit_instance = scene.instantiate()
 	unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
 	unit_instance.set_team(is_player)
 	unit_instance.add_to_group("Units")
-	unit_instance.tile_pos = spawn_tile  # Make sure this is valid!
-	# Store the scene path for later export.
+	unit_instance.tile_pos = spawn_tile
+
+	# Instead of using get_instance_id(), use our global counter.
+	unit_instance.unit_id = next_unit_id
+	unit_instance.set_meta("unit_id", next_unit_id)
+	next_unit_id += 1
+
+	# (Optional) store scene information for later, etc.
 	unit_instance.set_meta("scene_path", scene.resource_path)
 	add_child(unit_instance)
 	if is_player:
@@ -669,9 +678,8 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 		if sprite:
 			sprite.flip_h = true
 	used_tiles.append(spawn_tile)
-	print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile)
-
-
+	print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile, " with unique ID: ", unit_instance.unit_id)
+	
 func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var visited = {}      # Dictionary to track visited tiles.
 	var queue = [start]   # Start BFS from the given start tile.
@@ -1146,7 +1154,7 @@ func export_unit_data() -> Array:
 			"health": unit.health
 			# Add additional properties as needed.
 		})
-	print("Exported unit data: ", data)
+	#print("Exported unit data: ", data)
 	return data
 
 
@@ -1164,7 +1172,7 @@ func export_structure_data() -> Array:
 			"tile_pos": structure.tile_pos
 			# Add additional properties if needed.
 		})
-	print("Exported structure data: ", data)
+	#print("Exported structure data: ", data)
 	return data
 
 
@@ -1201,7 +1209,7 @@ func import_unit_data(unit_data: Array) -> void:
 			
 		# Save the scene path for potential future exports.
 		unit_instance.set_meta("scene_path", scene_path)
-	print("Imported unit data.")
+	#print("Imported unit data.")
 
 func import_structure_data(structure_data: Array) -> void:
 	# Remove any existing structures.
@@ -1234,7 +1242,7 @@ func import_structure_data(structure_data: Array) -> void:
 		var b_val = randf_range(0.4, 0.8)
 		structure_instance.modulate = Color(r_val, g_val, b_val, 1)
 		
-	print("Imported structure data.")
+	#print("Imported structure data.")
 
 func broadcast_game_state() -> void:
 	var map_data = export_map_data()

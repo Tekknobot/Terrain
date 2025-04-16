@@ -37,21 +37,25 @@ var original_material : Material = null
 
 
 func _ready():
-	# Assign a unique ID if not already stored.
-	if not has_meta("unit_id"):
-		unit_id = get_instance_id()
-		set_meta("unit_id", unit_id)
+	# On the host (authoritative), assign a new ID if one is not already set.
+	if is_multiplayer_authority():
+		if not has_meta("unit_id"):
+			# In theory, this should not happen since the host spawner should assign the ID.
+			unit_id = TurnManager.next_unit_id  # This variable would come from your global counter.
+			set_meta("unit_id", unit_id)
+		else:
+			unit_id = get_meta("unit_id")
 	else:
-		unit_id = get_meta("unit_id")
-	
+		# On clients, the unit should be imported with an existing unit_id from the host.
+		if has_meta("unit_id"):
+			unit_id = get_meta("unit_id")
+		else:
+			print("WARNING: Unit ", name, " does not have a unit_id set on the client!")
+
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
 	add_to_group("Units")
-	
-	# Debug: Print how many units are in the group right after adding ourselves.
-	var unit_count = get_tree().get_nodes_in_group("Units").size()
-	print("DEBUG: Unit ", unit_id, " added. Total units in group: ", unit_count)
-	
+	print("DEBUG: Unit ", unit_id, " is ready. (", name, ")")
 	update_z_index()
 	update_health_bar()
 	update_xp_bar()
@@ -70,7 +74,6 @@ func _process(delta):
 	update_z_index()
 	_update_tile_pos()  # Ensure tile_pos is current
 	check_water_status()
-
 
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -142,16 +145,15 @@ func move_to(dest: Vector2i) -> void:
 		print("Authority moving unit:", unit_id, ", new tile:", tile_pos, ", new global pos:", global_position)
 		rpc("remote_update_unit_position", unit_id, tile_pos, global_position)
 
-
 @rpc("reliable")
 func remote_update_unit_position(remote_id: int, new_tile: Vector2i, new_position: Vector2) -> void:
 	var unit = get_unit_by_id(remote_id)
-	# Do not update our own unit if we're the authority.
 	if unit and unit != self:
 		unit.tile_pos = new_tile
 		unit.global_position = new_position
-		print("Updated unit ", remote_id, " to new_tile: ", new_tile, ", global_position: ", new_position)
-
+		print("Updated unit ", remote_id, " to new_tile: ", new_tile, ", new global pos: ", new_position)
+	else:
+		print("Failed to update unit with remote_id: ", remote_id)
 
 func auto_attack_adjacent():
 	var directions = [
@@ -466,7 +468,6 @@ func remote_unit_died(remote_id: int) -> void:
 	if unit and unit != self:
 		unit.queue_free()
 
-
 func get_unit_by_id(target_id: int) -> Node:
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.has_meta("unit_id"):
@@ -477,7 +478,6 @@ func get_unit_by_id(target_id: int) -> Node:
 				return u
 	print("No unit found for target_id: ", target_id)
 	return null
-
 
 var _flash_tween: Tween = null
 var _flash_shader := preload("res://Textures/flash.gdshader")
