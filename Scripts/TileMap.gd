@@ -491,116 +491,80 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				frontier.append(neighbor)
 
 
-func _move_selected_to(target: Vector2i):
+# 1) Local click → set up movement locally & ask server to broadcast it
+func _move_selected_to(target: Vector2i) -> void:
 	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
 		print("DEBUG: No path found for unit", selected_unit.unit_id, "to", target)
 		return
-
 	moving = true
 	print("DEBUG: Moving selected unit", selected_unit.unit_id, "to tile", target)
 
-	if is_multiplayer_authority():
-		# Host → broadcast directly
-		print("🔁 Host(", multiplayer.get_unique_id(), ") broadcasting move of unit", selected_unit.unit_id, "to", target)
-		rpc("remote_update_unit_position_tilemap",
-			selected_unit.unit_id,
-			selected_unit.peer_id,
-			target,
-			map_to_local(target)
-		)
+	if multiplayer.is_server():
+		# Host: broadcast to everyone
+		rpc("remote_start_move", selected_unit.unit_id, target)
 	else:
-		# Client → send request to host (peer 1)
-		var my_id = multiplayer.get_unique_id()
-		var server_id = 1
-		print("Client(", my_id, "): requesting move of unit", selected_unit.unit_id, "→", target, "via server", server_id)
-		rpc_id(server_id, "_server_request_move_unit",
-			selected_unit.unit_id,
-			target
-		)
-		
-@rpc("call_remote", "any_peer", "reliable")
-func _server_request_move_unit(remote_unit_id: int, new_tile: Vector2i) -> void:
-	var sender = multiplayer.get_rpc_sender_id()
-	print("🛎️ Host(", multiplayer.get_unique_id(), 
-		  ") got move request for unit", remote_unit_id, 
-		  "to", new_tile, "from peer", sender)
+		# Client: tell server (authority) to broadcast
+		rpc_id(1, "server_start_move", selected_unit.unit_id, target)
 
-	if not is_multiplayer_authority():
-		return
+# 2) Server receives client request and rebroadcasts
+@rpc("call_remote", "authority", "reliable")
+func server_start_move(unit_id: int, new_tile: Vector2i) -> void:
+	# only the host (authority) runs this
+	print("🛎️ Host(", multiplayer.get_unique_id(), ") got move request for unit", unit_id, "→", new_tile)
+	# rebroadcast to ALL (including self)
+	rpc("remote_start_move", unit_id, new_tile)
 
-	var unit = get_unit_by_id(remote_unit_id)
-	if not unit:
-		print("⚠ Server: could not find unit", remote_unit_id)
-		return
-
-	unit.tile_pos = new_tile
-	unit.global_position = to_global(map_to_local(new_tile))
-	print("✅ Server: moved unit", remote_unit_id, "to", new_tile)
-
-	print("🔁 Server broadcasting move of unit", remote_unit_id)
-	rpc("remote_update_unit_position_tilemap",
-		remote_unit_id,
-		unit.peer_id,
-		new_tile,
-		unit.global_position
-	)
-
+# 3) Everyone runs this and re‑sets up the exact same path→moving
 @rpc("call_remote", "any_peer", "unreliable")
-func remote_update_unit_position_tilemap(remote_unit_id: int, remote_peer: int, new_tile: Vector2i, new_position: Vector2) -> void:
-	var my_id = multiplayer.get_unique_id()
-	print("🔔 Client(", my_id, ") received update for unit", remote_unit_id, "→", new_tile)
+func remote_start_move(unit_id: int, new_tile: Vector2i) -> void:
+	var unit = get_unit_by_id(unit_id)
+	if not unit:
+		print("⚠ remote_start_move: no unit", unit_id)
+		return
 
-	var unit = get_unit_by_id(remote_unit_id)
-	if unit:
-		unit.tile_pos = new_tile
-		unit.global_position = new_position
-		print("Client: Updated unit", remote_unit_id, "to tile", new_tile, "and global pos", new_position)
-	else:
-		print("Remote update skipped for unit", remote_unit_id, "because the unit was not found.")
+	selected_unit = unit
+	update_astar_grid()
+	current_path = get_weighted_path(unit.tile_pos, new_tile)
+	if current_path.is_empty():
+		return
+	moving = true
+	print("🔔 Peer(", multiplayer.get_unique_id(), ") syncing move of unit", unit_id, "→", new_tile)
+
+# 4) Unchanged: your _physics_process handles moving along current_path
+func _physics_process(delta):
+	if moving and selected_unit:
+		var next_tile = current_path[0]
+		var world_pos = to_global(map_to_local(next_tile)) + Vector2(0, selected_unit.Y_OFFSET)
+
+		# play animation + flip
+		var sprite = selected_unit.get_node("AnimatedSprite2D")
+		sprite.play("move")
+		if world_pos.x > selected_unit.global_position.x:
+			sprite.flip_h = true
+		else:
+			sprite.flip_h = false
+
+		# move
+		var dir = (world_pos - selected_unit.global_position).normalized()
+		selected_unit.global_position += dir * MOVE_SPEED * delta
+
+		# arrived?
+		if selected_unit.global_position.distance_to(world_pos) < 2:
+			selected_unit.global_position = world_pos
+			selected_unit.tile_pos = next_tile
+			current_path.remove_at(0)
+			if current_path.is_empty():
+				moving = false
+				sprite.play("default")
+				selected_unit.has_moved = true
 
 func get_unit_by_id(target_id: int) -> Node:
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.has_meta("unit_id") and u.get_meta("unit_id") == target_id:
 			return u
 	return null
-
-
-func _physics_process(delta):
-	if moving:
-		var next_tile = current_path[0]
-		var world_pos = to_global(map_to_local(next_tile)) + Vector2(0, selected_unit.Y_OFFSET)
-
-		# Flip sprite based on horizontal movement
-		var sprite := selected_unit.get_node("AnimatedSprite2D")
-		sprite.play("move")
-		if world_pos.x > selected_unit.global_position.x:
-			sprite.flip_h = true  # moving right → face right
-		elif world_pos.x < selected_unit.global_position.x:
-			sprite.flip_h = false   # moving left → face left
-		
-		var dir = (world_pos - selected_unit.global_position).normalized()
-		selected_unit.global_position += dir * MOVE_SPEED * delta
-		
-		if selected_unit.global_position.distance_to(world_pos) < 2:
-			# Set final position and update tile
-			selected_unit.global_position = world_pos
-			selected_unit.tile_pos = next_tile
-			current_path.remove_at(0)
-
-			if current_path.is_empty():
-				moving = false
-				update_astar_grid()
-				_clear_highlights()
-				sprite.play("default")
-				
-				# Mark the unit as having moved and tint it
-				selected_unit.has_moved = true
-
-				# Run adjacent enemy check if applicable
-				if selected_unit and selected_unit.has_method("check_adjacent_and_attack"):
-					selected_unit.check_adjacent_and_attack()
 					
 
 func _clear_highlights():
@@ -1193,25 +1157,6 @@ func export_map_data() -> Dictionary:
 	data["tiles"] = tiles
 	return data
 
-# Import map data and rebuild the tile map.
-func import_map_data(data: Dictionary) -> void:
-	grid_width = data.get("grid_width", grid_width)
-	grid_height = data.get("grid_height", grid_height)
-	var tiles = data.get("tiles", [])
-	if tiles.size() != grid_width:
-		push_error("Tile data width mismatch!")
-		return
-	# Clear the current map (if needed)
-	for x in range(grid_width):
-		for y in range(grid_height):
-			set_cell(0, Vector2i(x, y), -1) # clear previous tile
-	# Set the cells with the data provided.
-	for x in range(grid_width):
-		for y in range(grid_height):
-			var tile_id = tiles[x][y]
-			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
-	print("Map successfully imported from host data.")
-
 # Exports all unit data into an array.
 func export_unit_data() -> Array:
 	var data = []
@@ -1249,45 +1194,76 @@ func export_structure_data() -> Array:
 	#print("Exported structure data: ", data)
 	return data
 
+func import_map_data(data: Dictionary) -> void:
+	# 1) Read dimensions
+	grid_width  = data.get("grid_width", grid_width)
+	grid_height = data.get("grid_height", grid_height)
+
+	# 2) Get tile array
+	var tiles = data.get("tiles", [])
+	if tiles.size() != grid_width:
+		push_error("Tile data width mismatch! Expected %d columns but got %d." %
+				   [grid_width, tiles.size()])
+		return
+
+	# 3) Clear existing map
+	for x in range(grid_width):
+		for y in range(grid_height):
+			set_cell(0, Vector2i(x, y), -1)
+
+	# 4) Populate with host data
+	for x in range(grid_width):
+		var column = tiles[x]
+		if column.size() != grid_height:
+			push_error("Tile data height mismatch at column %d! Expected %d rows but got %d." %
+					   [x, grid_height, column.size()])
+			continue
+		for y in range(grid_height):
+			var tile_id = column[y]
+			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
+
+	# 5) Debug
+	print("Map successfully imported: %d×%d" % [grid_width, grid_height])
 
 # On the client, use these functions to instantiate units and structures.
 func import_unit_data(unit_data: Array) -> void:
-	# 1) Clear out old units
+	# 1) Remove old units
 	for old in get_tree().get_nodes_in_group("Units"):
 		old.queue_free()
 
-	# 2) Re‑spawn each unit from the host data
+	# 2) Instantiate each unit **and assign IDs before adding to the tree**
 	for info in unit_data:
 		var scene_path = info.get("scene_path", "")
 		if scene_path == "":
-			print("Skipping import; scene path missing.")
 			continue
-		var scene = load(scene_path)
-		if not scene:
+		var packed = load(scene_path)
+		if not packed:
 			print("Error loading unit scene at:", scene_path)
 			continue
 
-		var unit_instance = scene.instantiate()
-		add_child(unit_instance)
-		unit_instance.add_to_group("Units")
+		# 2a) Instantiate but don’t add yet
+		var unit_instance = packed.instantiate()
 
-		# 3) Position & basic state
-		var tile = info.get("tile_pos", Vector2i.ZERO)
-		unit_instance.tile_pos = tile
-		unit_instance.global_position = to_global(map_to_local(tile))
-		unit_instance.is_player = info.get("is_player", true)
-		unit_instance.health    = info.get("health", 100)
-
-		# 4) —— CRITICAL: assign IDs so lookups work! ——
+		# 2b) Assign IDs & metadata immediately
 		var uid = info.get("unit_id", -1)
 		var pid = info.get("peer_id", 0)
 		unit_instance.unit_id = uid
 		unit_instance.peer_id = pid
 		unit_instance.set_meta("unit_id", uid)
 		unit_instance.set_meta("peer_id", pid)
-		# — end ID setup —
 
-		# 5) Any visual tweaks
+		# 2c) Now it’s safe to add to scene and group
+		add_child(unit_instance)
+		unit_instance.add_to_group("Units")
+
+		# 3) Restore position & state
+		var tile = info.get("tile_pos", Vector2i.ZERO)
+		unit_instance.tile_pos       = tile
+		unit_instance.global_position = to_global(map_to_local(tile))
+		unit_instance.is_player      = info.get("is_player", true)
+		unit_instance.health         = info.get("health", 100)
+
+		# 4) Visual tweaks
 		if unit_instance.is_player:
 			var sp = unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sp:
