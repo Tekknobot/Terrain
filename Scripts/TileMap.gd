@@ -490,23 +490,69 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				distances[neighbor] = dist + 1
 				frontier.append(neighbor)
 
+
 func _move_selected_to(target: Vector2i):
 	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
-		print("DEBUG: No path found for unit ", selected_unit.unit_id, " to ", target)
+		print("DEBUG: No path found for unit", selected_unit.unit_id, "to", target)
 		return
+
 	moving = true
-	print("DEBUG: Moving selected unit ", selected_unit.unit_id, " to tile ", target)
+	print("DEBUG: Moving selected unit", selected_unit.unit_id, "to tile", target)
 
-	# In TileMap.gd, after the movement is finished:
 	if is_multiplayer_authority():
-		print("Host: Unit ", selected_unit.unit_id, " moved to tile ", target, " and global pos ", map_to_local(target))
-		rpc("remote_update_unit_position_tilemap", selected_unit.unit_id, selected_unit.peer_id, target, map_to_local(target))
+		# Host → broadcast directly
+		print("🔁 Host(", multiplayer.get_unique_id(), ") broadcasting move of unit", selected_unit.unit_id, "to", target)
+		rpc("remote_update_unit_position_tilemap",
+			selected_unit.unit_id,
+			selected_unit.peer_id,
+			target,
+			map_to_local(target)
+		)
+	else:
+		# Client → send request to host (peer 1)
+		var my_id = multiplayer.get_unique_id()
+		var server_id = 1
+		print("Client(", my_id, "): requesting move of unit", selected_unit.unit_id, "→", target, "via server", server_id)
+		rpc_id(server_id, "_server_request_move_unit",
+			selected_unit.unit_id,
+			target
+		)
+		
+@rpc("call_remote", "any_peer", "reliable")
+func _server_request_move_unit(remote_unit_id: int, new_tile: Vector2i) -> void:
+	var sender = multiplayer.get_rpc_sender_id()
+	print("🛎️ Host(", multiplayer.get_unique_id(), 
+		  ") got move request for unit", remote_unit_id, 
+		  "to", new_tile, "from peer", sender)
 
-@rpc("unreliable")
+	if not is_multiplayer_authority():
+		return
+
+	var unit = get_unit_by_id(remote_unit_id)
+	if not unit:
+		print("⚠ Server: could not find unit", remote_unit_id)
+		return
+
+	unit.tile_pos = new_tile
+	unit.global_position = to_global(map_to_local(new_tile))
+	print("✅ Server: moved unit", remote_unit_id, "to", new_tile)
+
+	print("🔁 Server broadcasting move of unit", remote_unit_id)
+	rpc("remote_update_unit_position_tilemap",
+		remote_unit_id,
+		unit.peer_id,
+		new_tile,
+		unit.global_position
+	)
+
+@rpc("call_remote", "any_peer", "unreliable")
 func remote_update_unit_position_tilemap(remote_unit_id: int, remote_peer: int, new_tile: Vector2i, new_position: Vector2) -> void:
-	var unit = get_unit_by_id(remote_unit_id, remote_peer)
+	var my_id = multiplayer.get_unique_id()
+	print("🔔 Client(", my_id, ") received update for unit", remote_unit_id, "→", new_tile)
+
+	var unit = get_unit_by_id(remote_unit_id)
 	if unit:
 		unit.tile_pos = new_tile
 		unit.global_position = new_position
@@ -514,15 +560,12 @@ func remote_update_unit_position_tilemap(remote_unit_id: int, remote_peer: int, 
 	else:
 		print("Remote update skipped for unit", remote_unit_id, "because the unit was not found.")
 
-func get_unit_by_id(target_id: int, remote_peer_id: int) -> Node:
+func get_unit_by_id(target_id: int) -> Node:
 	for u in get_tree().get_nodes_in_group("Units"):
-		if u.has_meta("unit_id"):
-			var uid = u.get_meta("unit_id")
-			if uid == target_id:
-				print("Found unit:", u.name, "for target_id:", target_id)
-				return u
-	print("No unit found for target_id:", target_id)
+		if u.has_meta("unit_id") and u.get_meta("unit_id") == target_id:
+			return u
 	return null
+
 
 func _physics_process(delta):
 	if moving:
@@ -1173,29 +1216,19 @@ func import_map_data(data: Dictionary) -> void:
 func export_unit_data() -> Array:
 	var data = []
 	for unit in get_tree().get_nodes_in_group("Units"):
-		var scene_path: String = ""
+		var scene_path = ""
 		if unit.has_meta("scene_path"):
 			scene_path = unit.get_meta("scene_path")
 		else:
 			print("Warning: Unit ", unit.name, " does not have a scene path stored!")
 		
-		# Get unit_id without ternary
-		var uid: int = -1
-		if unit.has_meta("unit_id"):
-			uid = unit.get_meta("unit_id")
-		
-		# Get peer_id without ternary
-		var pid: int = 0
-		if unit.has_meta("peer_id"):
-			pid = unit.get_meta("peer_id")
-		
 		data.append({
-			"scene_path": scene_path,
-			"tile_pos": unit.tile_pos,
-			"is_player": unit.is_player,
-			"health": unit.health,
-			"unit_id": uid,
-			"peer_id": pid
+			"scene_path":     scene_path,
+			"tile_pos":       unit.tile_pos,
+			"is_player":      unit.is_player,
+			"health":         unit.health,
+			"unit_id":        unit.unit_id,    # NEW
+			"peer_id":        unit.peer_id     # NEW
 		})
 	return data
 
@@ -1219,42 +1252,50 @@ func export_structure_data() -> Array:
 
 # On the client, use these functions to instantiate units and structures.
 func import_unit_data(unit_data: Array) -> void:
-	# Remove any existing units.
-	for unit in get_tree().get_nodes_in_group("Units"):
-		unit.queue_free()
-		
+	# 1) Clear out old units
+	for old in get_tree().get_nodes_in_group("Units"):
+		old.queue_free()
+
+	# 2) Re‑spawn each unit from the host data
 	for info in unit_data:
-		var scene_path: String = info.get("scene_path", "")
+		var scene_path = info.get("scene_path", "")
 		if scene_path == "":
-			print("Skipping unit import; scene path missing.")
-			continue  # Skip if no valid scene path.
-		var scene = load(scene_path)
-		if scene == null:
-			print("Error loading unit scene at: ", scene_path)
+			print("Skipping import; scene path missing.")
 			continue
+		var scene = load(scene_path)
+		if not scene:
+			print("Error loading unit scene at:", scene_path)
+			continue
+
 		var unit_instance = scene.instantiate()
 		add_child(unit_instance)
-		unit_instance.tile_pos = info.get("tile_pos", Vector2i.ZERO)
-		unit_instance.is_player = info.get("is_player", true)
-		unit_instance.health = info.get("health", 100)
-		unit_instance.position = map_to_local(unit_instance.tile_pos)
-		unit_instance.position.y -= 8
 		unit_instance.add_to_group("Units")
-		
+
+		# 3) Position & basic state
+		var tile = info.get("tile_pos", Vector2i.ZERO)
+		unit_instance.tile_pos = tile
+		unit_instance.global_position = to_global(map_to_local(tile))
+		unit_instance.is_player = info.get("is_player", true)
+		unit_instance.health    = info.get("health", 100)
+
+		# 4) —— CRITICAL: assign IDs so lookups work! ——
+		var uid = info.get("unit_id", -1)
+		var pid = info.get("peer_id", 0)
+		unit_instance.unit_id = uid
+		unit_instance.peer_id = pid
+		unit_instance.set_meta("unit_id", uid)
+		unit_instance.set_meta("peer_id", pid)
+		# — end ID setup —
+
+		# 5) Any visual tweaks
 		if unit_instance.is_player:
-			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
-			if sprite:
-				sprite.flip_h = true		
+			var sp = unit_instance.get_node_or_null("AnimatedSprite2D")
+			if sp:
+				sp.flip_h = true
 		else:
 			unit_instance.get_child(0).modulate = Color8(255, 110, 255)
-			
-		# Save the scene path for potential future exports.
-		unit_instance.set_meta("scene_path", scene_path)
-		# Set the unit's unique ID and peer ID from the exported info.
-		unit_instance.set_meta("unit_id", info.get("unit_id", -1))
-		unit_instance.set_meta("peer_id", info.get("peer_id", 0))
-		
-		print("Imported unit with unit_id:", info.get("unit_id", -1))
+
+		print("Imported unit", unit_instance.name, "with unit_id =", uid)
 
 func import_structure_data(structure_data: Array) -> void:
 	# Remove any existing structures.
