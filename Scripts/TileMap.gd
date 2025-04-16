@@ -122,6 +122,12 @@ func _ready():
 		# Client: clear any pre-existing map (or simply do nothing) and wait for the game state.
 		clear_map()
 
+	print("My peer ID is: ", get_tree().get_multiplayer().get_unique_id())
+	if is_multiplayer_authority():
+		print("→ I am the server")
+	else:
+		print("→ I am a client")
+
 func clear_map() -> void:
 	for x in range(grid_width):
 		for y in range(grid_height):
@@ -491,38 +497,45 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				frontier.append(neighbor)
 
 
-# 1) Local click → set up movement locally & ask the host to run server_request_move()
+# 1) Send the request to whatever peer is authority
 func _move_selected_to(target: Vector2i) -> void:
 	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
-		print("DEBUG: No path found for unit", selected_unit.unit_id, "→", target)
 		return
 
 	moving = true
-	print("DEBUG: Moving selected unit", selected_unit.unit_id, "→", target)
+	print("DEBUG: Moving unit", selected_unit.unit_id, "→", target)
 
-	if multiplayer.is_server():
-		# We're the host: call directly
-		server_request_move(selected_unit.unit_id, target)
+	if is_multiplayer_authority():
+		# I’m the host: run locally
+		server_request_move(selected_unit.unit_id, target.x, target.y)
 	else:
-		# We're a client: send a reliable RPC *to peer 1* (the host)
-		rpc_id(1, "server_request_move", selected_unit.unit_id, target)
+		# I’m a client: ask the host
+		var auth_id = get_multiplayer_authority()
+		print("Client → server_request_move → authority peer", auth_id)
+		rpc_id(auth_id, "server_request_move",
+			   selected_unit.unit_id,
+			   target.x, target.y)
 
-# 2) Runs **only** on the host (authority), thanks to the "authority" flag.
-@rpc("call_remote", "authority", "reliable")
-func server_request_move(unit_id: int, to: Vector2i) -> void:
-	print("🛎️ Host(", get_multiplayer().get_unique_id(),
-		  ") got move request for unit", unit_id, "→", to)
+# 2) Let any peer call it, but only the authority actually executes and rebroadcasts
+@rpc("any_peer", "reliable")
+func server_request_move(unit_id: int, tx: int, ty: int) -> void:
+	if not is_multiplayer_authority():
+		return
 
-	# Rebroadcast to everyone (including ourselves) over the unreliable channel
-	rpc("remote_start_move", unit_id, to)
-	# And animate locally right away
-	remote_start_move(unit_id, to)
+	var to = Vector2i(tx, ty)
+	print("🏠 Server got move request for unit", unit_id, "→", to)
 
-# 3) Everyone (host + all clients) runs this to actually set up the path & start moving.
-@rpc("call_remote", "any_peer", "unreliable")
-func remote_start_move(unit_id: int, to: Vector2i) -> void:
+	# Mirror out to everyone (unreliable is fine for smooth movement)
+	rpc("remote_start_move", unit_id, tx, ty)
+	# And do it locally immediately
+	remote_start_move(unit_id, tx, ty)
+
+# 3) Everyone (host + clients) listens—even the host will see this, but it's idempotent
+@rpc("any_peer", "unreliable")
+func remote_start_move(unit_id: int, tx: int, ty: int) -> void:
+	var to = Vector2i(tx, ty)
 	var unit = get_unit_by_id(unit_id)
 	if not unit:
 		print("⚠ remote_start_move: no unit", unit_id)
@@ -535,8 +548,8 @@ func remote_start_move(unit_id: int, to: Vector2i) -> void:
 		return
 
 	moving = true
-	print("🔔 Peer(", get_multiplayer().get_unique_id(),
-		  ") syncing move of unit", unit_id, "→", to)
+	print("🔔 Peer", get_tree().get_multiplayer().get_unique_id(),
+		  "syncing move of unit", unit_id, "→", to)
 
 # 4) Unchanged: your _physics_process handles moving along current_path
 func _physics_process(delta):

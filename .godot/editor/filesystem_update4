@@ -30,3 +30,4 @@ res://Scenes/Meks_Scenes/PLAYER/S2.scn
 res://Scripts/TileMap.gd
 res://Scripts/GameState.gd
 res://Scripts/NetworkManager.gd
+res://Scripts/NetworkTester.gd

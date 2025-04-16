@@ -25,6 +25,7 @@ TurnManager="*res://Scripts/TurnManager.gd"
 GameData="*res://Scripts/GameData.gd"
 NetworkManager="*res://Scripts/NetworkManager.gd"
 GameState="*res://Scripts/GameState.gd"
+NetworkTester="*res://Scripts/NetworkTester.gd"
 
 [display]
 
