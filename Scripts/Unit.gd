@@ -2,6 +2,7 @@
 extends Area2D
 
 var unit_id: int   # Unique identifier for networking
+var peer_id: int   
 
 @export var is_player: bool = true  
 @export var unit_type: String = "Soldier"  
@@ -60,6 +61,9 @@ func _ready():
 	update_health_bar()
 	update_xp_bar()
 	debug_print_units()
+	
+	print("Multiplayer authority? ", get_tree().get_multiplayer().is_server())
+
 
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
@@ -115,6 +119,8 @@ func _move_one(dest: Vector2i) -> void:
 	while global_position.distance_to(world_target) > 1.0:
 		var delta = get_process_delta_time()
 		global_position = global_position.move_toward(world_target, speed * delta)
+		# Print the current distance to target.
+		print("DEBUG: Moving unit ", unit_id, " - distance left: ", global_position.distance_to(world_target))
 		await get_tree().process_frame
 
 	global_position = world_target  # explicitly set position to remove small offsets
@@ -122,28 +128,31 @@ func _move_one(dest: Vector2i) -> void:
 	tile_pos = dest
 	if sprite:
 		sprite.play("default")
-
+	print("DEBUG: _move_one() completed for unit ", unit_id, ". New global pos: ", global_position)
 
 func move_to(dest: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")	
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")   
 	var path = tilemap.get_weighted_path(tile_pos, dest)
 	if path.is_empty():
 		emit_signal("movement_finished")
 		return
 
+	print("DEBUG: Path computed for unit ", unit_id, " with length: ", path.size())
 	for step in path:
 		await _move_one(step)
 	
 	tilemap.update_astar_grid()
 	await get_tree().process_frame
-
 	emit_signal("movement_finished")
 	has_moved = true
 	
-	# If we are the authoritative side, broadcast our new position.
+	print("DEBUG: Finished moving unit ", unit_id, ". Tile pos: ", tile_pos, ", Global pos: ", global_position)
+	
 	if is_multiplayer_authority():
-		print("Authority moving unit:", unit_id, ", new tile:", tile_pos, ", new global pos:", global_position)
+		print("DEBUG: Authority moving unit:", unit_id, ", new tile:", tile_pos, ", new global pos:", global_position)
 		rpc("remote_update_unit_position", unit_id, tile_pos, global_position)
+	else:
+		print("DEBUG: Not the authority for unit:", unit_id)
 
 @rpc("reliable")
 func remote_update_unit_position(remote_id: int, new_tile: Vector2i, new_position: Vector2) -> void:

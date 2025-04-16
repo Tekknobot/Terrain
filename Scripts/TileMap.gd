@@ -491,11 +491,38 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				frontier.append(neighbor)
 
 func _move_selected_to(target: Vector2i):
-	self.update_astar_grid()
+	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
+		print("DEBUG: No path found for unit ", selected_unit.unit_id, " to ", target)
 		return
 	moving = true
+	print("DEBUG: Moving selected unit ", selected_unit.unit_id, " to tile ", target)
+
+	# In TileMap.gd, after the movement is finished:
+	if is_multiplayer_authority():
+		print("Host: Unit ", selected_unit.unit_id, " moved to tile ", target, " and global pos ", map_to_local(target))
+		rpc("remote_update_unit_position_tilemap", selected_unit.unit_id, selected_unit.peer_id, target, map_to_local(target))
+
+@rpc("unreliable")
+func remote_update_unit_position_tilemap(remote_unit_id: int, remote_peer: int, new_tile: Vector2i, new_position: Vector2) -> void:
+	var unit = get_unit_by_id(remote_unit_id, remote_peer)
+	if unit:
+		unit.tile_pos = new_tile
+		unit.global_position = new_position
+		print("Client: Updated unit", remote_unit_id, "to tile", new_tile, "and global pos", new_position)
+	else:
+		print("Remote update skipped for unit", remote_unit_id, "because the unit was not found.")
+
+func get_unit_by_id(target_id: int, remote_peer_id: int) -> Node:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.has_meta("unit_id"):
+			var uid = u.get_meta("unit_id")
+			if uid == target_id:
+				print("Found unit:", u.name, "for target_id:", target_id)
+				return u
+	print("No unit found for target_id:", target_id)
+	return null
 
 func _physics_process(delta):
 	if moving:
@@ -665,12 +692,16 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 	unit_instance.add_to_group("Units")
 	unit_instance.tile_pos = spawn_tile
 
-	# Instead of using get_instance_id(), use our global counter.
+	# Instead of using get_instance_id(), use your global counter.
 	unit_instance.unit_id = next_unit_id
 	unit_instance.set_meta("unit_id", next_unit_id)
 	next_unit_id += 1
 
-	# (Optional) store scene information for later, etc.
+	# Also set the peer id.
+	unit_instance.peer_id = get_tree().get_multiplayer().get_unique_id()
+	unit_instance.set_meta("peer_id", unit_instance.peer_id)
+
+	# (Optional) store scene information for export.
 	unit_instance.set_meta("scene_path", scene.resource_path)
 	add_child(unit_instance)
 	if is_player:
@@ -678,8 +709,8 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 		if sprite:
 			sprite.flip_h = true
 	used_tiles.append(spawn_tile)
-	print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile, " with unique ID: ", unit_instance.unit_id)
-	
+	print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile, " with unique ID: ", unit_instance.unit_id, " and peer id: ", unit_instance.peer_id)
+
 func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var visited = {}      # Dictionary to track visited tiles.
 	var queue = [start]   # Start BFS from the given start tile.
@@ -1147,16 +1178,26 @@ func export_unit_data() -> Array:
 			scene_path = unit.get_meta("scene_path")
 		else:
 			print("Warning: Unit ", unit.name, " does not have a scene path stored!")
+		
+		# Get unit_id without ternary
+		var uid: int = -1
+		if unit.has_meta("unit_id"):
+			uid = unit.get_meta("unit_id")
+		
+		# Get peer_id without ternary
+		var pid: int = 0
+		if unit.has_meta("peer_id"):
+			pid = unit.get_meta("peer_id")
+		
 		data.append({
 			"scene_path": scene_path,
 			"tile_pos": unit.tile_pos,
 			"is_player": unit.is_player,
-			"health": unit.health
-			# Add additional properties as needed.
+			"health": unit.health,
+			"unit_id": uid,
+			"peer_id": pid
 		})
-	#print("Exported unit data: ", data)
 	return data
-
 
 # Exports structure data similarly.
 func export_structure_data() -> Array:
@@ -1181,6 +1222,7 @@ func import_unit_data(unit_data: Array) -> void:
 	# Remove any existing units.
 	for unit in get_tree().get_nodes_in_group("Units"):
 		unit.queue_free()
+		
 	for info in unit_data:
 		var scene_path: String = info.get("scene_path", "")
 		if scene_path == "":
@@ -1203,13 +1245,16 @@ func import_unit_data(unit_data: Array) -> void:
 			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true		
-				
-		if !unit_instance.is_player:
+		else:
 			unit_instance.get_child(0).modulate = Color8(255, 110, 255)
 			
 		# Save the scene path for potential future exports.
 		unit_instance.set_meta("scene_path", scene_path)
-	#print("Imported unit data.")
+		# Set the unit's unique ID and peer ID from the exported info.
+		unit_instance.set_meta("unit_id", info.get("unit_id", -1))
+		unit_instance.set_meta("peer_id", info.get("peer_id", 0))
+		
+		print("Imported unit with unit_id:", info.get("unit_id", -1))
 
 func import_structure_data(structure_data: Array) -> void:
 	# Remove any existing structures.

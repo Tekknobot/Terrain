@@ -13,8 +13,9 @@ func host_game(port: int, max_clients: int) -> bool:
 	if err != OK:
 		push_error("Could not start server on port: %d!" % port)
 		return false
+		
 	multiplayer_api.multiplayer_peer = peer
-	print("✅ Hosting server on port: %d" % port)
+	print("Host network peer set. Unique ID:", get_tree().get_multiplayer().get_unique_id())
 	multiplayer_api.connect("peer_connected", Callable(self, "_on_peer_connected"))
 	multiplayer_api.connect("peer_disconnected", Callable(self, "_on_peer_disconnected"))
 	return true
