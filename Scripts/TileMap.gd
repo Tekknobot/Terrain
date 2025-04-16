@@ -148,8 +148,8 @@ func _process(delta):
 		hold_time = 0.0  # reset if the mouse button is released.
 
 	if GameData.multiplayer_mode:
-		reset_button.visible = false
-		menu_button.visible = false	
+		#reset_button.visible = false
+		#menu_button.visible = false	
 		#endturn_button.visible = false
 		
 		map_details.text = "Multiplayer Mode"
@@ -285,45 +285,57 @@ func _input(event):
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit and is_instance_valid(selected_unit):
-				# When in multiplayer mode, ignore the is_player check;
-				# in single-player, require selected_unit.is_player to be true.
-				if (GameData.multiplayer_mode or (not GameData.multiplayer_mode and selected_unit.is_player)) and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				# Multiplayer: allow either team to attack; ignore is_player
+				if GameData.multiplayer_mode and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 					if showing_attack:
-						var enemy = get_unit_at_tile(mouse_tile)
+						var enemy     = get_unit_at_tile(mouse_tile)
 						var structure = get_structure_at_tile(mouse_tile)
-						if (enemy and not enemy.is_player) or structure or (enemy == null and structure == null):
+						# attack opposite‐team units, or structures, or empty ground
+						if (enemy and enemy.is_player != selected_unit.is_player) or structure or (enemy == null and structure == null):
+
+							# —— RANGED & SUPPORT UNITS ——
 							if selected_unit.unit_type in ["Ranged", "Support"]:
-								if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
+								# attack a valid enemy unit
+								if enemy and enemy.is_player != selected_unit.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 									selected_unit.auto_attack_ranged(enemy, selected_unit)
-									var sprite := selected_unit.get_node("AnimatedSprite2D")
+									var sprite = selected_unit.get_node("AnimatedSprite2D")
 									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 									showing_attack = false
 									_clear_highlights()
 									return
+
+								# attack a structure
 								elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
 									selected_unit.auto_attack_ranged(structure, selected_unit)
-									var sprite := selected_unit.get_node("AnimatedSprite2D")
+									var sprite = selected_unit.get_node("AnimatedSprite2D")
 									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 									showing_attack = false
 									_clear_highlights()
 									return
+
+								# attack empty tile
 								elif enemy == null and structure == null and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 									selected_unit.auto_attack_ranged_empty(mouse_tile, selected_unit)
-									var sprite := selected_unit.get_node("AnimatedSprite2D")
+									var sprite = selected_unit.get_node("AnimatedSprite2D")
 									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 									showing_attack = false
 									_clear_highlights()
 									return
+
+							# —— MELEE UNITS ——
 							else:
-								if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+								# only if adjacent and on opposite team
+								if enemy and enemy.is_player != selected_unit.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 									selected_unit.auto_attack_adjacent()
 									selected_unit.has_moved = true
-									var sprite := selected_unit.get_node("AnimatedSprite2D")
+									var sprite = selected_unit.get_node("AnimatedSprite2D")
 									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 									showing_attack = false
 									_clear_highlights()
 									play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 									return
+						# end showing_attack
+					# movement when not in attack mode
 					if not showing_attack:
 						if highlighted_tiles.has(mouse_tile):
 							if selected_unit.has_moved:
