@@ -194,10 +194,6 @@ func auto_attack_adjacent():
 				# 🔥 Damage the target and flash white.
 				var died = unit.take_damage(damage)
 
-				# On the host, broadcast the attack event.
-				if is_multiplayer_authority():
-					rpc("remote_unit_attacked", unit_id, unit.unit_id, damage)
-				
 				unit.flash_white()
 
 				# 🧱 Animate the attacker.
@@ -312,17 +308,6 @@ func auto_attack_adjacent():
 							gain_xp(25)
 							unit.die()
 					tilemap.update_astar_grid()
-
-				
-@rpc("reliable")
-func remote_unit_attacked(attacker_id: int, target_id: int, dmg: int) -> void:
-	var target_unit = get_unit_by_id(target_id)
-	if target_unit and target_unit != self:
-		target_unit.health -= dmg
-		target_unit.flash_white()
-		if target_unit.health <= 0:
-			target_unit.die()
-
 
 # Helper function to retrieve the occupant (unit or structure) at a given tile.
 func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:
