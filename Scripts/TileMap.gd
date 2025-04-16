@@ -491,34 +491,38 @@ func _highlight_movement_range(start: Vector2i, max_dist: int):
 				frontier.append(neighbor)
 
 
-# 1) Local click → set up movement locally & ask server to broadcast it
+# 1) Local click → set up movement locally & ask the host to run server_request_move()
 func _move_selected_to(target: Vector2i) -> void:
 	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
-		print("DEBUG: No path found for unit", selected_unit.unit_id, "to", target)
+		print("DEBUG: No path found for unit", selected_unit.unit_id, "→", target)
 		return
+
 	moving = true
-	print("DEBUG: Moving selected unit", selected_unit.unit_id, "to tile", target)
+	print("DEBUG: Moving selected unit", selected_unit.unit_id, "→", target)
 
 	if multiplayer.is_server():
-		# Host: broadcast to everyone
-		rpc("remote_start_move", selected_unit.unit_id, target)
+		# We're the host: call directly
+		server_request_move(selected_unit.unit_id, target)
 	else:
-		# Client: tell server (authority) to broadcast
-		rpc_id(1, "server_start_move", selected_unit.unit_id, target)
+		# We're a client: send a reliable RPC *to peer 1* (the host)
+		rpc_id(1, "server_request_move", selected_unit.unit_id, target)
 
-# 2) Server receives client request and rebroadcasts
+# 2) Runs **only** on the host (authority), thanks to the "authority" flag.
 @rpc("call_remote", "authority", "reliable")
-func server_start_move(unit_id: int, new_tile: Vector2i) -> void:
-	# only the host (authority) runs this
-	print("🛎️ Host(", multiplayer.get_unique_id(), ") got move request for unit", unit_id, "→", new_tile)
-	# rebroadcast to ALL (including self)
-	rpc("remote_start_move", unit_id, new_tile)
+func server_request_move(unit_id: int, to: Vector2i) -> void:
+	print("🛎️ Host(", get_multiplayer().get_unique_id(),
+		  ") got move request for unit", unit_id, "→", to)
 
-# 3) Everyone runs this and re‑sets up the exact same path→moving
+	# Rebroadcast to everyone (including ourselves) over the unreliable channel
+	rpc("remote_start_move", unit_id, to)
+	# And animate locally right away
+	remote_start_move(unit_id, to)
+
+# 3) Everyone (host + all clients) runs this to actually set up the path & start moving.
 @rpc("call_remote", "any_peer", "unreliable")
-func remote_start_move(unit_id: int, new_tile: Vector2i) -> void:
+func remote_start_move(unit_id: int, to: Vector2i) -> void:
 	var unit = get_unit_by_id(unit_id)
 	if not unit:
 		print("⚠ remote_start_move: no unit", unit_id)
@@ -526,11 +530,13 @@ func remote_start_move(unit_id: int, new_tile: Vector2i) -> void:
 
 	selected_unit = unit
 	update_astar_grid()
-	current_path = get_weighted_path(unit.tile_pos, new_tile)
+	current_path = get_weighted_path(unit.tile_pos, to)
 	if current_path.is_empty():
 		return
+
 	moving = true
-	print("🔔 Peer(", multiplayer.get_unique_id(), ") syncing move of unit", unit_id, "→", new_tile)
+	print("🔔 Peer(", get_multiplayer().get_unique_id(),
+		  ") syncing move of unit", unit_id, "→", to)
 
 # 4) Unchanged: your _physics_process handles moving along current_path
 func _physics_process(delta):
@@ -1260,6 +1266,7 @@ func import_unit_data(unit_data: Array) -> void:
 		var tile = info.get("tile_pos", Vector2i.ZERO)
 		unit_instance.tile_pos       = tile
 		unit_instance.global_position = to_global(map_to_local(tile))
+		unit_instance.global_position.y -= 8
 		unit_instance.is_player      = info.get("is_player", true)
 		unit_instance.health         = info.get("health", 100)
 
