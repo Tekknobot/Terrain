@@ -50,7 +50,7 @@ func wait_for_state_ready() -> void:
 	# Wait until the NetworkManager signals that the state is ready.
 	# Using a simple loop with a timer:
 	while not get_node("/root/NetworkManager").state_ready:
-		await get_tree().create_timer(0.1).timeout
+		await get_tree().create_timer(0.5).timeout
 	# Once state is ready, change to the main game scene.
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 

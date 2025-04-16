@@ -142,7 +142,7 @@ func _process(delta):
 	if GameData.multiplayer_mode:
 		reset_button.visible = false
 		menu_button.visible = false	
-		endturn_button.visible = false
+		#endturn_button.visible = false
 		
 		map_details.text = "Multiplayer Mode"
 
@@ -277,7 +277,9 @@ func _input(event):
 		# ... continue with your normal input processing ...
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit and is_instance_valid(selected_unit):
-				if selected_unit.is_player and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				# When in multiplayer mode, ignore the is_player check;
+				# in single-player, require selected_unit.is_player to be true.
+				if (GameData.multiplayer_mode or (not GameData.multiplayer_mode and selected_unit.is_player)) and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 					if showing_attack:
 						var enemy = get_unit_at_tile(mouse_tile)
 						var structure = get_structure_at_tile(mouse_tile)

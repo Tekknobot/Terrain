@@ -1,6 +1,8 @@
 #Unit.gd
 extends Area2D
 
+var unit_id: int   # Unique identifier for networking
+
 @export var is_player: bool = true  
 @export var unit_type: String = "Soldier"  
 @export var unit_name: String = "Hero"
@@ -33,39 +35,68 @@ var visited_tiles: Array = []
 var level_up_material = preload("res://Textures/level_up.tres")
 var original_material : Material = null
 
+
 func _ready():
+	# Assign a unique ID if not already stored.
+	if not has_meta("unit_id"):
+		unit_id = get_instance_id()
+		set_meta("unit_id", unit_id)
+	else:
+		unit_id = get_meta("unit_id")
+	
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))  # 🔥 Set this!
-	add_to_group("Units")  # 🔥 Also make sure they’re in the group
+	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
+	add_to_group("Units")
+	
+	# Debug: Print how many units are in the group right after adding ourselves.
+	var unit_count = get_tree().get_nodes_in_group("Units").size()
+	print("DEBUG: Unit ", unit_id, " added. Total units in group: ", unit_count)
+	
 	update_z_index()
 	update_health_bar()
 	update_xp_bar()
+	debug_print_units()
+
+func debug_print_units():
+	var units = get_tree().get_nodes_in_group("Units")
+	print("DEBUG: Listing all units in the 'Units' group. Total: ", units.size())
+	for u in units:
+		if u.has_meta("unit_id"):
+			print("   Unit Name: ", u.name, ", Unit ID: ", u.get_meta("unit_id"))
+		else:
+			print("   Unit Name: ", u.name, " does not have a unit_id set.")
 
 func _process(delta):
 	update_z_index()
 	_update_tile_pos()  # Ensure tile_pos is current
 	check_water_status()
 
+
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
 
+
 func update_z_index():
 	z_index = int(position.y)
+
 
 ### PLAYER TURN ###
 func start_turn():
 	# Wait for player input; call on_player_done() when action is complete
 	return
 
+
 func on_player_done():
 	TurnManager.unit_finished_action(self)
+
 
 func compute_path(from: Vector2i, to: Vector2i) -> Array:
 	await get_tree().process_frame
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap.update_astar_grid()  # 🔥 Crucial step!
 	return tilemap.astar.get_point_path(from, to)
+
 
 func _move_one(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -87,10 +118,10 @@ func _move_one(dest: Vector2i) -> void:
 	
 	tile_pos = dest
 	if sprite:
-		sprite.play("default")	
+		sprite.play("default")
+
 
 func move_to(dest: Vector2i) -> void:
-	# Update the grid and wait for a frame so all positions are up-to-date
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")	
 	var path = tilemap.get_weighted_path(tile_pos, dest)
 	if path.is_empty():
@@ -105,6 +136,22 @@ func move_to(dest: Vector2i) -> void:
 
 	emit_signal("movement_finished")
 	has_moved = true
+	
+	# If we are the authoritative side, broadcast our new position.
+	if is_multiplayer_authority():
+		print("Authority moving unit:", unit_id, ", new tile:", tile_pos, ", new global pos:", global_position)
+		rpc("remote_update_unit_position", unit_id, tile_pos, global_position)
+
+
+@rpc("reliable")
+func remote_update_unit_position(remote_id: int, new_tile: Vector2i, new_position: Vector2) -> void:
+	var unit = get_unit_by_id(remote_id)
+	# Do not update our own unit if we're the authority.
+	if unit and unit != self:
+		unit.tile_pos = new_tile
+		unit.global_position = new_position
+		print("Updated unit ", remote_id, " to new_tile: ", new_tile, ", global_position: ", new_position)
+
 
 func auto_attack_adjacent():
 	var directions = [
@@ -135,6 +182,11 @@ func auto_attack_adjacent():
 
 				# 🔥 Damage the target and flash white.
 				var died = unit.take_damage(damage)
+
+				# On the host, broadcast the attack event.
+				if is_multiplayer_authority():
+					rpc("remote_unit_attacked", unit_id, unit.unit_id, damage)
+				
 				unit.flash_white()
 
 				# 🧱 Animate the attacker.
@@ -250,6 +302,17 @@ func auto_attack_adjacent():
 							unit.die()
 					tilemap.update_astar_grid()
 
+				
+@rpc("reliable")
+func remote_unit_attacked(attacker_id: int, target_id: int, dmg: int) -> void:
+	var target_unit = get_unit_by_id(target_id)
+	if target_unit and target_unit != self:
+		target_unit.health -= dmg
+		target_unit.flash_white()
+		if target_unit.health <= 0:
+			target_unit.die()
+
+
 # Helper function to retrieve the occupant (unit or structure) at a given tile.
 func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:
 	var occupants = []
@@ -263,13 +326,14 @@ func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:
 			occupants.append(structure)
 	return occupants
 
+
 # Example helper to spawn an explosion at a given position.
 func spawn_explosion_at(pos: Vector2):
-	# Replace the following with your actual explosion scene path and logic.
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
 	var explosion = explosion_scene.instantiate()
 	explosion.position = pos
 	get_tree().get_current_scene().add_child(explosion)
+
 
 func has_adjacent_enemy() -> bool:
 	var directions = [
@@ -298,13 +362,15 @@ func has_adjacent_enemy() -> bool:
 	print("  No enemies found.")
 	return false
 
+
 func display_attack_range(range: int):
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap._highlight_range(tile_pos, range, 3)
 
+
 ### HEALTH & XP ###
 func take_damage(amount: int) -> bool:
-	if !is_player:
+	if not is_player:
 		TurnManager.record_damage(amount)
 		
 	health = max(health - amount, 0)
@@ -313,6 +379,7 @@ func take_damage(amount: int) -> bool:
 		die()
 		return true  # Unit is dead
 	return false
+
 
 func gain_xp(amount):
 	xp += amount
@@ -345,13 +412,16 @@ func play_level_up_sound():
 	add_child(audio_player)
 	audio_player.play()
 
+
 func update_health_bar():
 	if health_bar:
 		health_bar.value = float(health) / max_health * 100
 
+
 func update_xp_bar():
 	if xp_bar:
 		xp_bar.value = float(xp) / max_xp * 100
+
 
 func die():
 	if is_player:
@@ -364,8 +434,11 @@ func die():
 
 	# Check if this was the last unit on the team
 	await get_tree().process_frame  # Wait 1 frame before freeing
+	
+	if is_multiplayer_authority():
+		rpc("remote_unit_died", unit_id)
+		
 	queue_free()
-
 	await get_tree().process_frame  # Let scene update
 
 	# 🧠 Check if game is over
@@ -386,9 +459,30 @@ func die():
 		if tm:
 			tm.end_turn(true)  # We'll add this next
 
+
+@rpc("reliable")
+func remote_unit_died(remote_id: int) -> void:
+	var unit = get_unit_by_id(remote_id)
+	if unit and unit != self:
+		unit.queue_free()
+
+
+func get_unit_by_id(target_id: int) -> Node:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.has_meta("unit_id"):
+			var uid = u.get_meta("unit_id")
+			print("Checking unit: ", u.name, "with unit_id: ", uid)
+			if uid == target_id:
+				print("Found unit: ", u.name, "for target_id: ", target_id)
+				return u
+	print("No unit found for target_id: ", target_id)
+	return null
+
+
 var _flash_tween: Tween = null
 var _flash_shader := preload("res://Textures/flash.gdshader")
 var _original_material: Material = null
+
 
 func flash_white():
 	var sprite = $AnimatedSprite2D
@@ -410,6 +504,7 @@ func flash_white():
 		_flash_tween = null
 	)
 
+
 func flash_blue():
 	var sprite = $AnimatedSprite2D
 	if not sprite:
@@ -430,11 +525,16 @@ func flash_blue():
 		_flash_tween = null
 	)
 
+
 func set_team(player_team: bool):
 	is_player = player_team
 	var sprite = $AnimatedSprite2D
 	if sprite:
-		sprite.modulate = Color(1,1,1) if is_player else Color(1,0.43,1)
+		if is_player:
+			sprite.modulate = Color(1,1,1)
+		else:
+			sprite.modulate = Color(1,0.43,1)
+
 
 func check_adjacent_and_attack():
 	if has_adjacent_enemy():
@@ -443,8 +543,10 @@ func check_adjacent_and_attack():
 	else:
 		print("❌ No adjacent enemy after movement")
 
+
 var queued_move: Vector2i = Vector2i(-1, -1)
 var queued_attack_target: Node2D = null
+
 
 func plan_move(dest: Vector2i):
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -546,12 +648,15 @@ func plan_move(dest: Vector2i):
 	else:
 		print("⛔ No valid tile found within movement range. This unit will not move this turn.")
 
+
 func plan_attack(target: Node2D):
 	queued_attack_target = target
+
 
 func clear_actions():
 	queued_move = Vector2i(-1, -1)
 	queued_attack_target = null
+
 
 func execute_actions():
 	if queued_move != Vector2i(-1, -1):
@@ -586,7 +691,6 @@ func execute_actions():
 		var dir = queued_attack_target.tile_pos - tile_pos
 		var sprite = get_node("AnimatedSprite2D")
 
-		# ← PLACE THIS HERE
 		if sprite and dir.x != 0:
 			sprite.flip_h = dir.x > 0
 
@@ -627,6 +731,7 @@ func execute_all_player_actions():
 	if turn_manager and turn_manager.has_method("end_turn"):
 		turn_manager.end_turn()
 
+
 func shake():
 	var original_position = global_position
 	var tween = create_tween()
@@ -637,8 +742,10 @@ func shake():
 	# Return to original position.
 	tween.tween_property(self, "global_position", original_position, 0.05)
 
+
 # Preload your water material (make sure the path is correct)
 var water_material = preload("res://Textures/in_water.tres")
+
 
 func apply_water_effect(unit: Node) -> void:
 	var sprite = unit.get_node("AnimatedSprite2D")
@@ -653,8 +760,6 @@ func apply_water_effect(unit: Node) -> void:
 		var base_mod = Color(1, 1, 1, 1)  # Default for player.
 		if not unit.is_player:
 			base_mod = Color(1, 0.43, 1, 1)  # Example enemy tint.
-
-		# If the water material is a ShaderMaterial, set its base_modulate parameter.
 		if sprite.material is ShaderMaterial:
 			sprite.material.set_shader_parameter("base_modulate", base_mod)
 		print("Water material applied to", unit.name)
@@ -682,6 +787,7 @@ func check_water_status():
 	else:
 		# Unit is off water: remove water effect if it’s currently applied.
 		remove_water_effect(self)
+
 
 func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	if not is_instance_valid(target):
@@ -711,14 +817,14 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	has_moved = true
 	has_attacked = true
 
+
 func _on_ranged_attack_finished(target: Node) -> void:
-	# When the missile “hits”, if the target is still valid, apply damage and show visual feedback.
 	if is_instance_valid(target):
 		target.take_damage(damage)
 		target.flash_white()
 
+
 func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
-	# Get the TileMap node from the current scene.
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		return
@@ -744,6 +850,7 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	# Await the missile's finished signal before returning.
 	await missile.finished
 
+
 func apply_level_up_material() -> void:
 	var sprite = $AnimatedSprite2D
 	if sprite:
@@ -756,7 +863,7 @@ func apply_level_up_material() -> void:
 		await get_tree().create_timer(1.0).timeout
 		sprite.material = original_material
 
-# Call this method when the Critical Strike ability is used.
+
 func critical_strike(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	# Convert the target tile to global coordinates.
@@ -777,7 +884,7 @@ func critical_strike(target_tile: Vector2i) -> void:
 	has_moved = true
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-# Call this method when the Rapid Fire ability is used.
+
 func rapid_fire(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	
@@ -807,6 +914,7 @@ func rapid_fire(target_tile: Vector2i) -> void:
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
 	print("Rapid Fire activated by unit: ", name)
 
+
 func healing_wave(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	# Look up the unit at the target tile.
@@ -827,10 +935,11 @@ func healing_wave(target_tile: Vector2i) -> void:
 		# Mark the unit as having acted.
 		has_attacked = true
 		has_moved = true
-		get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)			
+		get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
 		
 	else:
 		print("No unit found on tile: ", target_tile, "; no healing applied.")
+
 
 func overcharge_attack(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
@@ -846,20 +955,18 @@ func overcharge_attack(target_tile: Vector2i) -> void:
 	
 	var sprite = $AnimatedSprite2D
 	if sprite:
-		sprite.play("attack")	
+		sprite.play("attack")
 	
 	# Loop over the 3x3 grid around the center tile.
 	for x in range(-1, 2):
 		for y in range(-1, 2):
 			var tile = center_tile + Vector2i(x, y)
 			var damage: int = 0
-			# Calculate damage based on distance from the center:
+			# Calculate damage based on distance from the center.
 			if x == 0 and y == 0:
 				damage = 25  # Center tile gets the highest damage.
-			elif abs(x) + abs(y) == 1:
-				damage = 25  # Adjacent (cardinal) tiles get moderate damage.
 			else:
-				damage = 25  # Diagonals get the least damage.
+				damage = 25  # Both adjacent and diagonal tiles get 25 damage.
 			
 			# Attempt to retrieve an enemy unit on this tile.
 			var enemy_unit = tilemap.get_unit_at_tile(tile)
@@ -879,7 +986,8 @@ func overcharge_attack(target_tile: Vector2i) -> void:
 	print("Overcharge activated by ", name, " centered at tile ", center_tile)
 
 	if sprite:
-		sprite.play("default")	
+		sprite.play("default")
+
 
 func explosive_rounds(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
@@ -894,7 +1002,7 @@ func explosive_rounds(target_tile: Vector2i) -> void:
 
 	var sprite = $AnimatedSprite2D
 	if sprite:
-		sprite.play("attack")	
+		sprite.play("attack")
 	
 	# Launch the missile from the unit's position toward the target position.
 	missile.global_position = global_position
@@ -906,7 +1014,8 @@ func explosive_rounds(target_tile: Vector2i) -> void:
 	get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)
 	
 	if sprite:
-		sprite.play("default")		
+		sprite.play("default")
+
 
 func spider_blast(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
@@ -924,7 +1033,7 @@ func spider_blast(target_tile: Vector2i) -> void:
 			var missile = missile_scene.instantiate()
 			get_tree().get_current_scene().add_child(missile)
 			
-			# Launch the missile from the unit's current position toward the blast tile.
+			# Launch the missile from the unit's position toward the blast tile.
 			missile.global_position = global_position
 			missile.set_target(global_position, target_pos)
 			
@@ -939,6 +1048,7 @@ func spider_blast(target_tile: Vector2i) -> void:
 	var sprite = get_child(0)
 	if sprite:
 		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
 
 func thread_attack(target_tile: Vector2i) -> void:
 	# Get the TileMap node.
@@ -958,7 +1068,7 @@ func thread_attack(target_tile: Vector2i) -> void:
 	for tile in line_tiles:
 		global_path.append(tilemap.to_global(tilemap.map_to_local(tile + offset)))
 	
-	#Offset each coordinate
+	# Offset each coordinate.
 	for i in range(global_path.size()):
 		var p = global_path[i]
 		p.y -= 24
@@ -984,9 +1094,11 @@ func thread_attack(target_tile: Vector2i) -> void:
 	if sprite:
 		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
+
 func _on_thread_attack_reached(target_tile: Vector2i) -> void:
 	spawn_explosions_at_tile(target_tile)
 	print("Thread Attack exploded at tile: ", target_tile)
+
 
 func lightning_surge(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
@@ -1017,6 +1129,7 @@ func lightning_surge(target_tile: Vector2i) -> void:
 	# our on_lightning_surge_reached() is called with target_tile as parameter.
 	missile.connect("reached_target", Callable(self, "on_lightning_surge_reached").bind(target_tile))
 
+
 func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
@@ -1030,8 +1143,8 @@ func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 			get_tree().get_current_scene().add_child(explosion)
 			
-			# Determine damage for this tile.
-			var damage: int = 0
+			# Determine damage for this tile without using a ternary expression.
+			var damage: int
 			if x == 0 and y == 0:
 				damage = 50  # Center tile takes heavy damage.
 			else:
@@ -1062,8 +1175,8 @@ func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
 			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 			get_tree().get_current_scene().add_child(explosion)
 			
-			# Determine damage for this tile.
-			var damage: int = 0
+			# Determine damage for this tile without using a ternary expression.
+			var damage: int
 			if x == 0 and y == 0:
 				damage = 40  # Center tile gets higher damage.
 			else:
