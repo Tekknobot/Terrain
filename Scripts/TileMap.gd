@@ -384,8 +384,9 @@ func _input(event):
 				_clear_highlights()
 				_show_range_for_selected_unit()		
 
-# ——— 1) Ranged vs. unit ———
-@rpc("any_peer","reliable")
+# ———————————————————————————————————————————————————————————————
+# 1) Host does the real ranged‐unit hit + XP, then broadcasts “died” flag
+@rpc("any_peer", "reliable")
 func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	if not is_multiplayer_authority():
 		return
@@ -394,37 +395,43 @@ func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	if not atk or not tgt:
 		return
 
-	# 1️⃣ server does the real hit
-	var damage = atk.damage
-	var died = tgt.take_damage(damage)
+	# ── SERVER: apply damage & play the ranged attack on host
+	atk.auto_attack_ranged(tgt, atk)
+	var died = tgt.health <= 0
 
-	# 2️⃣ host shows it immediately
-	sync_auto_attack_ranged_unit(attacker_id, target_id, damage, died)
-	# 3️⃣ then broadcast
-	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, damage, died)
+	# ── SERVER: award XP
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
 
-@rpc("any_peer","reliable")
-func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, damage: int, died: bool) -> void:
+	# ── SERVER: broadcast just the "died" result
+	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, died)
+
+
+# ———————————————————————————————————————————————————————————————
+# 2) All peers (clients only) replay the same attack + XP
+@rpc("any_peer", "reliable")
+func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, died: bool) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if not atk or not tgt:
 		return
 
-	# clients apply the damage now (host already did)
+	# ── CLIENTS: perform the same ranged attack effect (which also applies damage)
 	if not is_multiplayer_authority():
-		tgt.take_damage(damage)
+		atk.auto_attack_ranged(tgt, atk)
 
-	# visual + sound + XP
-	atk.auto_attack_ranged(tgt, atk)
-	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-	atk.gain_xp(25)
-	if died:
+		# ── CLIENTS: award XP
 		atk.gain_xp(25)
+		if died:
+			atk.gain_xp(25)
 
-# ——— Ranged vs Structure & Empty‐Tile ———
+# ———————————————————————————————————————————————————————————————
+# Host + Client RPCs for Ranged Structure & Empty‐tile Attacks
+# ———————————————————————————————————————————————————————————————
 
-# 1) Host logic + broadcast for structure hits
-@rpc("any_peer", "reliable")
+# 1) Host does damage to structure, shows it locally, then broadcasts
+@rpc("any_peer","reliable")
 func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		return
@@ -432,49 +439,42 @@ func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> v
 	var st  = get_structure_at_tile(tile)
 	if not atk or not st:
 		return
-	var damage = atk.damage
-	var died = st.take_damage(damage)
-	# immediately show on host…
-	sync_auto_attack_ranged_structure(attacker_id, tile, damage, died)
-	# …and broadcast to clients
-	rpc("sync_auto_attack_ranged_structure", attacker_id, tile, damage, died)
+	# immediately show on host
+	sync_auto_attack_ranged_structure(attacker_id, tile, 25, false)
+	# then broadcast to clients
+	rpc("sync_auto_attack_ranged_structure", attacker_id, tile, 25, false)
 
-# 2) Play‐out on everyone (host already applied damage; clients do it here)
-@rpc("any_peer", "reliable")
+# 2) Everyone plays it out: clients apply their copy of the damage
+@rpc("any_peer","reliable")
 func sync_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i, damage: int, died: bool) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var st  = get_structure_at_tile(tile)
 	if not atk or not st:
 		return
-	if not is_multiplayer_authority():
-		st.take_damage(damage)
+		
+	# visual + hit logic
 	atk.auto_attack_ranged(st, atk)
 	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 	atk.gain_xp(25)
-	if died:
-		atk.gain_xp(25)
 
-# 3) Host logic + broadcast for empty‐tile shots
-@rpc("any_peer", "reliable")
+
+# 3) Host broadcasts an empty‐tile shot (no damage)
+@rpc("any_peer","reliable")
 func request_auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	# immediately show on host…
+	# show on host and broadcast
 	sync_auto_attack_ranged_empty(attacker_id, target_pos)
-	# …and broadcast to clients
 	rpc("sync_auto_attack_ranged_empty", attacker_id, target_pos)
 
-# 4) Play‐out on everyone
-@rpc("any_peer", "reliable")
+# 4) Everyone spawns the empty‐tile projectile
+@rpc("any_peer","reliable")
 func sync_auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	if not atk:
 		return
+	# use your existing empty‐tile attack method
 	atk.auto_attack_ranged_empty(target_pos, atk)
-	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 
 # — on everyone (host+clients): play the same missile & impact visuals —
@@ -1216,16 +1216,15 @@ func get_lowest_f_score(open_set: Array, f_score: Dictionary) -> Vector2i:
 			lowest = tile
 	return lowest
 
-
 func spawn_structures():
-	# Check if there are any structure scenes available.
+	# Make sure you actually have scenes to spawn!
 	if structure_scenes.size() == 0:
 		push_error("No structure scenes available to spawn!")
 		return
 
-	var count = 0  # Counter for spawned structures.
+	var count = 0
 	var attempts = 0
-	var max_attempts = grid_width * grid_height * 5  # Limit to avoid infinite loops
+	var max_attempts = grid_width * grid_height * 5
 
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
@@ -1233,57 +1232,49 @@ func spawn_structures():
 		var y = randi() % grid_height
 		var pos = Vector2i(x, y)
 		var tile_id = get_cell_source_id(0, pos)
-		
-		# Skip if the tile is water.
-		if tile_id == water_tile_id:
+
+		# skip water or roads
+		if tile_id == water_tile_id \
+		or tile_id == INTERSECTION \
+		or tile_id == DOWN_RIGHT_ROAD \
+		or tile_id == DOWN_LEFT_ROAD:
 			continue
-		
-		# Skip if the tile is a road (e.g., intersection or road tiles).
-		if tile_id == INTERSECTION or tile_id == DOWN_RIGHT_ROAD or tile_id == DOWN_LEFT_ROAD:
-			continue
-		
-		# Skip if the tile is occupied by a unit or structure.
+
+		# skip occupied
 		if is_tile_occupied(pos):
 			continue
-		
-		# Valid tile found; spawn a structure.
+
+		# instantiate
 		var random_index = randi() % structure_scenes.size()
 		var structure_scene = structure_scenes[random_index]
 		var structure = structure_scene.instantiate()
 
-		# assign a unique ID
+		# assign unique ID
 		structure.structure_id = next_structure_id
 		structure.set_meta("structure_id", next_structure_id)
 		next_structure_id += 1
-				
-		# Store the scene's resource path in metadata so that you can export and import later.
+
+		# store scene path
 		structure.set_meta("scene_path", structure_scene.resource_path)
-		
-		# Position the structure in world space.
+
+		# position & tile_pos
 		structure.global_position = to_global(map_to_local(pos))
-		
-		# Optionally, set the tile_pos property if available.
 		if structure.has_method("set_tile_pos"):
 			structure.set_tile_pos(pos)
 		elif structure.has_variable("tile_pos"):
 			structure.tile_pos = pos
-		
-		# Randomly modulate the structure's color within a mid-range.
-		# This keeps the RGB values between 0.4 and 0.8.
+
+		# random color tint
 		var r_val = randf_range(0.4, 0.8)
 		var g_val = randf_range(0.4, 0.8)
 		var b_val = randf_range(0.4, 0.8)
 		structure.modulate = Color(r_val, g_val, b_val, 1)
-		
-		# Add the structure to the "Structures" group.
+
+		# add to scene
 		structure.add_to_group("Structures")
-		
-		# Add the structure as a child to this TileMap (or your dedicated parent node).
 		add_child(structure)
-		
-		# Mark this tile as occupied in the AStar grid.
 		astar.set_point_solid(pos, true)
-		
+
 		count += 1
 
 	if count < max_structures:
