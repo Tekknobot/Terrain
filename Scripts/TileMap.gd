@@ -286,7 +286,7 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit and is_instance_valid(selected_unit):
 				# Multiplayer: allow either team to attack; ignore is_player
-				if GameData.multiplayer_mode and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				if selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 					if showing_attack:
 						var enemy     = get_unit_at_tile(mouse_tile)
 						var structure = get_structure_at_tile(mouse_tile)
@@ -408,12 +408,14 @@ func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 
 # This runs on every peer (including the authority) to mirror animation, sound, XP, flash & tween.
 @rpc("any_peer", "reliable")
-func sync_melee_push(attacker_id: int, target_id: int, damage: int,
-					 new_tile: Vector2i, died: bool) -> void:
+func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Vector2i, died: bool) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if atk == null or tgt == null:
 		return
+
+	# — apply damage on *this* peer! —
+	var actually_died = tgt.take_damage(damage)
 
 	# play attack animation & sound
 	var atk_sprite = atk.get_node("AnimatedSprite2D")
@@ -422,7 +424,7 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int,
 
 	# XP gain
 	atk.gain_xp(25)
-	if died:
+	if actually_died:
 		atk.gain_xp(25)
 
 	# damage flash
@@ -433,7 +435,7 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int,
 	var tw = tgt.create_tween()
 	tw.tween_property(tgt, "global_position", world_dest, 0.2)\
 	  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	if died:
+	if actually_died:
 		tw.tween_callback(func():
 			if is_instance_valid(tgt):
 				tgt.queue_free()

@@ -1,4 +1,5 @@
 /Users/machome/Godot/_Builds/Mek VS Mek/macOS
+res://Scenes/VFX
 res://Scripts
 res://Sprites/Portraits
 /Users/machome/Godot/_Builds/Mek VS Mek
@@ -19,4 +20,3 @@ res://Sprites/Portraits/cockpits
 res://Icon
 /Users/machome/Godot/Terrain
 /Library/Java/JavaVirtualMachines
-res://Textures/
