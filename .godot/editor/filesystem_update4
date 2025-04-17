@@ -6,7 +6,7 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
+res://Scripts/TileMap.gd
 res://Scenes/TitleScreen.tscn
 res://Scenes/RewardUpgrade.tscn
 res://Scenes/MultiplayerLobby.tscn
-res://Scripts/TileMap.gd
