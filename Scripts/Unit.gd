@@ -1186,7 +1186,6 @@ func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
 			
 	print("Explosions spawned at and around tile: ", target_tile)
 	
-
 func _compute_push_direction(target: Node) -> Vector2i:
 	# get vector from attacker→target
 	var delta = target.tile_pos - tile_pos

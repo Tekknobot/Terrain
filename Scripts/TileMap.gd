@@ -385,7 +385,6 @@ func _input(event):
 				_show_range_for_selected_unit()		
 
 # ——— 1) Ranged vs. unit ———
-
 @rpc("any_peer","reliable")
 func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	if not is_multiplayer_authority():
@@ -403,7 +402,6 @@ func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	sync_auto_attack_ranged_unit(attacker_id, target_id, damage, died)
 	# 3️⃣ then broadcast
 	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, damage, died)
-
 
 @rpc("any_peer","reliable")
 func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, damage: int, died: bool) -> void:
@@ -423,9 +421,10 @@ func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, damage: int,
 	if died:
 		atk.gain_xp(25)
 
-# ——— 2) Ranged vs. structure ———
+# ——— Ranged vs Structure & Empty‐Tile ———
 
-@rpc("any_peer","reliable")
+# 1) Host logic + broadcast for structure hits
+@rpc("any_peer", "reliable")
 func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		return
@@ -433,47 +432,49 @@ func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> v
 	var st  = get_structure_at_tile(tile)
 	if not atk or not st:
 		return
-
 	var damage = atk.damage
 	var died = st.take_damage(damage)
-
+	# immediately show on host…
 	sync_auto_attack_ranged_structure(attacker_id, tile, damage, died)
+	# …and broadcast to clients
 	rpc("sync_auto_attack_ranged_structure", attacker_id, tile, damage, died)
 
-
-@rpc("any_peer","reliable")
+# 2) Play‐out on everyone (host already applied damage; clients do it here)
+@rpc("any_peer", "reliable")
 func sync_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i, damage: int, died: bool) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var st  = get_structure_at_tile(tile)
 	if not atk or not st:
 		return
-
 	if not is_multiplayer_authority():
 		st.take_damage(damage)
-
 	atk.auto_attack_ranged(st, atk)
 	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-	# (XP if you want—same pattern as above)
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
 
-# ——— 3) Empty‐tile shot ———
-@rpc("any_peer","reliable")
-func request_auto_attack_ranged_empty(attacker_id:int, target_pos:Vector2i) -> void:
-	if not is_multiplayer_authority(): return
+# 3) Host logic + broadcast for empty‐tile shots
+@rpc("any_peer", "reliable")
+func request_auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
 	var atk = get_unit_by_id(attacker_id)
-	if not atk: return
-
-	# server spawns the projectile on all peers
+	if not atk:
+		return
+	# immediately show on host…
 	sync_auto_attack_ranged_empty(attacker_id, target_pos)
+	# …and broadcast to clients
 	rpc("sync_auto_attack_ranged_empty", attacker_id, target_pos)
 
-@rpc("any_peer","reliable")
-func sync_auto_attack_ranged_empty(attacker_id:int, target_pos:Vector2i) -> void:
+# 4) Play‐out on everyone
+@rpc("any_peer", "reliable")
+func sync_auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
 	var atk = get_unit_by_id(attacker_id)
-	if not atk: return
-
-	# play the “missile flying to target_pos” effect on every peer
-	atk.fire_projectile_to(target_pos)
-	play_attack_sound(atk.global_position)
+	if not atk:
+		return
+	atk.auto_attack_ranged_empty(target_pos, atk)
+	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 
 # — on everyone (host+clients): play the same missile & impact visuals —
