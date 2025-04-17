@@ -1185,3 +1185,14 @@ func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
 		await get_tree().create_timer(0.2).timeout		
 			
 	print("Explosions spawned at and around tile: ", target_tile)
+	
+
+func _compute_push_direction(target: Node) -> Vector2i:
+	# get vector from attacker→target
+	var delta = target.tile_pos - tile_pos
+	# pick the dominant axis
+	if abs(delta.x) > abs(delta.y):
+		return Vector2i(sign(delta.x), 0)
+	else:
+		return Vector2i(0, sign(delta.y))
+	

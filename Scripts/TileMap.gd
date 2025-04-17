@@ -323,45 +323,36 @@ func _input(event):
 									return
 							# —— MELEE UNITS ——
 							else:
-								# —— inside your melee block ——
+								# —— inside your _input’s melee block ——
 								if enemy and enemy.is_player != selected_unit.is_player \
-								and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+										and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 
 									if GameData.multiplayer_mode:
+										# 1️⃣ tell the host to do the real logic & broadcast
 										var server_id = get_multiplayer_authority()
-										print("CLIENT → rpc_id(", server_id,
-											  ", \"request_auto_attack_adjacent\", ",
-											  selected_unit.unit_id, ", ", enemy.unit_id, ")")
-										rpc_id(
-											server_id,
-											"request_auto_attack_adjacent",
-											selected_unit.unit_id,
-											enemy.unit_id
-										)
+										rpc_id(server_id, "request_auto_attack_adjacent",
+											   selected_unit.unit_id, enemy.unit_id)
 
-										# **IMMEDIATE CLIENT FEEDBACK**:
-										# 1) Run the local attack logic (animation & sound)
-										selected_unit.auto_attack_adjacent()
-										# 2) Play your “attack” animation
+										# 2️⃣ immediate local feedback: animation + sound
+										selected_unit.has_moved = true
+										showing_attack = false
+										_clear_highlights()
 										var anim = selected_unit.get_node("AnimatedSprite2D")
 										anim.play("attack")
+										play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 
 									else:
-										# single‑player fallback
+										# single‐player fallback
 										selected_unit.auto_attack_adjacent()
-										selected_unit.get_node("AnimatedSprite2D").play("attack")
+										var anim = selected_unit.get_node("AnimatedSprite2D")
+										anim.play("attack")
+										selected_unit.has_moved = true
+										showing_attack = false
+										_clear_highlights()
+										play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 
-									# client‑side visuals for movement tint & sound
-									selected_unit.has_moved = true
-									var sprite = selected_unit.get_node("AnimatedSprite2D")
-									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-									showing_attack = false
-									_clear_highlights()
-									play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 									return
 
-
-						# end showing_attack
 					# movement when not in attack mode
 					if not showing_attack:
 						if highlighted_tiles.has(mouse_tile):
@@ -380,6 +371,76 @@ func _input(event):
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()		
+
+# 1) Compute push direction (add this helper if you don't have one)
+func _compute_push_direction(attacker, target) -> Vector2i:
+	var delta = target.tile_pos - attacker.tile_pos
+	# normalize to a single‐step in X or Y
+	delta.x = sign(delta.x)
+	delta.y = sign(delta.y)
+	return delta
+
+# 1️⃣ Clients call this; only the authority actually does the damage/position change,
+#    then it immediately calls sync locally and broadcasts to everyone.
+@rpc("any_peer", "reliable")
+func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
+	if not is_multiplayer_authority():
+		return
+
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if atk == null or tgt == null:
+		return
+
+	# apply damage & compute push
+	var damage = atk.damage
+	var push_dir = atk._compute_push_direction(tgt)
+	var died = tgt.take_damage(damage)
+	var new_tile = tgt.tile_pos + push_dir
+	tgt.tile_pos = new_tile
+
+	update_astar_grid()
+
+	# 2️⃣ server plays its own effects immediately
+	sync_melee_push(attacker_id, target_id, damage, new_tile, died)
+	# 3️⃣ then broadcast to all peers
+	rpc("sync_melee_push", attacker_id, target_id, damage, new_tile, died)
+
+# This runs on every peer (including the authority) to mirror animation, sound, XP, flash & tween.
+@rpc("any_peer", "reliable")
+func sync_melee_push(attacker_id: int, target_id: int, damage: int,
+					 new_tile: Vector2i, died: bool) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if atk == null or tgt == null:
+		return
+
+	# play attack animation & sound
+	var atk_sprite = atk.get_node("AnimatedSprite2D")
+	atk_sprite.play("attack")
+	play_attack_sound(atk.global_position)
+
+	# XP gain
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
+
+	# damage flash
+	tgt.flash_white()
+
+	# push‐back tween
+	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
+	var tw = tgt.create_tween()
+	tw.tween_property(tgt, "global_position", world_dest, 0.2)\
+	  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if died:
+		tw.tween_callback(func():
+			if is_instance_valid(tgt):
+				tgt.queue_free()
+		)
+
+	update_astar_grid()
+
 										
 func toggle_borders():
 	borders_visible = not borders_visible
@@ -1391,55 +1452,3 @@ func _generate_client_map(map_data: Dictionary, unit_data: Array, structure_data
 	_setup_camera()
 	update_astar_grid()
 	print("Client map generated from host data.")
-
-@rpc("authority", "reliable")
-func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
-	print("SERVER: ▶ request_auto_attack_adjacent(", attacker_id, ", ", target_id, ")")
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if atk == null or tgt == null:
-		print("SERVER: ⚠ missing unit; aborting")
-		return
-
-	var damage = atk.damage
-	var push_dir = atk._compute_push_direction(tgt)
-	var died = tgt.take_damage(damage)
-	var new_tile = tgt.tile_pos + push_dir
-	tgt.tile_pos = new_tile
-
-	rpc(
-		"sync_melee_push",
-		attacker_id,
-		target_id,
-		damage,
-		new_tile,
-		died
-	)
-	print("SERVER: ✅ sync_melee_push rpc sent")
-
-
-@rpc("any_peer", "reliable")
-func sync_melee_push(
-		attacker_id: int,
-		target_id: int,
-		damage: int,
-		new_tile: Vector2i,
-		died: bool
-	) -> void:
-	print("ALL: sync_melee_push(", attacker_id, ", ", target_id,
-		  ", dmg=", damage, ", new_tile=", new_tile, ", died=", died, ")")
-
-	var tgt = get_unit_by_id(target_id)
-	if tgt == null:
-		return
-
-	tgt.take_damage(damage)
-	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
-	var tween = tgt.create_tween()
-	tween.tween_property(tgt, "global_position", world_dest, 0.2) \
-		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	if died:
-		tween.tween_callback(func():
-			if is_instance_valid(tgt):
-				tgt.queue_free()
-		)
