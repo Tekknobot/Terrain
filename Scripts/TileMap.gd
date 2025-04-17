@@ -380,8 +380,7 @@ func _compute_push_direction(attacker, target) -> Vector2i:
 	delta.y = sign(delta.y)
 	return delta
 
-# 1) In your request_auto_attack_adjacent, replace the broadcast line
-#    with a local call + a rpc broadcast:
+# 1) Server does damage + computes push, then calls & broadcasts the visual RPC:
 @rpc("any_peer", "reliable")
 func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 	if not is_multiplayer_authority():
@@ -392,7 +391,7 @@ func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 	if not atk or not tgt:
 		return
 
-	# 1) Server applies damage & computes push
+	# — server applies damage & computes push —
 	var damage = atk.damage
 	var push_dir = _compute_push_direction(atk, tgt)
 	var died = tgt.take_damage(damage)
@@ -400,14 +399,12 @@ func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 	tgt.tile_pos = new_tile
 	update_astar_grid()
 
-	# 2) Immediately run the push‐back tween on the host itself
+	# — immediately show it on the host…
 	sync_melee_push(attacker_id, target_id, damage, new_tile, died)
-
-	# 3) Then broadcast the **same** call to all clients
+	# …and broadcast to all clients
 	rpc("sync_melee_push", attacker_id, target_id, damage, new_tile, died)
 
-# 2) Make sure your sync_melee_push is declared for “any_peer” (so it runs on host + clients),
-#    and **doesn’t** immediately snap the position:
+# 2) Everyone (host + clients) runs this; only clients re‑apply damage:
 @rpc("any_peer", "reliable")
 func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Vector2i, died: bool) -> void:
 	var atk = get_unit_by_id(attacker_id)
@@ -415,19 +412,21 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Ve
 	if not atk or not tgt:
 		return
 
-	# (Re‑)apply damage so health bars update
-	var actually_died = tgt.take_damage(damage)
+	# Clients take the hit now; host already did in request_auto_attack_adjacent()
+	var actually_died = died
+	if not is_multiplayer_authority():
+		actually_died = tgt.take_damage(damage)
 
-	# Play animation & sound
+	# Attack animation + sound
 	atk.get_node("AnimatedSprite2D").play("attack")
 	play_attack_sound(atk.global_position)
 
-	# XP
+	# XP gain (same on host & clients)
 	atk.gain_xp(25)
 	if actually_died:
 		atk.gain_xp(25)
 
-	# Flash + pushback tween
+	# Flash + tween push‑back
 	tgt.flash_white()
 	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
 	var tw = tgt.create_tween()
@@ -440,7 +439,7 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Ve
 		)
 
 	update_astar_grid()
-										
+									
 func toggle_borders():
 	borders_visible = not borders_visible
 
