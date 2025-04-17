@@ -16,12 +16,14 @@ func _ready() -> void:
 	quit_button.pressed.connect(_on_QuitButton_pressed)
 
 func _on_PlayButton_pressed() -> void:
+	GameData.multiplayer_mode = false
 	# Transition to your main game scene.
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _on_MultiplayerButton_pressed() -> void:
 	# You can either open an options popup or switch to an options scene.
 	print("Multiplayer button pressed")
+	GameData.multiplayer_mode = true
 	get_tree().change_scene_to_file("res://Scenes/MultiplayerLobby.tscn")	# add_child(options_dialog)
 
 func _on_QuitButton_pressed() -> void:

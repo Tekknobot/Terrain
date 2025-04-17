@@ -116,9 +116,6 @@ func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
 
-	# ← ALWAYS enable the flag, before you branch for server vs client
-	GameData.multiplayer_mode = true
-
 	if is_multiplayer_authority():
 		# Host: generate the map and then postprocess it.
 		_generate_map()
@@ -287,23 +284,35 @@ func _input(event):
 			else:
 				print("No player unit selected for Lightning Surge.")
 			return  # Exit input processing for this click.
-		
-		# ... continue with your normal input processing ...
+
+		# … continue with your normal input processing …
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit and is_instance_valid(selected_unit):
-				# Multiplayer: allow either team to attack; ignore is_player
-				if selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				# 1️⃣ Figure out whose turn it is:
+				var team = TurnManager.turn_order[ TurnManager.current_turn_index ]
+				var is_player_turn = team == TurnManager.Team.PLAYER
+				var is_enemy_turn  = team == TurnManager.Team.ENEMY
+
+				# 2️⃣ Only allow this unit if it matches the turn
+				var can_act = (is_player_turn and selected_unit.is_player) \
+							or (is_enemy_turn  and not selected_unit.is_player)
+
+				# 3️⃣ Also make sure it isn’t already greyed‑out
+				var not_tinted = selected_unit.get_child(0).self_modulate != Color(0.4,0.4,0.4,1)
+
+				if not_tinted and can_act:
 					if showing_attack:
 						var enemy     = get_unit_at_tile(mouse_tile)
 						var structure = get_structure_at_tile(mouse_tile)
+
 						# attack opposite‐team units, or structures, or empty ground
-						if (enemy and enemy.is_player != selected_unit.is_player) or structure or (enemy == null and structure == null):
+						if (enemy and enemy.is_player != selected_unit.is_player) \
+						   or structure \
+						   or (enemy == null and structure == null):
 
 							# —— RANGED & SUPPORT UNITS ——
-							# —— inside your _input’s ranged‐attack section, replace the direct call with this: ——
-							# inside your _input’s RANGED & SUPPORT block:
-
 							if selected_unit.unit_type in ["Ranged", "Support"]:
+								# 1) Enemy unit
 								if enemy and enemy.is_player != selected_unit.is_player \
 								   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 
@@ -313,6 +322,7 @@ func _input(event):
 									if is_multiplayer_authority():
 										request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
 
+								# 2) Structure
 								elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
 
 									var server = get_multiplayer_authority()
@@ -322,6 +332,7 @@ func _input(event):
 									if is_multiplayer_authority():
 										request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
 
+								# 3) Empty tile
 								elif enemy == null and structure == null \
 									 and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 
@@ -331,7 +342,7 @@ func _input(event):
 									if is_multiplayer_authority():
 										request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
 
-								# then your tint + cleanup:
+								# tint + cleanup
 								var spr = selected_unit.get_node("AnimatedSprite2D")
 								spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
 								showing_attack = false
@@ -340,42 +351,48 @@ func _input(event):
 
 							# —— MELEE UNITS ——
 							else:
-								# —— inside your _input’s melee block ——
 								if enemy and enemy.is_player != selected_unit.is_player \
-										and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+								   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 
 									if GameData.multiplayer_mode:
 										var server_id = get_multiplayer_authority()
-										# 1️⃣ Tell the host to do the real damage + push + broadcast
 										rpc_id(server_id, "request_auto_attack_adjacent",
-											selected_unit.unit_id,
-											enemy.unit_id
-										)
+											   selected_unit.unit_id, enemy.unit_id)
 
 										if is_multiplayer_authority():
-											# 2️⃣ Host: run it locally right now (so you see the push instantly)
+											# host: apply & broadcast
 											request_auto_attack_adjacent(selected_unit.unit_id, enemy.unit_id)
 										else:
-											# 3️⃣ Clients: immediate local feedback (animation + sound)
+											# clients: local feedback
 											selected_unit.has_moved = true
 											showing_attack = false
 											_clear_highlights()
 											var anim = selected_unit.get_node("AnimatedSprite2D")
 											anim.play("attack")
 											play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-										return
+									else:
+										# single‑player fallback
+										selected_unit.auto_attack_adjacent()
+										var anim = selected_unit.get_node("AnimatedSprite2D")
+										anim.play("attack")
+										selected_unit.has_moved = true
+										showing_attack = false
+										_clear_highlights()
+										play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+									return
 
 					# movement when not in attack mode
-					if not showing_attack:
-						if highlighted_tiles.has(mouse_tile):
-							if selected_unit.has_moved:
-								return
+					elif not showing_attack:
+						if highlighted_tiles.has(mouse_tile) and not selected_unit.has_moved:
 							_move_selected_to(mouse_tile)
 							var sprite = selected_unit.get_node("AnimatedSprite2D")
 							sprite.self_modulate = Color(1, 0.6, 0.6, 1)
 							return
 				else:
+					# clicked on a unit you can't move/attack → just show its range
 					_show_range_for_selected_unit()
+
+			# if no valid selected_unit or click outside above, try selecting a unit
 			_select_unit_at_mouse()
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
@@ -1110,7 +1127,7 @@ func _on_end_turn_button_pressed():
 	print("🛑 Player clicked End Turn")
 
 	# ⛔ Prevent end turn if any unit is still moving
-	for u in get_tree().get_nodes_in_group("PlayerUnits"):
+	for u in get_tree().get_nodes_in_group("Units"):
 		if u.has_method("is_moving") and u.is_moving():
 			print("⏳ Cannot end turn — unit is still moving:", u.name)
 			return

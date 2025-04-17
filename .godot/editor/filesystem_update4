@@ -16,3 +16,6 @@ res://Scripts/Missile.gd
 res://Scenes/Meks_Scenes/CPU/M1.scn
 res://Scripts/NetworkManager.gd
 res://Scripts/Structure.gd
+res://Scripts/TitleScreen.gd
+res://Scripts/MultiplayerLobby.gd
+res://Scripts/TurnManager.gd

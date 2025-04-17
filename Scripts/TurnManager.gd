@@ -73,14 +73,15 @@ func start_turn():
 	
 	print("🔁 Starting turn for:", team_name)
 	
-	# Update EndTurn button visibility based on whose turn it is.
-	var endTurnButton = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
-	if team == Team.PLAYER:
-		endTurnButton.visible = true
-	else:
-		endTurnButton.visible = false
-	
 	emit_signal("turn_started", team)
+
+	# ────────────────────────────────────────────────────────
+	# Multiplayer: skip any AI (enemy) moves entirely
+	if GameData.multiplayer_mode:
+		print("🔇 Multiplayer mode → skipping enemy turn")
+		return
+	# ────────────────────────────────────────────────────────
+	
 	_start_unit_action(team)
 
 # Helper to return adjacent positions (4-directional)
@@ -249,8 +250,7 @@ func end_turn(game_over: bool = false):
 		hide_end_turn_button()
 		_launch_reward_phase(rewards)
 		return
-
-	
+		
 	emit_signal("turn_ended", turn_order[current_turn_index])
 
 	if game_over:
@@ -281,6 +281,7 @@ func hide_end_turn_button() -> void:
 	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
 	if end_turn_button:
 		end_turn_button.visible = false
+		pass
 	else:
 		print("EndTurn button not found!")
 

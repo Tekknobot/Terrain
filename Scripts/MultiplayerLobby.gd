@@ -59,4 +59,5 @@ func wait_for_state_ready() -> void:
 # ---------------------------
 func _on_BackButton_pressed():
 	print("Returning to the title screen...")
+	GameData.multiplayer_mode = false
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
