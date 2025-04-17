@@ -298,15 +298,30 @@ func _input(event):
 						if (enemy and enemy.is_player != selected_unit.is_player) or structure or (enemy == null and structure == null):
 
 							# —— RANGED & SUPPORT UNITS ——
+							# —— inside your _input’s ranged‐attack section, replace the direct call with this: ——
 							if selected_unit.unit_type in ["Ranged", "Support"]:
 								# attack a valid enemy unit
-								if enemy and enemy.is_player != selected_unit.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
-									selected_unit.auto_attack_ranged(enemy, selected_unit)
+								if enemy and enemy.is_player != selected_unit.is_player \
+								   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
+
+									if GameData.multiplayer_mode:
+										var server_id = get_multiplayer_authority()
+										# 1️⃣ ask the host to do the logic + broadcast
+										rpc_id(server_id, "request_auto_attack_ranged",
+											   selected_unit.unit_id, enemy.unit_id)
+										if is_multiplayer_authority():
+											# 2️⃣ host: run it immediately so you see it now
+											request_auto_attack_ranged(selected_unit.unit_id, enemy.unit_id)
+									else:
+										# single‐player fallback
+										selected_unit.auto_attack_ranged(enemy, selected_unit)
+
 									var sprite = selected_unit.get_node("AnimatedSprite2D")
 									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 									showing_attack = false
 									_clear_highlights()
 									return
+
 
 								# attack a structure
 								elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
@@ -352,7 +367,6 @@ func _input(event):
 											play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 										return
 
-
 					# movement when not in attack mode
 					if not showing_attack:
 						if highlighted_tiles.has(mouse_tile):
@@ -371,6 +385,37 @@ func _input(event):
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()		
+
+# — on the host: apply damage & spawn projectile, then broadcast the visuals —
+@rpc("any_peer", "reliable")
+func request_auto_attack_ranged(attacker_id: int, target_id: int) -> void:
+	if not is_multiplayer_authority():
+		return
+
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if not atk or not tgt:
+		return
+
+	# 1) do the real logic on the host
+	atk.auto_attack_ranged(tgt, atk)
+
+	# 2) immediately show it locally
+	sync_auto_attack_ranged(attacker_id, target_id)
+	# 3) then tell all clients to do the same
+	rpc("sync_auto_attack_ranged", attacker_id, target_id)
+
+# — on everyone (host+clients): play the same missile & impact visuals —
+@rpc("any_peer", "reliable")
+func sync_auto_attack_ranged(attacker_id: int, target_id: int) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if not atk or not tgt:
+		return
+
+	# clients only re‑run the visuals (host already ran logic)
+	if not is_multiplayer_authority():
+		atk.auto_attack_ranged(tgt, atk)
 
 # 1) Compute push direction (add this helper if you don't have one)
 func _compute_push_direction(attacker, target) -> Vector2i:
