@@ -68,6 +68,8 @@ signal units_spawned
 @export var menu_button: Button
 @export var endturn_button: Button
 
+var next_structure_id: int = 1
+
 var difficulty_tiers: Dictionary = {
 	1: "Novice",
 	2: "Apprentice",
@@ -299,47 +301,43 @@ func _input(event):
 
 							# —— RANGED & SUPPORT UNITS ——
 							# —— inside your _input’s ranged‐attack section, replace the direct call with this: ——
+							# inside your _input’s RANGED & SUPPORT block:
+
 							if selected_unit.unit_type in ["Ranged", "Support"]:
-								# attack a valid enemy unit
 								if enemy and enemy.is_player != selected_unit.is_player \
 								   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 
-									if GameData.multiplayer_mode:
-										var server_id = get_multiplayer_authority()
-										# 1️⃣ ask the host to do the logic + broadcast
-										rpc_id(server_id, "request_auto_attack_ranged",
-											   selected_unit.unit_id, enemy.unit_id)
-										if is_multiplayer_authority():
-											# 2️⃣ host: run it immediately so you see it now
-											request_auto_attack_ranged(selected_unit.unit_id, enemy.unit_id)
-									else:
-										# single‐player fallback
-										selected_unit.auto_attack_ranged(enemy, selected_unit)
+									var server = get_multiplayer_authority()
+									rpc_id(server, "request_auto_attack_ranged_unit",
+										   selected_unit.unit_id, enemy.unit_id)
+									if is_multiplayer_authority():
+										request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
 
-									var sprite = selected_unit.get_node("AnimatedSprite2D")
-									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-									showing_attack = false
-									_clear_highlights()
-									return
-
-
-								# attack a structure
 								elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
-									selected_unit.auto_attack_ranged(structure, selected_unit)
-									var sprite = selected_unit.get_node("AnimatedSprite2D")
-									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-									showing_attack = false
-									_clear_highlights()
-									return
 
-								# attack empty tile
-								elif enemy == null and structure == null and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
-									selected_unit.auto_attack_ranged_empty(mouse_tile, selected_unit)
-									var sprite = selected_unit.get_node("AnimatedSprite2D")
-									sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-									showing_attack = false
-									_clear_highlights()
-									return
+									var server = get_multiplayer_authority()
+									var tpos = structure.tile_pos
+									rpc_id(server, "request_auto_attack_ranged_structure",
+										   selected_unit.unit_id, tpos)
+									if is_multiplayer_authority():
+										request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
+
+								elif enemy == null and structure == null \
+									 and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
+
+									var server = get_multiplayer_authority()
+									rpc_id(server, "request_auto_attack_ranged_empty",
+										   selected_unit.unit_id, mouse_tile)
+									if is_multiplayer_authority():
+										request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
+
+								# then your tint + cleanup:
+								var spr = selected_unit.get_node("AnimatedSprite2D")
+								spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+								showing_attack = false
+								_clear_highlights()
+								return
+
 							# —— MELEE UNITS ——
 							else:
 								# —— inside your _input’s melee block ——
@@ -386,24 +384,97 @@ func _input(event):
 				_clear_highlights()
 				_show_range_for_selected_unit()		
 
-# — on the host: apply damage & spawn projectile, then broadcast the visuals —
-@rpc("any_peer", "reliable")
-func request_auto_attack_ranged(attacker_id: int, target_id: int) -> void:
+# ——— 1) Ranged vs. unit ———
+
+@rpc("any_peer","reliable")
+func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	if not is_multiplayer_authority():
 		return
-
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if not atk or not tgt:
 		return
 
-	# 1) do the real logic on the host
-	atk.auto_attack_ranged(tgt, atk)
+	# 1️⃣ server does the real hit
+	var damage = atk.damage
+	var died = tgt.take_damage(damage)
 
-	# 2) immediately show it locally
-	sync_auto_attack_ranged(attacker_id, target_id)
-	# 3) then tell all clients to do the same
-	rpc("sync_auto_attack_ranged", attacker_id, target_id)
+	# 2️⃣ host shows it immediately
+	sync_auto_attack_ranged_unit(attacker_id, target_id, damage, died)
+	# 3️⃣ then broadcast
+	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, damage, died)
+
+
+@rpc("any_peer","reliable")
+func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, damage: int, died: bool) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if not atk or not tgt:
+		return
+
+	# clients apply the damage now (host already did)
+	if not is_multiplayer_authority():
+		tgt.take_damage(damage)
+
+	# visual + sound + XP
+	atk.auto_attack_ranged(tgt, atk)
+	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
+
+# ——— 2) Ranged vs. structure ———
+
+@rpc("any_peer","reliable")
+func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	var st  = get_structure_at_tile(tile)
+	if not atk or not st:
+		return
+
+	var damage = atk.damage
+	var died = st.take_damage(damage)
+
+	sync_auto_attack_ranged_structure(attacker_id, tile, damage, died)
+	rpc("sync_auto_attack_ranged_structure", attacker_id, tile, damage, died)
+
+
+@rpc("any_peer","reliable")
+func sync_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i, damage: int, died: bool) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var st  = get_structure_at_tile(tile)
+	if not atk or not st:
+		return
+
+	if not is_multiplayer_authority():
+		st.take_damage(damage)
+
+	atk.auto_attack_ranged(st, atk)
+	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+	# (XP if you want—same pattern as above)
+
+# ——— 3) Empty‐tile shot ———
+@rpc("any_peer","reliable")
+func request_auto_attack_ranged_empty(attacker_id:int, target_pos:Vector2i) -> void:
+	if not is_multiplayer_authority(): return
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+
+	# server spawns the projectile on all peers
+	sync_auto_attack_ranged_empty(attacker_id, target_pos)
+	rpc("sync_auto_attack_ranged_empty", attacker_id, target_pos)
+
+@rpc("any_peer","reliable")
+func sync_auto_attack_ranged_empty(attacker_id:int, target_pos:Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+
+	# play the “missile flying to target_pos” effect on every peer
+	atk.fire_projectile_to(target_pos)
+	play_attack_sound(atk.global_position)
+
 
 # — on everyone (host+clients): play the same missile & impact visuals —
 @rpc("any_peer", "reliable")
@@ -1178,7 +1249,12 @@ func spawn_structures():
 		var random_index = randi() % structure_scenes.size()
 		var structure_scene = structure_scenes[random_index]
 		var structure = structure_scene.instantiate()
-		
+
+		# assign a unique ID
+		structure.structure_id = next_structure_id
+		structure.set_meta("structure_id", next_structure_id)
+		next_structure_id += 1
+				
 		# Store the scene's resource path in metadata so that you can export and import later.
 		structure.set_meta("scene_path", structure_scene.resource_path)
 		
@@ -1214,6 +1290,13 @@ func spawn_structures():
 	else:
 		print("Spawned", count, "structures.")
 
+# 2) Then add this helper to look up a structure by that ID:
+func get_structure_by_id(target_id: int) -> Node:
+	for s in get_tree().get_nodes_in_group("Structures"):
+		if s.has_meta("structure_id") and s.get_meta("structure_id") == target_id:
+			return s
+	return null
+	
 func spawn_new_enemy_units():
 	# Count current enemy units on the board.
 	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)

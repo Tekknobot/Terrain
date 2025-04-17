@@ -77,5 +77,5 @@ func wait_for_tilemap() -> Node:
 		if current_scene and current_scene.has_node("TileMap"):
 			tile_map = current_scene.get_node("TileMap")
 		else:
-			await get_tree().create_timer(0.1).timeout
+			await get_tree().create_timer(0.5).timeout
 	return tile_map
