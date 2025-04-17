@@ -113,13 +113,16 @@ var next_unit_id: int = 1
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
-	
+
+	# ← ALWAYS enable the flag, before you branch for server vs client
+	GameData.multiplayer_mode = true
+
 	if is_multiplayer_authority():
 		# Host: generate the map and then postprocess it.
 		_generate_map()
 		call_deferred("_post_map_generation")
 	else:
-		# Client: clear any pre-existing map (or simply do nothing) and wait for the game state.
+		# Client: clear any pre-existing map and wait for the game state.
 		clear_map()
 
 	print("My peer ID is: ", get_tree().get_multiplayer().get_unique_id())
@@ -127,6 +130,7 @@ func _ready():
 		print("→ I am the server")
 	else:
 		print("→ I am a client")
+
 
 func clear_map() -> void:
 	for x in range(grid_width):
@@ -328,30 +332,26 @@ func _input(event):
 										and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 
 									if GameData.multiplayer_mode:
-										# 1️⃣ tell the host to do the real logic & broadcast
 										var server_id = get_multiplayer_authority()
+										# 1️⃣ Tell the host to do the real damage + push + broadcast
 										rpc_id(server_id, "request_auto_attack_adjacent",
-											   selected_unit.unit_id, enemy.unit_id)
+											selected_unit.unit_id,
+											enemy.unit_id
+										)
 
-										# 2️⃣ immediate local feedback: animation + sound
-										selected_unit.has_moved = true
-										showing_attack = false
-										_clear_highlights()
-										var anim = selected_unit.get_node("AnimatedSprite2D")
-										anim.play("attack")
-										play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+										if is_multiplayer_authority():
+											# 2️⃣ Host: run it locally right now (so you see the push instantly)
+											request_auto_attack_adjacent(selected_unit.unit_id, enemy.unit_id)
+										else:
+											# 3️⃣ Clients: immediate local feedback (animation + sound)
+											selected_unit.has_moved = true
+											showing_attack = false
+											_clear_highlights()
+											var anim = selected_unit.get_node("AnimatedSprite2D")
+											anim.play("attack")
+											play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+										return
 
-									else:
-										# single‐player fallback
-										selected_unit.auto_attack_adjacent()
-										var anim = selected_unit.get_node("AnimatedSprite2D")
-										anim.play("attack")
-										selected_unit.has_moved = true
-										showing_attack = false
-										_clear_highlights()
-										play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-
-									return
 
 					# movement when not in attack mode
 					if not showing_attack:
@@ -380,8 +380,8 @@ func _compute_push_direction(attacker, target) -> Vector2i:
 	delta.y = sign(delta.y)
 	return delta
 
-# 1️⃣ Clients call this; only the authority actually does the damage/position change,
-#    then it immediately calls sync locally and broadcasts to everyone.
+# 1) In your request_auto_attack_adjacent, replace the broadcast line
+#    with a local call + a rpc broadcast:
 @rpc("any_peer", "reliable")
 func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 	if not is_multiplayer_authority():
@@ -389,48 +389,46 @@ func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
-	if atk == null or tgt == null:
+	if not atk or not tgt:
 		return
 
-	# apply damage & compute push
+	# 1) Server applies damage & computes push
 	var damage = atk.damage
-	var push_dir = atk._compute_push_direction(tgt)
+	var push_dir = _compute_push_direction(atk, tgt)
 	var died = tgt.take_damage(damage)
 	var new_tile = tgt.tile_pos + push_dir
 	tgt.tile_pos = new_tile
-
 	update_astar_grid()
 
-	# 2️⃣ server plays its own effects immediately
+	# 2) Immediately run the push‐back tween on the host itself
 	sync_melee_push(attacker_id, target_id, damage, new_tile, died)
-	# 3️⃣ then broadcast to all peers
+
+	# 3) Then broadcast the **same** call to all clients
 	rpc("sync_melee_push", attacker_id, target_id, damage, new_tile, died)
 
-# This runs on every peer (including the authority) to mirror animation, sound, XP, flash & tween.
+# 2) Make sure your sync_melee_push is declared for “any_peer” (so it runs on host + clients),
+#    and **doesn’t** immediately snap the position:
 @rpc("any_peer", "reliable")
 func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Vector2i, died: bool) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
-	if atk == null or tgt == null:
+	if not atk or not tgt:
 		return
 
-	# — apply damage on *this* peer! —
+	# (Re‑)apply damage so health bars update
 	var actually_died = tgt.take_damage(damage)
 
-	# play attack animation & sound
-	var atk_sprite = atk.get_node("AnimatedSprite2D")
-	atk_sprite.play("attack")
+	# Play animation & sound
+	atk.get_node("AnimatedSprite2D").play("attack")
 	play_attack_sound(atk.global_position)
 
-	# XP gain
+	# XP
 	atk.gain_xp(25)
 	if actually_died:
 		atk.gain_xp(25)
 
-	# damage flash
+	# Flash + pushback tween
 	tgt.flash_white()
-
-	# push‐back tween
 	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
 	var tw = tgt.create_tween()
 	tw.tween_property(tgt, "global_position", world_dest, 0.2)\
@@ -442,7 +440,6 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Ve
 		)
 
 	update_astar_grid()
-
 										
 func toggle_borders():
 	borders_visible = not borders_visible

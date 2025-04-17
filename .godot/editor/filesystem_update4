@@ -12,3 +12,4 @@ res://Scenes/RewardUpgrade.tscn
 res://Scenes/MultiplayerLobby.tscn
 res://Scripts/Unit.gd
 res://Prefabs/Missile.tscn
+res://Scripts/Missile.gd
