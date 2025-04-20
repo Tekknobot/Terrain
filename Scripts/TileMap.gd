@@ -174,6 +174,15 @@ func _post_map_generation():
 		broadcast_game_state()
 
 func _input(event):
+	if GameData.multiplayer_mode:
+		var team = TurnManager.turn_order[ TurnManager.current_turn_index ]
+		if is_multiplayer_authority():
+			if team != TurnManager.Team.PLAYER:
+				return
+		else:
+			if team != TurnManager.Team.ENEMY:
+				return
+				
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_pos = get_global_mouse_position()
 		
@@ -584,6 +593,16 @@ func toggle_borders():
 				node.visible = borders_visible
 				
 func _select_unit_at_mouse():
+	# clients only select on ENEMY turn
+	if GameData.multiplayer_mode:
+		var team = TurnManager.turn_order[ TurnManager.current_turn_index ]
+		if is_multiplayer_authority():
+			if team != TurnManager.Team.PLAYER:
+				return
+		else:
+			if team != TurnManager.Team.ENEMY:
+				return
+
 	_clear_highlights()
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	hud.visible = true
