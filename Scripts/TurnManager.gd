@@ -276,6 +276,9 @@ func end_turn(game_over: bool = false):
 	active_unit_index = 0
 	
 	call_deferred("start_turn")
+	
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap._clear_highlights()	
 
 func hide_end_turn_button() -> void:
 	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")

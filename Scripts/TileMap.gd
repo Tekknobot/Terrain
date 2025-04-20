@@ -587,50 +587,59 @@ func _select_unit_at_mouse():
 	_clear_highlights()
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	hud.visible = true
-	
+
 	var mouse_pos = get_global_mouse_position()
-	mouse_pos.y += 16  # Adjust for any offset
+	mouse_pos.y += 16
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
-	
-	# If no unit is found, clear selection and update HUD accordingly.
+
 	if unit == null:
 		selected_unit = null
 		showing_attack = false
 		hud.visible = false
 		return
 
-	# Build the dictionary from the unit's properties.
+	# Always show the HUD and play the beep
+	_update_hud_with(unit)
+	play_beep_sound(tile)
+
+	# Make this your "selected_unit" so you can toggle into attack mode
+	selected_unit = unit
+	showing_attack = false
+	_show_range_for_selected_unit()
+
+func _update_hud_with(unit):
+	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	var hud_data = {
-		"name": unit.unit_name,           # Adjust this to unit.name if you use that.
-		"portrait": unit.portrait,          # Must be a Texture
-		"current_hp": unit.health,
-		"max_hp": unit.max_health,
-		"current_xp": unit.xp,
-		"max_xp": unit.max_xp,
-		"level": unit.level,
+		"name":           unit.unit_name,
+		"portrait":       unit.portrait,
+		"current_hp":     unit.health,
+		"max_hp":         unit.max_health,
+		"current_xp":     unit.xp,
+		"max_xp":         unit.max_xp,
+		"level":          unit.level,
 		"movement_range": unit.movement_range,
-		"attack_range": unit.attack_range,
-		"damage": unit.damage
+		"attack_range":   unit.attack_range,
+		"damage":         unit.damage
 	}
-	
-	# Prevent selecting a unit that has already moved and attacked (if needed).
-	if unit.is_player and unit.has_moved and unit.has_attacked:
-		selected_unit = null
-		showing_attack = false
-		play_beep_sound(tile)
-		hud.update_hud(hud_data)
-		return
-	
-	# Set the selected unit and update highlights, etc.
+	hud.update_hud(hud_data)
+	hud.visible = true
+
+# helper to actually select & highlight your unit
+func _begin_select(unit, tile):
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
 	play_beep_sound(tile)
-	
-	# Update the HUD.
-	hud.visible = true
-	hud.update_hud(hud_data)
+	_update_hud_with(unit)
+
+# helper to show HUD but not allow movement
+func _show_only_hud(unit, tile):
+	selected_unit = null
+	showing_attack = false
+	play_beep_sound(tile)
+	_update_hud_with(unit)
+
 
 func _show_range_for_selected_unit():
 	var range = 0
@@ -817,7 +826,6 @@ func get_unit_by_id(target_id: int) -> Node:
 			return u
 	return null
 					
-
 func _clear_highlights():
 	# Restore all movement highlights
 	for pos in highlighted_tiles:
@@ -1125,7 +1133,7 @@ func _execute_all_player_units():
 
 func _on_end_turn_button_pressed():
 	print("🛑 Player clicked End Turn")
-
+		
 	# ⛔ Prevent end turn if any unit is still moving
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.has_method("is_moving") and u.is_moving():
@@ -1145,7 +1153,8 @@ func _on_end_turn_button_pressed():
 	var turn_manager = get_node("/root/TurnManager")
 	if turn_manager:
 		turn_manager.end_turn()
-
+		
+	
 func set_end_turn_button_enabled(enabled: bool):
 	var btn = get_node("CanvasLayer/Control/EndTurnButton")
 	if btn:

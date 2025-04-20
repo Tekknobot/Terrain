@@ -17,7 +17,7 @@ func _ready():
 	back_button.connect("pressed", Callable(self, "_on_BackButton_pressed"))
 	
 	# Set default IP if needed
-	address_line_edit.text = "192.168.0.24"
+	address_line_edit.text = "192.168.0.31"
 
 # ---------------------------
 #    HOST BUTTON PRESSED
