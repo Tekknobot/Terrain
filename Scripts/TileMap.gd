@@ -1130,31 +1130,62 @@ func _execute_all_player_units():
 	if turn_manager:
 		turn_manager.end_turn()
 
+# Called when the player clicks “End Turn”
+func _on_end_turn_button_pressed() -> void:
+	if GameData.multiplayer_mode:
+		# broadcast to all peers (authority + clients)
+		rpc("request_end_turn")
+	else:
+		_do_end_turn()
 
-func _on_end_turn_button_pressed():
-	print("🛑 Player clicked End Turn")
-		
+# Called by host or clients to actually finish a turn
+func _do_end_turn() -> void:
+	print("🛑 Ending turn locally")
 	# ⛔ Prevent end turn if any unit is still moving
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.has_method("is_moving") and u.is_moving():
 			print("⏳ Cannot end turn — unit is still moving:", u.name)
 			return
 
+	# reset every unit’s moved/attacked flags & tint
 	for u in get_tree().get_nodes_in_group("Units"):
 		u.has_moved = false
 		u.has_attacked = false
-
 		var sprite = u.get_node("AnimatedSprite2D")
 		if sprite:
-			sprite.self_modulate = Color(1, 1, 1, 1)  # ✅ Reset the sprite’s tint
+			sprite.self_modulate = Color(1, 1, 1, 1)
 
-		on_player_unit_done(u)
+	# inform TurnManager
+	var tm = get_node("/root/TurnManager")
+	if tm:
+		tm.end_turn()
 
-	var turn_manager = get_node("/root/TurnManager")
-	if turn_manager:
-		turn_manager.end_turn()
-		
-	
+	# —— new! clear selection so next click hits _select_unit_at_mouse() ——
+	selected_unit = null
+	showing_attack = false
+	_clear_highlights()
+	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+	hud.visible = false
+
+
+# RPC handler on the server/authority
+@rpc("any_peer", "reliable")
+func request_end_turn() -> void:
+	if not is_multiplayer_authority():
+		_on_end_turn_button_pressed()
+		return
+	# Server runs the end‑turn locally...
+	_do_end_turn()
+	# …then tells everyone else
+	rpc("sync_end_turn")
+
+# RPC that all clients (but not the authority) use to run end‑turn
+@rpc("any_peer", "reliable")
+func sync_end_turn() -> void:
+	if is_multiplayer_authority():
+		return  # already ran locally
+	_do_end_turn()
+
 func set_end_turn_button_enabled(enabled: bool):
 	var btn = get_node("CanvasLayer/Control/EndTurnButton")
 	if btn:
