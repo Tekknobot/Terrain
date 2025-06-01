@@ -16,3 +16,4 @@ res://Scripts/Unit.gd
 res://Scripts/TileMap.gd
 res://Scripts/Camera2D.gd
 res://Scenes/Transition.tscn
+res://Scenes/Meks_Scenes/CPU/M1.scn
