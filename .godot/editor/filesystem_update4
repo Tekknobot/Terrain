@@ -8,12 +8,11 @@ res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
 res://Scenes/TitleScreen.tscn
 res://Scenes/MultiplayerLobby.tscn
-res://Scripts/TurnManager.gd
 res://Scenes/GameOver.tscn
 res://Scenes/RewardUpgrade.tscn
-res://Scripts/RewardsUpgrades.gd
-res://Scripts/Unit.gd
-res://Scripts/TileMap.gd
-res://Scripts/Camera2D.gd
 res://Scenes/Transition.tscn
 res://Scenes/Meks_Scenes/CPU/M1.scn
+res://Scripts/Unit.gd
+res://Scripts/TileMap.gd
+res://Scripts/HUD_Panel.gd
+res://Scripts/GameData.gd

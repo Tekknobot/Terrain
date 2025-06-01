@@ -316,6 +316,7 @@ text = "Menu"
 follow_viewport_scale = 0.001
 
 [node name="Control" type="Control" parent="HUDLayer"]
+visible = false
 layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0
@@ -459,14 +460,13 @@ text = "DMG: 25"
 
 [node name="Ability" type="Button" parent="HUDLayer/Control"]
 visible = false
-custom_minimum_size = Vector2(320, 85)
 layout_mode = 0
-offset_left = 321.0
-offset_top = 78.0
-offset_right = 591.0
-offset_bottom = 142.0
+offset_left = 160.0
+offset_top = 119.0
+offset_right = 360.0
+offset_bottom = 153.0
 theme_override_fonts/font = ExtResource("39_jffjd")
-theme_override_font_sizes/font_size = 64
+theme_override_font_sizes/font_size = 32
 theme_override_styles/pressed = SubResource("StyleBoxFlat_xexin")
 toggle_mode = true
 text = "ABILITY"

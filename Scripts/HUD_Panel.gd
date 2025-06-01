@@ -1,19 +1,19 @@
 extends Control
 
 # @onready variables for each UI element
-@onready var name_label = $VBoxContainer3/HBoxContainer2/Name
-@onready var portrait = $VBoxContainer3/HBoxContainer/Portrait
-@onready var hp_bar = $VBoxContainer3/HBoxContainer/HPBar
-@onready var xp_bar = $VBoxContainer3/HBoxContainer/XPBar
+@onready var name_label    = $VBoxContainer3/HBoxContainer2/Name
+@onready var portrait      = $VBoxContainer3/HBoxContainer/Portrait
+@onready var hp_bar        = $VBoxContainer3/HBoxContainer/HPBar
+@onready var xp_bar        = $VBoxContainer3/HBoxContainer/XPBar
 
-@onready var level_label = $VBoxContainer/Level
-@onready var hp_label = $VBoxContainer/HP
-@onready var xp_label = $VBoxContainer/XP
-@onready var movement_label = $VBoxContainer2/MovementRange
-@onready var attack_label = $VBoxContainer2/AttackRange
-@onready var damage_label = $VBoxContainer2/Damage
+@onready var level_label   = $VBoxContainer/Level
+@onready var hp_label      = $VBoxContainer/HP
+@onready var xp_label      = $VBoxContainer/XP
+@onready var movement_label= $VBoxContainer2/MovementRange
+@onready var attack_label  = $VBoxContainer2/AttackRange
+@onready var damage_label  = $VBoxContainer2/Damage
 
-@onready var quote_label = $VBoxContainer3/Quote
+@onready var quote_label   = $VBoxContainer3/Quote
 
 @onready var ability_button = $Ability
 
@@ -70,7 +70,7 @@ var quotes = [
 	"In the heat of battle, my mech is pure resolve."
 ]
 
-# Example player data structure
+# Example player data structure (used on initial spawn, etc.)
 var player_data = {
 	"name": "Hero",
 	"portrait": null,
@@ -89,172 +89,162 @@ var _current_typing_id = 0
 
 func _ready():
 	randomize()
-	#print("name_label:", name_label)
-	#print("portrait:", portrait)
-	#print("hp_bar:", hp_bar)
-	#print("xp_bar:", xp_bar)
-	#print("level_label:", level_label)
-	#print("hp_label:", hp_label)
-	#print("movement_label:", movement_label)
-	#print("attack_label:", attack_label)
-	#print("damage_label:", damage_label)
-	#print("quote_label:", quote_label)
-		
-	var game = get_node("/root/BattleGrid")  # Adjust path accordingly.
+
+	# 1) When all units have spawned, update HUD with some default (e.g. player_data).
+	var game = get_node("/root/BattleGrid")
 	game.connect("units_spawned", Callable(self, "_on_units_spawned"))
-	
+
+	# 2) ALSO connect to the TileMap’s `unit_selected(Unit)` signal:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	tilemap.connect("unit_selected", Callable(self, "_on_unit_selected"))
+
 func _on_units_spawned():
+	# On first spawn, show the HUD for "player_data" (you can replace this
+	# with whichever unit you want as default).
 	update_hud(player_data)
-	
+
 func update_hud(player):
-	# Update Name
+	# --- Update all HUD fields for the “player” dictionary ---
 	name_label.text = player.name
 
-	# Update Portrait (assuming `player.portrait` is a Texture)
 	if player.portrait:
 		portrait.texture = player.portrait
 	else:
 		portrait.texture = null
 
-	# Update HP Bar
 	hp_bar.max_value = player.max_hp
 	hp_bar.value = player.current_hp
 
-	# Update XP Bar
 	xp_bar.max_value = player.max_xp
 	xp_bar.value = player.current_xp
 
-	# Update Level
 	level_label.text = "LEVEL: %d" % player.level
+	hp_label.text    = "HP: %d of %d" % [player.current_hp, player.max_hp]
+	xp_label.text    = "XP: %d of %d" % [player.current_xp, player.max_xp]
 
-	# Update HP and XP Labels
-	hp_label.text = "HP: %d of %d" % [player.current_hp, player.max_hp]
-	xp_label.text = "XP: %d of %d" % [player.current_xp, player.max_xp]
-
-	# Update Movement, Attack Range, Damage
 	movement_label.text = "MOVE: %d" % player.movement_range
-	attack_label.text = "ATK: %d" % player.attack_range
-	damage_label.text = "DMG: %d" % player.damage
+	attack_label.text   = "ATK: %d" % player.attack_range
+	damage_label.text   = "DMG: %d" % player.damage
 
-	ability_button.button_pressed = false
+	# Hide the ability button by default (we’ll show it when a unit is selected)
+	ability_button.visible = false
 
-	# Update Ability Button:
-	if GameData.unit_upgrades.has(player.name) and str(GameData.unit_upgrades[player.name]).strip_edges() != "":
-		ability_button.text = str(GameData.unit_upgrades[player.name])
-		ability_button.visible = true
-	else:
-		ability_button.visible = false
-		var tilemap = get_node("/root/BattleGrid/TileMap")
-			
-	# Start a new typewriter effect for the quote.
+	# Start a fresh typewriter‐style quote
 	_current_typing_id += 1
 	var current_id = _current_typing_id
 	var selected_quote = quotes[randi() % quotes.size()]
 	await type_quote(selected_quote, current_id)
 
-# Typewriter effect: gradually display the quote letter-by-letter.
 func type_quote(quote: String, id: int) -> void:
 	quote_label.text = ""
 	for i in range(quote.length()):
-		# If a new typewriter effect has started, break out.
 		if _current_typing_id != id:
 			return
 		quote_label.text += quote[i]
 		await get_tree().create_timer(0.05).timeout
-		
+
+func _on_unit_selected(unit):
+	if GameData.unit_upgrades.has(unit.unit_name) \
+	   and str(GameData.unit_upgrades[unit.unit_name]).strip_edges() != "":
+		ability_button.text = str(GameData.unit_upgrades[unit.unit_name])
+		ability_button.visible = true
+	else:
+		ability_button.visible = false
+
 func _on_ability_toggled(toggled_on: bool) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
-	
 	if tilemap.selected_unit != null:
 		if toggled_on:
-			# When toggled on, if the selected unit has an assigned ability…
-			if GameData.unit_upgrades.has(tilemap.selected_unit.unit_name) and str(GameData.unit_upgrades[tilemap.selected_unit.unit_name]).strip_edges() != "":
+			# … (same as before) …
+			if GameData.unit_upgrades.has(tilemap.selected_unit.unit_name) \
+			   and str(GameData.unit_upgrades[tilemap.selected_unit.unit_name]).strip_edges() != "":
 				ability_button.text = str(GameData.unit_upgrades[tilemap.selected_unit.unit_name])
 				ability_button.visible = true
-				
-				# Enable mode based on the ability type.
-				if ability_button.text == "Critical Strike":
-					tilemap.critical_strike_mode = true
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Rapid Fire":
-					tilemap.rapid_fire_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Healing Wave":
-					tilemap.healing_wave_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Overcharge":
-					tilemap.overcharge_attack_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Explosive Rounds":
-					tilemap.explosive_rounds_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Spider Blast":
-					tilemap.spider_blast_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Thread Attack":
-					tilemap.thread_attack_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.lightning_surge_mode = false
-				elif ability_button.text == "Lightning Surge":
-					tilemap.lightning_surge_mode = true
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-				else:
-					tilemap.critical_strike_mode = false
-					tilemap.rapid_fire_mode = false
-					tilemap.healing_wave_mode = false
-					tilemap.overcharge_attack_mode = false
-					tilemap.explosive_rounds_mode = false
-					tilemap.spider_blast_mode = false
-					tilemap.thread_attack_mode = false
-					tilemap.lightning_surge_mode = false
+
+				match ability_button.text:
+					"Critical Strike":
+						tilemap.critical_strike_mode = true
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
+					"Rapid Fire":
+						tilemap.rapid_fire_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
+					"Healing Wave":
+						tilemap.healing_wave_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
+					"Overcharge":
+						tilemap.overcharge_attack_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
+					"Explosive Rounds":
+						tilemap.explosive_rounds_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
+					"Spider Blast":
+						tilemap.spider_blast_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
+					"Thread Attack":
+						tilemap.thread_attack_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.lightning_surge_mode = false
+					"Lightning Surge":
+						tilemap.lightning_surge_mode = true
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+					_:
+						tilemap.critical_strike_mode = false
+						tilemap.rapid_fire_mode = false
+						tilemap.healing_wave_mode = false
+						tilemap.overcharge_attack_mode = false
+						tilemap.explosive_rounds_mode = false
+						tilemap.spider_blast_mode = false
+						tilemap.thread_attack_mode = false
+						tilemap.lightning_surge_mode = false
 			else:
+				# If somehow no upgrade entry exists
 				tilemap.critical_strike_mode = false
 				tilemap.rapid_fire_mode = false
 				tilemap.healing_wave_mode = false
@@ -264,7 +254,7 @@ func _on_ability_toggled(toggled_on: bool) -> void:
 				tilemap.thread_attack_mode = false
 				tilemap.lightning_surge_mode = false
 		else:
-			# When toggled off, clear all mode flags.
+			# Toggled off → clear all modes
 			tilemap.critical_strike_mode = false
 			tilemap.rapid_fire_mode = false
 			tilemap.healing_wave_mode = false

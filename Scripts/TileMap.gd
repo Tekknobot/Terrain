@@ -106,6 +106,24 @@ var spider_blast_mode: bool = false
 var thread_attack_mode: bool = false
 var lightning_surge_mode: bool = false   # New lightning surge mode
 
+var ground_slam_mode: bool = false
+var mark_and_pounce_mode: bool = false
+var guardian_halo_mode: bool = false
+var high_arcing_shot_mode: bool = false
+var suppressive_fire_mode: bool = false
+var fortify_mode: bool = false
+var airlift_and_bomb_mode: bool = false
+var web_field_mode: bool = false
+
+# And for “Suppressive Fire” you also need:
+var suppressive_fire_dir: Vector2i = Vector2i.ZERO
+
+# For Helicopter’s multi‐step, you need:
+var helicopter_phase: int = 0
+var chosen_airlift_unit: Node = null
+var chosen_airlift_dest: Vector2i = Vector2i(-1, -1)
+var helicopter_bomb_tile: Vector2i = Vector2i(-1, -1)
+
 var stored_map_data: Dictionary = {}
 var stored_unit_data: Array = []
 var stored_structure_data: Array = []
@@ -115,6 +133,11 @@ var next_unit_id: int = 1
 func _ready():
 	tile_size = get_tileset().tile_size
 	_setup_noise()
+
+	# ① Grab the HUD node:
+	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+	# ② Connect our TileMap’s “unit_selected” signal to HUD’s _on_unit_selected():
+	connect("unit_selected", Callable(hud, "_on_unit_selected"))
 
 	if is_multiplayer_authority():
 		# Host: generate the map and then postprocess it.
@@ -159,20 +182,40 @@ func _process(delta):
 
 func _post_map_generation():
 	_spawn_teams()
-	spawn_structures()  # Spawn structures after the map is generated.
+	spawn_structures()
 	_setup_camera()
 	update_astar_grid()
+
+	# ─────────────────────────────────────────────────────────────────────────────
+	# ▼ ASSIGN “unit_upgrades” BASED ON player_units[] ORDER
+	# First, grab all player‐side Unit nodes in the exact order they were instantiated.
+	# Since _spawn_teams() loops over `player_units` in order, 
+	# adding each one to the “Units” group in that same loop, 
+	# we can fetch them by filtering is_player=true from GROUP("Units").
+	var players = get_tree().get_nodes_in_group("Units").filter(func(u):
+		return u.is_player
+	)
+	# Now, for each index i, take the i-th ability from GameData.available_abilities:
+	for i in range(players.size()):
+		if i < GameData.available_abilities.size():
+			var that_unit = players[i]
+			GameData.unit_upgrades[ that_unit.unit_name ] = GameData.available_abilities[i]
+		else:
+			# (Optional) if you have more units than abilities in the array,
+			# you can choose a default or leave it blank:
+			GameData.unit_upgrades[ players[i].unit_name ] = ""
+	# ▲ end of upgrade assignment
+	# ─────────────────────────────────────────────────────────────────────────────
+
 	TurnManager.start_turn()
 	TurnManager.transition_to_level()
 
-	# If you are the host, store the game state for later broadcasting.
 	if is_multiplayer_authority():
 		GameState.stored_map_data = export_map_data()
 		GameState.stored_unit_data = export_unit_data()
 		GameState.stored_structure_data = export_structure_data()
-		# Optionally, if peers are already connected:
 		broadcast_game_state()
-
+		
 func _input(event):
 	if GameData.multiplayer_mode:
 		var team = TurnManager.turn_order[ TurnManager.current_turn_index ]
@@ -622,6 +665,8 @@ func _select_unit_at_mouse():
 	_update_hud_with(unit)
 	play_beep_sound(tile)
 
+	emit_signal("unit_selected", unit)
+
 	# Make this your "selected_unit" so you can toggle into attack mode
 	selected_unit = unit
 	showing_attack = false
@@ -650,6 +695,7 @@ func _begin_select(unit, tile):
 	showing_attack = false
 	_show_range_for_selected_unit()
 	play_beep_sound(tile)
+	emit_signal("unit_selected", unit)
 	_update_hud_with(unit)
 
 # helper to show HUD but not allow movement

@@ -17,7 +17,16 @@ var unit_upgrades: Dictionary = {}
 var first_enemy_spawn_done: bool = false
 
 var current_zoom_index: int = 0
-var available_abilities: Array[String] = []
+var available_abilities: Array[String] = [
+	"Ground Slam",       # Hulk
+	"Mark & Pounce",     # Panther
+	"Guardian Halo",     # Angel
+	"High Arcing Shot",  # Cannon
+	"Suppressive Fire",  # Multi Turret
+	"Fortify",           # Brute
+	"Airlift & Bomb",    # Helicopter
+	"Web Field"          # Spider
+]
 
 var multiplayer_mode = false
 
