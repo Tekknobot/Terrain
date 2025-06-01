@@ -1,7 +1,7 @@
 extends Camera2D
 
 # List of available zoom levels.
-var zoom_levels = [Vector2(3, 3), Vector2(4, 4), Vector2(5, 5), Vector2(6, 6), Vector2(8, 8)]
+var zoom_levels = [Vector2(1, 1), Vector2(2, 2)]
 var current_zoom_index := 0
 
 var dragging := false

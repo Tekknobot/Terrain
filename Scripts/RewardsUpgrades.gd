@@ -49,11 +49,11 @@ func set_rewards(coins: int, xp: int) -> void:
 		return
 
 	# Otherwise, populate the ability buttons using the remaining abilities.
-	_populate_ability_options()
+	#_populate_ability_options()
 
 
 func _ready() -> void:
-	_populate_ability_options()
+	#_populate_ability_options()
 	continue_button.pressed.connect(_on_continue_button_pressed)
 
 # Utility function to clear the ability container.

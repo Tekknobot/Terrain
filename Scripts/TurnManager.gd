@@ -16,6 +16,8 @@ var total_damage_dealt: int = 0
 
 var current_transition: Node = null  # Member variable to store the active transition.
 
+var next_unit_id: int = 1
+
 func _ready():
 	# Record the initial number of player units.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()

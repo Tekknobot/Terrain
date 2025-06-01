@@ -1059,7 +1059,6 @@ func _setup_camera():
 	
 	var center_tile = Vector2(grid_width * 0.5, grid_height * 0.5)
 	camera.global_position = to_global(map_to_local(center_tile))
-	#camera.zoom = Vector2(4, 4)
 	
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.global_position)
 

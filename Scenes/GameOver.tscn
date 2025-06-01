@@ -24,6 +24,8 @@ victory_sound = ExtResource("2_owpg0")
 defeat_sound = ExtResource("3_lt44g")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+scale = Vector2(0.5, 0.5)
+transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
 
 [node name="Control" type="Control" parent="CanvasLayer"]
 layout_mode = 3
@@ -32,10 +34,10 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -550.0
-offset_top = -620.0
-offset_right = -510.0
-offset_bottom = -580.0
+offset_left = 558.0
+offset_top = 14.0
+offset_right = 598.0
+offset_bottom = 54.0
 grow_horizontal = 0
 grow_vertical = 0
 

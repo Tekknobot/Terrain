@@ -4,12 +4,8 @@
 [ext_resource type="Script" path="res://Scripts/PanelDimensions.gd" id="2_v868k"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="4_slnqg"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ex5xk"]
-bg_color = Color(0.0748453, 0.0748453, 0.0748452, 1)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dsse0"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3xwe5"]
 bg_color = Color(0.190762, 0.190762, 0.190762, 1)
@@ -30,30 +26,38 @@ script = ExtResource("1_64ho6")
 button_min_size = Vector2(100, 16)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+scale = Vector2(0.5, 0.5)
+transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
 
 [node name="Control" type="Control" parent="CanvasLayer"]
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = 816.0
+offset_right = 816.0
+grow_horizontal = 0
 
 [node name="Panel" type="Panel" parent="CanvasLayer/Control"]
 layout_mode = 0
 offset_left = 51.0
 offset_top = 35.0
-offset_right = 533.0
-offset_bottom = 126.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_ex5xk")
+offset_right = 342.0
+offset_bottom = 118.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_dsse0")
 script = ExtResource("2_v868k")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Control/Panel"]
 layout_mode = 2
 offset_left = 52.0
 offset_top = 11.0
-offset_right = 143.0
+offset_right = 98.0
 offset_bottom = 40.0
 scale = Vector2(4, 4)
 theme_override_constants/separation = 16
 
 [node name="Header" type="Label" parent="CanvasLayer/Control/Panel/VBoxContainer"]
+visible = false
 layout_mode = 2
 theme_override_fonts/font = ExtResource("4_slnqg")
 theme_override_font_sizes/font_size = 16
@@ -68,13 +72,14 @@ theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 
 [node name="AbilityOptionsContainer" type="VBoxContainer" parent="CanvasLayer/Control/Panel/VBoxContainer"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 4
 
 [node name="ContinueButton" type="Button" parent="CanvasLayer/Control/Panel/VBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("4_slnqg")
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 16
 theme_override_styles/hover = SubResource("StyleBoxFlat_3xwe5")
 theme_override_styles/normal = SubResource("StyleBoxFlat_bb8l2")
 text = "Continue"

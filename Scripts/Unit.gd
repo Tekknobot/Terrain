@@ -44,6 +44,7 @@ func _ready():
 			# In theory, this should not happen since the host spawner should assign the ID.
 			unit_id = TurnManager.next_unit_id  # This variable would come from your global counter.
 			set_meta("unit_id", unit_id)
+			TurnManager.next_unit_id += 1
 		else:
 			unit_id = get_meta("unit_id")
 	else:
@@ -63,7 +64,6 @@ func _ready():
 	debug_print_units()
 	
 	print("Multiplayer authority? ", get_tree().get_multiplayer().is_server())
-
 
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
@@ -662,8 +662,8 @@ func execute_actions():
 			print("☠️ Unit died after move")
 			return
 
-		# 🧠 Enemy auto-attacks after moving
-		if not is_player:
+		# 🧠 AI only auto-attacks on adjacent when it’s a melee (attack_range == 1)
+		if not is_player and attack_range == 1:
 			await auto_attack_adjacent()
 			if not is_instance_valid(self):
 				print("☠️ Unit died after auto-attack")
