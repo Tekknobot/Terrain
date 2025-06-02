@@ -91,18 +91,23 @@ func _ready():
 	randomize()
 
 	# 1) When all units have spawned, update HUD with some default (e.g. player_data).
-	var game = get_node("/root/BattleGrid")
-	game.connect("units_spawned", Callable(self, "_on_units_spawned"))
+	#    Only the server should connect to "units_spawned" so it can broadcast to clients.
+	if is_multiplayer_authority():
+		var game = get_node("/root/BattleGrid")
+		game.connect("units_spawned", Callable(self, "_on_units_spawned"))
 
-	# 2) ALSO connect to the TileMap’s `unit_selected(Unit)` signal:
+	# 2) ALSO connect to the TileMap’s `unit_selected(Unit)` signal on every peer:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	tilemap.connect("unit_selected", Callable(self, "_on_unit_selected"))
 
 func _on_units_spawned():
-	# On first spawn, show the HUD for "player_data" (you can replace this
-	# with whichever unit you want as default).
+	# This function runs on the server when units spawn. It updates
+	# the server’s HUD immediately, then tells all clients to do the same.
 	update_hud(player_data)
+	rpc("update_hud", player_data)
 
+
+@rpc
 func update_hud(player):
 	# --- Update all HUD fields for the “player” dictionary ---
 	name_label.text = player.name
@@ -144,126 +149,145 @@ func type_quote(quote: String, id: int) -> void:
 		await get_tree().create_timer(0.05).timeout
 
 func _on_unit_selected(unit):
-	if GameData.unit_upgrades.has(unit.unit_name) \
-	   and str(GameData.unit_upgrades[unit.unit_name]).strip_edges() != "":
+	if GameData.unit_upgrades.has(unit.unit_name):
 		ability_button.text = str(GameData.unit_upgrades[unit.unit_name])
 		ability_button.visible = true
 	else:
 		ability_button.visible = false
-
+	
 func _on_ability_toggled(toggled_on: bool) -> void:
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-	if tilemap.selected_unit != null:
+	# Whenever a client toggles the ability button, we send a request to the server.
+	# The server then authoritatively applies the mode and broadcasts back to everyone.
+	if is_multiplayer_authority():
+		# This peer is the server, so apply immediately and broadcast.
 		if toggled_on:
 			# … (same as before) …
-			if GameData.unit_upgrades.has(tilemap.selected_unit.unit_name) \
-			   and str(GameData.unit_upgrades[tilemap.selected_unit.unit_name]).strip_edges() != "":
-				ability_button.text = str(GameData.unit_upgrades[tilemap.selected_unit.unit_name])
+			if GameData.unit_upgrades.has(get_node("/root/BattleGrid/TileMap").selected_unit.unit_name) \
+			   and str(GameData.unit_upgrades[get_node("/root/BattleGrid/TileMap").selected_unit.unit_name]).strip_edges() != "":
+				ability_button.text = str(GameData.unit_upgrades[get_node("/root/BattleGrid/TileMap").selected_unit.unit_name])
 				ability_button.visible = true
 
 				match ability_button.text:
 					"Critical Strike":
-						tilemap.critical_strike_mode = true
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Critical Strike")
 					"Rapid Fire":
-						tilemap.rapid_fire_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Rapid Fire")
 					"Healing Wave":
-						tilemap.healing_wave_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Healing Wave")
 					"Overcharge":
-						tilemap.overcharge_attack_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Overcharge")
 					"Explosive Rounds":
-						tilemap.explosive_rounds_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Explosive Rounds")
 					"Spider Blast":
-						tilemap.spider_blast_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Spider Blast")
 					"Thread Attack":
-						tilemap.thread_attack_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.lightning_surge_mode = false
+						_set_mode_on_server("Thread Attack")
 					"Lightning Surge":
-						tilemap.lightning_surge_mode = true
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
+						_set_mode_on_server("Lightning Surge")
 					_:
-						tilemap.critical_strike_mode = false
-						tilemap.rapid_fire_mode = false
-						tilemap.healing_wave_mode = false
-						tilemap.overcharge_attack_mode = false
-						tilemap.explosive_rounds_mode = false
-						tilemap.spider_blast_mode = false
-						tilemap.thread_attack_mode = false
-						tilemap.lightning_surge_mode = false
+						_clear_modes_on_server()
 			else:
-				# If somehow no upgrade entry exists
-				tilemap.critical_strike_mode = false
-				tilemap.rapid_fire_mode = false
-				tilemap.healing_wave_mode = false
-				tilemap.overcharge_attack_mode = false
-				tilemap.explosive_rounds_mode = false
-				tilemap.spider_blast_mode = false
-				tilemap.thread_attack_mode = false
-				tilemap.lightning_surge_mode = false
+				# If somehow no upgrade entry exists, clear all modes
+				_clear_modes_on_server()
 		else:
 			# Toggled off → clear all modes
-			tilemap.critical_strike_mode = false
-			tilemap.rapid_fire_mode = false
-			tilemap.healing_wave_mode = false
-			tilemap.overcharge_attack_mode = false
-			tilemap.explosive_rounds_mode = false
-			tilemap.spider_blast_mode = false
-			tilemap.thread_attack_mode = false
-			tilemap.lightning_surge_mode = false
+			_clear_modes_on_server()
 	else:
-		print("No selected unit available for ability toggling.")
-	
+		# This peer is a client. Tell the server what to do.
+		if toggled_on:
+			var chosen_text = ability_button.text
+			rpc_id(1, "server_handle_ability_toggle_on", chosen_text)
+		else:
+			rpc_id(1, "server_handle_ability_toggle_off")
+
+
+# ----------------------------------------------------
+# SERVER‐ONLY RPCs: The server receives these and then
+# broadcasts the result via `sync_ability_mode`.
+# ----------------------------------------------------
+@rpc
+func server_handle_ability_toggle_on(chosen_ability: String) -> void:
+	_set_mode_on_server(chosen_ability)
+	rpc("sync_ability_mode", chosen_ability)
+
+@rpc
+func server_handle_ability_toggle_off() -> void:
+	_clear_modes_on_server()
+	rpc("sync_ability_mode", "")
+
+
+func _set_mode_on_server(mode_name: String) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	# Clear everything first:
+	_clear_all_modes(tilemap)
+
+	# Then enable only the requested mode:
+	match mode_name:
+		"Critical Strike":
+			tilemap.critical_strike_mode = true
+		"Rapid Fire":
+			tilemap.rapid_fire_mode = true
+		"Healing Wave":
+			tilemap.healing_wave_mode = true
+		"Overcharge":
+			tilemap.overcharge_attack_mode = true
+		"Explosive Rounds":
+			tilemap.explosive_rounds_mode = true
+		"Spider Blast":
+			tilemap.spider_blast_mode = true
+		"Thread Attack":
+			tilemap.thread_attack_mode = true
+		"Lightning Surge":
+			tilemap.lightning_surge_mode = true
+		_:
+			# If something unexpected arrives, just clear everything
+			_clear_all_modes(tilemap)
+
+func _clear_modes_on_server() -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	_clear_all_modes(tilemap)
+
+func _clear_all_modes(tilemap: Node) -> void:
+	tilemap.critical_strike_mode    = false
+	tilemap.rapid_fire_mode         = false
+	tilemap.healing_wave_mode       = false
+	tilemap.overcharge_attack_mode  = false
+	tilemap.explosive_rounds_mode   = false
+	tilemap.spider_blast_mode       = false
+	tilemap.thread_attack_mode      = false
+	tilemap.lightning_surge_mode    = false
+
+# ----------------------------------------------------
+# CLIENT + SERVER: When the server broadcasts “sync_ability_mode”,
+# each peer applies the same change locally.
+# ----------------------------------------------------
+@rpc
+func sync_ability_mode(mode_name: String) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	_clear_all_modes(tilemap)
+
+	if mode_name == "":
+		return  # Nothing to enable
+
+	match mode_name:
+		"Critical Strike":
+			tilemap.critical_strike_mode = true
+		"Rapid Fire":
+			tilemap.rapid_fire_mode = true
+		"Healing Wave":
+			tilemap.healing_wave_mode = true
+		"Overcharge":
+			tilemap.overcharge_attack_mode = true
+		"Explosive Rounds":
+			tilemap.explosive_rounds_mode = true
+		"Spider Blast":
+			tilemap.spider_blast_mode = true
+		"Thread Attack":
+			tilemap.thread_attack_mode = true
+		"Lightning Surge":
+			tilemap.lightning_surge_mode = true
+		_:
+			# If something unexpected arrives, keep all false
+			pass
+
 	tilemap._clear_highlights()

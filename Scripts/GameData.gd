@@ -75,3 +75,16 @@ func load_settings() -> void:
 	else:
 		print("Failed to load settings; using default values.")
 		current_zoom_index = 0
+
+# -------------------------------------------------
+# This RPC will be called on **every** peer (server + clients).
+# Its job is to replicate “unit_to_upgrade = upgrade_name” onto local GameData.
+# -------------------------------------------------
+@rpc
+func client_set_upgrade(unit_name: String, upgrade_name: String) -> void:
+	GameData.unit_upgrades[unit_name] = upgrade_name
+
+@rpc
+func client_receive_all_upgrades(upgrades: Dictionary) -> void:
+	# Overwrite the local copy so that late‐joining clients know about every unit's ability.
+	GameData.unit_upgrades = upgrades.duplicate()

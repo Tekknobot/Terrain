@@ -128,6 +128,9 @@ var difficulty_tiers: Dictionary = {
 # LIFECYCLE CALLBACKS
 # ———————————————————————————————————————————————————————————————
 func _ready():
+	if is_multiplayer_authority():
+		get_tree().get_multiplayer().connect("peer_connected", Callable(self, "_on_peer_connected"))
+			
 	tile_size = get_tileset().tile_size
 	_setup_noise()
 
@@ -323,6 +326,9 @@ func _post_map_generation():
 		GameState.stored_unit_data = export_unit_data()
 		GameState.stored_structure_data = export_structure_data()
 		broadcast_game_state()
+
+		# NEW: immediately send the server's unit_upgrades dict to all clients
+		rpc("client_receive_all_upgrades", GameData.unit_upgrades)
 
 func _spawn_teams():
 	var used_tiles: Array[Vector2i] = []
@@ -2031,3 +2037,8 @@ func _on_back_pressed() -> void:
 	GameData.multiplayer_mode = false
 	GameData.save_settings()
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
+
+func _on_peer_connected(id: int) -> void:
+	# Send the current map/state first (this might already be happening in receive_game_state),
+	# then immediately send the upgrades dictionary so the late‐joiner can populate their HUD.
+	rpc_id(id, "client_receive_all_upgrades", GameData.unit_upgrades)
