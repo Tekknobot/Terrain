@@ -547,9 +547,35 @@ func _setup_camera():
 	camera.global_position = to_global(map_to_local(center_tile))
 	print("Camera centered at grid midpoint:", center_tile, "world:", camera.global_position)
 
-# ———————————————————————————————————————————————————————————————
-# INPUT HANDLING
-# ———————————————————————————————————————————————————————————————
+# Add these helper functions somewhere above _input(event):
+func _peek_show_range_for(unit: Node2D):
+	var old_selected = selected_unit
+	var old_showing_attack = showing_attack
+
+	# Show movement range when peeking
+	showing_attack = false
+	selected_unit = unit
+	_show_range_for_selected_unit()
+
+	# Restore previous state
+	selected_unit = old_selected
+	showing_attack = old_showing_attack
+
+
+func _peek_show_attack_range_for(unit: Node2D):
+	var old_selected = selected_unit
+	var old_showing_attack = showing_attack
+
+	# Show attack range when peeking
+	showing_attack = true
+	selected_unit = unit
+	_show_range_for_selected_unit()
+
+	# Restore previous state
+	selected_unit = old_selected
+	showing_attack = old_showing_attack
+
+
 func _input(event):
 	# ──────────────────────────────────────────────────────────────────────────
 	# Do NOT block clicks here—only block actions once a unit is already selected.
@@ -979,18 +1005,35 @@ func _input(event):
 			# end if selected_unit
 
 			#
-			# 4) No move/attack happened, so now select whichever unit is under the mouse:
+			# 4) If we didn’t attack or move, check for “peek an enemy’s movement range”:
+			#
+			var click_unit = get_unit_at_tile(mouse_tile)
+			if click_unit and click_unit.is_player == false:
+				_clear_highlights()
+				_peek_show_range_for(click_unit)
+				return
+
+			#
+			# 5) Otherwise, select whichever unit is under the mouse (or clear if none):
 			#
 			_select_unit_at_mouse()
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			# If we have a selected_unit, behave as before (show its attack range)
 			if selected_unit:
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()
-			# RMB does not block selection on the next frame.
-			
-	# end if mouse click
+				return
+
+			# If no selected_unit, but right-clicked on an enemy, peek its attack range
+			var click_unit = get_unit_at_tile(mouse_tile)
+			if click_unit and click_unit.is_player == false:
+				_clear_highlights()
+				_peek_show_attack_range_for(click_unit)
+				return
+
+			# Otherwise, ignore (no change in selection)
 
 # ———————————————————————————————————————————————————————————————
 # AUTO-ATTACK RPCS
