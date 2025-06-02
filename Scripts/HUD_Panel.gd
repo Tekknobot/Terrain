@@ -1,3 +1,4 @@
+# HUD.gd (extends Control)
 extends Control
 
 # @onready variables for each UI element
@@ -149,56 +150,35 @@ func type_quote(quote: String, id: int) -> void:
 		await get_tree().create_timer(0.05).timeout
 
 func _on_unit_selected(unit):
-	if GameData.unit_upgrades.has(unit.unit_name):
-		ability_button.text = str(GameData.unit_upgrades[unit.unit_name])
-		ability_button.visible = true
-	else:
-		ability_button.visible = false
-	
-func _on_ability_toggled(toggled_on: bool) -> void:
-	# Whenever a client toggles the ability button, we send a request to the server.
-	# The server then authoritatively applies the mode and broadcasts back to everyone.
-	if is_multiplayer_authority():
-		# This peer is the server, so apply immediately and broadcast.
-		if toggled_on:
-			# … (same as before) …
-			if GameData.unit_upgrades.has(get_node("/root/BattleGrid/TileMap").selected_unit.unit_name) \
-			   and str(GameData.unit_upgrades[get_node("/root/BattleGrid/TileMap").selected_unit.unit_name]).strip_edges() != "":
-				ability_button.text = str(GameData.unit_upgrades[get_node("/root/BattleGrid/TileMap").selected_unit.unit_name])
-				ability_button.visible = true
+	var id = unit.unit_id
+	print("[HUD] Selected unit ‘%s’ (id=%d)  is_player=%s" % [unit.unit_name, id, unit.is_player])
 
-				match ability_button.text:
-					"Critical Strike":
-						_set_mode_on_server("Critical Strike")
-					"Rapid Fire":
-						_set_mode_on_server("Rapid Fire")
-					"Healing Wave":
-						_set_mode_on_server("Healing Wave")
-					"Overcharge":
-						_set_mode_on_server("Overcharge")
-					"Explosive Rounds":
-						_set_mode_on_server("Explosive Rounds")
-					"Spider Blast":
-						_set_mode_on_server("Spider Blast")
-					"Thread Attack":
-						_set_mode_on_server("Thread Attack")
-					"Lightning Surge":
-						_set_mode_on_server("Lightning Surge")
-					_:
-						_clear_modes_on_server()
-			else:
-				# If somehow no upgrade entry exists, clear all modes
-				_clear_modes_on_server()
-		else:
-			# Toggled off → clear all modes
-			_clear_modes_on_server()
+	# 1) Always hide the button to start
+	ability_button.visible = false
+
+	# 2) If it’s not a player‐team unit, bail immediately
+	if not unit.is_player:
+		#return
+		pass
+
+	# 3) If it does have an entry in GameData.unit_upgrades _and_ that entry is non‐empty,
+	#    show it. Otherwise leave it hidden.
+	if GameData.unit_upgrades.has(id):
+		var ability = GameData.unit_upgrades[id]
+		if ability != "":
+			ability_button.text = ability
+			ability_button.visible = true
+
+
+func _on_ability_toggled(toggled_on: bool) -> void:
+	# Immediately ask the server to turn this ability on/off,
+	# regardless of whether I am host or client.
+	if toggled_on:
+		var chosen_text = ability_button.text
+		# Always send to peer 1 (the host).
+		rpc_id(1, "server_handle_ability_toggle_on", chosen_text)
 	else:
-		# This peer is a client. Tell the server what to do.
-		if toggled_on:
-			var chosen_text = ability_button.text
-			rpc_id(1, "server_handle_ability_toggle_on", chosen_text)
-		else:
-			rpc_id(1, "server_handle_ability_toggle_off")
+		rpc_id(1, "server_handle_ability_toggle_off")
 
 
 # ----------------------------------------------------

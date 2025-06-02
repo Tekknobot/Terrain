@@ -1,4 +1,4 @@
-#TurnManager.gd
+# TurnManager.gd
 extends Node
 
 signal turn_started(current_team)

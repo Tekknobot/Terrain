@@ -149,6 +149,23 @@ func _ready():
 		print("→ I am the server")
 	else:
 		print("→ I am a client")
+		
+	# If I’m a client (not the authority), “force‐assign” ability names here:
+	if not is_multiplayer_authority():
+		# Wait one frame so that all Units have spawned
+		await get_tree().process_frame
+
+		var units = get_tree().get_nodes_in_group("Units")
+		for i in range(units.size()):
+			var unit = units[i]
+			var uid = unit.unit_id
+
+			# Cycle through the 8 abilities repeatedly:
+			var ability_name = GameData.available_abilities[i % GameData.available_abilities.size()]
+			GameData.unit_upgrades[uid] = ability_name
+
+		print("[Client] → seeded unit_upgrades:", GameData.unit_upgrades)
+
 
 func _process(delta):
 	if selected_unit and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -310,13 +327,18 @@ func _post_map_generation():
 	_setup_camera()
 	update_astar_grid()
 
-	var players = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
-	for i in range(players.size()):
-		if i < GameData.available_abilities.size():
-			var that_unit = players[i]
-			GameData.unit_upgrades[that_unit.unit_name] = GameData.available_abilities[i]
-		else:
-			GameData.unit_upgrades[players[i].unit_name] = ""
+	# ─── PRINT EVERY UNIT’S ID & ASSIGN LOOPED ABILITIES ───────────────────
+	var num_abilities = GameData.available_abilities.size()
+	var all_units = get_tree().get_nodes_in_group("Units")
+	for i in range(all_units.size()):
+		var that_unit = all_units[i]
+		var id = that_unit.unit_id
+		# wrap i around 0…num_abilities-1
+		var ability_index = i % num_abilities
+		var ability = GameData.available_abilities[ability_index]
+		GameData.unit_upgrades[id] = ability
+		print("[Server]  mapping ability:", ability, "→ unit_id:", id)
+	# ────────────────────────────────────────────────────────
 
 	TurnManager.start_turn()
 	TurnManager.transition_to_level()
@@ -327,8 +349,29 @@ func _post_map_generation():
 		GameState.stored_structure_data = export_structure_data()
 		broadcast_game_state()
 
-		# NEW: immediately send the server's unit_upgrades dict to all clients
-		rpc("client_receive_all_upgrades", GameData.unit_upgrades)
+@rpc
+func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
+	# 1) Reconstruct everything exactly as the host did.
+	_generate_client_map(map_data, unit_data, structure_data)
+	print("Client map and state rebuilt.")
+
+	# 2) NOW assign “unit_id → ability” for every client‐spawned Unit:
+	#    (mirror the host’s order of GameData.available_abilities)
+	if not is_multiplayer_authority():
+		var all_units = get_tree().get_nodes_in_group("Units")
+		for i in range(all_units.size()):
+			var unit = all_units[i]
+			var uid = unit.unit_id
+			var ability_name = ""
+			if i < GameData.available_abilities.size():
+				ability_name = GameData.available_abilities[i]
+			GameData.unit_upgrades[uid] = ability_name
+		print("[Client] forced GameData.unit_upgrades =", GameData.unit_upgrades)
+
+	# 3) Finally switch back into Main.tscn (or whatever scene has your HUD)
+	await get_tree().process_frame
+	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+
 
 func _spawn_teams():
 	var used_tiles: Array[Vector2i] = []
@@ -505,121 +548,150 @@ func _setup_camera():
 # INPUT HANDLING
 # ———————————————————————————————————————————————————————————————
 func _input(event):
+	# ──────────────────────────────────────────────────────────────────────────
+	# Do NOT block clicks here—only block actions once a unit is already selected.
+	# ──────────────────────────────────────────────────────────────────────────
 	if GameData.multiplayer_mode:
 		var team = TurnManager.turn_order[TurnManager.current_turn_index]
 		if is_multiplayer_authority():
 			if team != TurnManager.Team.PLAYER:
-				return
+				# We don’t return here; we only block actual actions below.
+				pass
 		else:
 			if team != TurnManager.Team.ENEMY:
-				return
+				pass
 
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_pos = get_global_mouse_position()
-		var tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
-		if tile.x < 0 or tile.x >= grid_width or tile.y < 0 or tile.y >= grid_height:
+		var mouse_tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
+		if mouse_tile.x < 0 or mouse_tile.x >= grid_width or mouse_tile.y < 0 or mouse_tile.y >= grid_height:
 			return
 
-		var mouse_tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
 		if moving:
 			return
 
-		# SPECIAL ABILITIES
+		#
+		# === SPECIAL-ABILITY HANDLERS ===
+		#
+		# First, determine whether it’s “my turn” for the already-selected unit:
+		var is_my_turn = false
+		if selected_unit != null:
+			var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
+			if selected_unit.is_player:
+				is_my_turn = (turn_team == TurnManager.Team.PLAYER)
+			else:
+				is_my_turn = (turn_team == TurnManager.Team.ENEMY)
+		# If selected_unit is still null, is_my_turn remains false.
+
 		if critical_strike_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.critical_strike(mouse_tile)
 				print("Critical Strike activated by unit:", selected_unit.name)
 				critical_strike_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Critical Strike.")
+				print("Cannot perform Critical Strike now.")
 			return
 
 		if rapid_fire_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.rapid_fire(mouse_tile)
 				print("Rapid Fire activated by unit:", selected_unit.name)
 				rapid_fire_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Rapid Fire.")
+				print("Cannot perform Rapid Fire now.")
 			return
 
 		if healing_wave_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.healing_wave(mouse_tile)
 				print("Healing Wave activated by unit:", selected_unit.name)
 				healing_wave_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Healing Wave.")
+				print("Cannot perform Healing Wave now.")
 			return
 
 		if overcharge_attack_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.overcharge_attack(mouse_tile)
 				print("Overcharge attack activated by unit:", selected_unit.name)
 				overcharge_attack_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Overcharge.")
+				print("Cannot perform Overcharge Attack now.")
 			return
 
 		if explosive_rounds_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.explosive_rounds(mouse_tile)
 				print("Explosive Rounds activated by unit:", selected_unit.name)
 				explosive_rounds_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Explosive Rounds.")
+				print("Cannot perform Explosive Rounds now.")
 			return
 
 		if spider_blast_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.spider_blast(mouse_tile)
 				print("Spider Blast activated by unit:", selected_unit.name)
 				spider_blast_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Spider Blast.")
+				print("Cannot perform Spider Blast now.")
 			return
 
 		if thread_attack_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.thread_attack(mouse_tile)
 				print("Thread Attack activated by unit:", selected_unit.name)
 				thread_attack_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Thread Attack.")
+				print("Cannot perform Thread Attack now.")
 			return
 
 		if lightning_surge_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.lightning_surge(mouse_tile)
 				print("Lightning Surge activated by unit:", selected_unit.name)
 				lightning_surge_mode = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Lightning Surge.")
+				print("Cannot perform Lightning Surge now.")
 			return
 
 		if ground_slam_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked:
+			if selected_unit and is_my_turn and not selected_unit.has_attacked:
 				_clear_highlights()
-				# 1) Are we in multiplayer?
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
-					# 2) If *we* are the authority, call request directly:
 					if get_tree().get_multiplayer().get_unique_id() == authority_id:
 						request_ground_slam(selected_unit.unit_id, mouse_tile)
 					else:
@@ -630,14 +702,15 @@ func _input(event):
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
+				print("Cannot perform Ground Slam now.")
 				ground_slam_mode = false
 				ability_button.button_pressed = false
 			return
 
-# … inside _input(event), after ground_slam_mode …
-
 		if mark_and_pounce_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				var target_unit = get_unit_at_tile(mouse_tile)
 				if target_unit and not target_unit.is_player:
 					_clear_highlights()
@@ -658,14 +731,15 @@ func _input(event):
 					mark_and_pounce_mode = false
 					ability_button.button_pressed = false
 			else:
-				print("No player unit selected for Mark & Pounce.")
+				print("Cannot perform Mark & Pounce now.")
 				mark_and_pounce_mode = false
 				ability_button.button_pressed = false
 			return
 
-
 		if guardian_halo_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
@@ -680,14 +754,15 @@ func _input(event):
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Guardian Halo.")
+				print("Cannot perform Guardian Halo now.")
 				guardian_halo_mode = false
 				ability_button.button_pressed = false
 			return
 
-
 		if high_arcing_shot_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
@@ -702,14 +777,15 @@ func _input(event):
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for High Arcing Shot.")
+				print("Cannot perform High Arcing Shot now.")
 				high_arcing_shot_mode = false
 				ability_button.button_pressed = false
 			return
 
-
 		if suppressive_fire_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				var dir = mouse_tile - selected_unit.tile_pos
 				dir.x = sign(dir.x)
@@ -727,14 +803,15 @@ func _input(event):
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Suppressive Fire.")
+				print("Cannot perform Suppressive Fire now.")
 				suppressive_fire_mode = false
 				ability_button.button_pressed = false
 			return
 
-
 		if fortify_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
@@ -749,21 +826,20 @@ func _input(event):
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Fortify.")
+				print("Cannot perform Fortify now.")
 				fortify_mode = false
 				ability_button.button_pressed = false
 			return
 
-
-		# new: use spider_blast instead of web_field
 		if heavy_rain_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
 					if get_tree().get_multiplayer().get_unique_id() == authority_id:
 						request_heavy_rain(selected_unit.unit_id, mouse_tile)
-						# or, if you want a new “rpc” just for spider_blast, create request_spider_blast(...)
 					else:
 						rpc_id(authority_id, "request_heavy_rain", selected_unit.unit_id, mouse_tile)
 				else:
@@ -773,105 +849,135 @@ func _input(event):
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Spider Blast.")
+				print("Cannot perform Spider Blast (Heavy Rain) now.")
 				heavy_rain_mode = false
 				ability_button.button_pressed = false
 			return
 
-		# new: use spider_blast instead of web_field
 		if web_field_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			if selected_unit and is_my_turn \
+			and not selected_unit.has_attacked \
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
 					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_thread_attack(selected_unit.unit_id, mouse_tile)       # reuse your thread_attack RPC
-						# or, if you want a new “rpc” just for spider_blast, create request_spider_blast(...)
+						request_thread_attack(selected_unit.unit_id, mouse_tile)
 					else:
 						rpc_id(authority_id, "request_thread_attack", selected_unit.unit_id, mouse_tile)
 				else:
 					selected_unit.thread_attack(mouse_tile)
-				print("Spider Blast (formerly Web Field) activated by unit:", selected_unit.name)
+				print("Web Field (Thread Attack) activated by unit:", selected_unit.name)
 				web_field_mode = false
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Spider Blast.")
+				print("Cannot perform Web Field (Thread Attack) now.")
 				web_field_mode = false
 				ability_button.button_pressed = false
 			return
 
-		# NORMAL MOVEMENT / ATTACK LOGIC
+		#
+		# === NORMAL MOVEMENT / ATTACK / SELECTION ===
+		#
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			# 1) If showing_attack is true, try melee or ranged attack first:
 			if selected_unit and is_instance_valid(selected_unit):
-				var team = TurnManager.turn_order[TurnManager.current_turn_index]
-				var is_player_turn = team == TurnManager.Team.PLAYER
-				var is_enemy_turn  = team == TurnManager.Team.ENEMY
+				var turn_team    = TurnManager.turn_order[TurnManager.current_turn_index]
+				var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
+				var is_enemy_turn  = (turn_team == TurnManager.Team.ENEMY)
 
-				var can_act = (is_player_turn and selected_unit.is_player) or (is_enemy_turn and not selected_unit.is_player)
-				var not_tinted = selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1)
+				var can_act    = (is_player_turn and selected_unit.is_player) \
+							   or (is_enemy_turn  and not selected_unit.is_player)
+				var not_tinted  = (selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1))
 
-				if not_tinted and can_act:
-					if showing_attack:
-						var enemy     = get_unit_at_tile(mouse_tile)
-						var structure = get_structure_at_tile(mouse_tile)
+				if not_tinted and can_act and showing_attack:
+					var enemy     = get_unit_at_tile(mouse_tile)
+					var structure = get_structure_at_tile(mouse_tile)
 
-						if (enemy and enemy.is_player != selected_unit.is_player) or structure or (enemy == null and structure == null):
-							if selected_unit.unit_type in ["Ranged", "Support"]:
-								if enemy and enemy.is_player != selected_unit.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
-									var server = get_multiplayer_authority()
-									rpc_id(server, "request_auto_attack_ranged_unit", selected_unit.unit_id, enemy.unit_id)
-									if is_multiplayer_authority():
-										request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
-								elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
-									var server = get_multiplayer_authority()
-									var tpos = structure.tile_pos
-									rpc_id(server, "request_auto_attack_ranged_structure", selected_unit.unit_id, tpos)
-									if is_multiplayer_authority():
-										request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
-								elif enemy == null and structure == null and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
-									var server = get_multiplayer_authority()
-									rpc_id(server, "request_auto_attack_ranged_empty", selected_unit.unit_id, mouse_tile)
-									if is_multiplayer_authority():
-										request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
-
-								var spr = selected_unit.get_node("AnimatedSprite2D")
-								spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+					# ─────────── RANGED LOGIC ───────────
+					if selected_unit.unit_type in ["Ranged", "Support"]:
+						if enemy and enemy.is_player != selected_unit.is_player \
+						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
+							var server = get_multiplayer_authority()
+							rpc_id(server, "request_auto_attack_ranged_unit", selected_unit.unit_id, enemy.unit_id)
+							if is_multiplayer_authority():
+								request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
+							var spr = selected_unit.get_node("AnimatedSprite2D")
+							spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+							showing_attack = false
+							_clear_highlights()
+							return
+						elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
+							var server = get_multiplayer_authority()
+							var tpos = structure.tile_pos
+							rpc_id(server, "request_auto_attack_ranged_structure", selected_unit.unit_id, tpos)
+							if is_multiplayer_authority():
+								request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
+							var spr = selected_unit.get_node("AnimatedSprite2D")
+							spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+							showing_attack = false
+							_clear_highlights()
+							return
+						elif not enemy and not structure \
+						and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
+							var server = get_multiplayer_authority()
+							rpc_id(server, "request_auto_attack_ranged_empty", selected_unit.unit_id, mouse_tile)
+							if is_multiplayer_authority():
+								request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
+							var spr = selected_unit.get_node("AnimatedSprite2D")
+							spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+							showing_attack = false
+							_clear_highlights()
+							return
+					# ─────────── MELEE LOGIC ───────────
+					else:
+						if enemy and enemy.is_player != selected_unit.is_player \
+						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+							# We found a valid melee target. Attack instead of selecting.
+							if GameData.multiplayer_mode:
+								var server_id = get_multiplayer_authority()
+								rpc_id(server_id, "request_auto_attack_adjacent", selected_unit.unit_id, enemy.unit_id)
+								if is_multiplayer_authority():
+									request_auto_attack_adjacent(selected_unit.unit_id, enemy.unit_id)
+								else:
+									# client‐side prediction (optional)
+									selected_unit.has_moved = true
+									showing_attack = false
+									_clear_highlights()
+									var anim = selected_unit.get_node("AnimatedSprite2D")
+									anim.play("attack")
+									play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+							else:
+								selected_unit.auto_attack_adjacent()
+								var anim = selected_unit.get_node("AnimatedSprite2D")
+								anim.play("attack")
+								selected_unit.has_moved = true
 								showing_attack = false
 								_clear_highlights()
-								return
-							else:
-								if enemy and enemy.is_player != selected_unit.is_player and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
-									if GameData.multiplayer_mode:
-										var server_id = get_multiplayer_authority()
-										rpc_id(server_id, "request_auto_attack_adjacent", selected_unit.unit_id, enemy.unit_id)
-										if is_multiplayer_authority():
-											request_auto_attack_adjacent(selected_unit.unit_id, enemy.unit_id)
-										else:
-											selected_unit.has_moved = true
-											showing_attack = false
-											_clear_highlights()
-											var anim = selected_unit.get_node("AnimatedSprite2D")
-											anim.play("attack")
-											play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-									else:
-										selected_unit.auto_attack_adjacent()
-										var anim = selected_unit.get_node("AnimatedSprite2D")
-										anim.play("attack")
-										selected_unit.has_moved = true
-										showing_attack = false
-										_clear_highlights()
-										play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-									return
-					elif not showing_attack:
-						if highlighted_tiles.has(mouse_tile) and not selected_unit.has_moved:
-							_move_selected_to(mouse_tile)
-							var sprite = selected_unit.get_node("AnimatedSprite2D")
-							sprite.self_modulate = Color(1, 0.6, 0.6, 1)
+								play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 							return
-				else:
-					_show_range_for_selected_unit()
+				# end if not_tinted && can_act && showing_attack
 
+				# 2) If we didn’t attack, and not currently showing_attack, try movement
+				if not showing_attack and not selected_unit.has_moved:
+					if highlighted_tiles.has(mouse_tile):
+						_move_selected_to(mouse_tile)
+						var sprite = selected_unit.get_node("AnimatedSprite2D")
+						sprite.self_modulate = Color(1, 0.6, 0.6, 1)
+						return
+				# 3) If attack was invalid or unit cannot act, just show range
+				if not_tinted and can_act and showing_attack == false:
+					# Already handled movement above; fall through to selection if not moved
+					pass
+				elif not_tinted and can_act == false:
+					_show_range_for_selected_unit()
+					return
+			# end if selected_unit
+
+			#
+			# 4) No move/attack happened, so now select whichever unit is under the mouse:
+			#
 			_select_unit_at_mouse()
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
@@ -879,6 +985,9 @@ func _input(event):
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()
+			# RMB does not block selection on the next frame.
+			
+	# end if mouse click
 
 # ———————————————————————————————————————————————————————————————
 # AUTO-ATTACK RPCS
@@ -1893,12 +2002,6 @@ func broadcast_game_state() -> void:
 	var structure_data = export_structure_data()
 	rpc("receive_game_state", map_data, unit_data, structure_data)
 	print("Game state broadcasted to all peers.")
-
-@rpc
-func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
-	_generate_client_map(map_data, unit_data, structure_data)
-	print("Game state successfully received and rebuilt on the client.")
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _generate_client_map(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
 	import_map_data(map_data)

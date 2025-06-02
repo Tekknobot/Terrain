@@ -86,5 +86,5 @@ func client_set_upgrade(unit_name: String, upgrade_name: String) -> void:
 
 @rpc
 func client_receive_all_upgrades(upgrades: Dictionary) -> void:
-	# Overwrite the local copy so that late‐joining clients know about every unit's ability.
-	GameData.unit_upgrades = upgrades.duplicate()
+	print("[Client] ▶ client_receive_all_upgrades() called with: ", upgrades)
+	unit_upgrades = upgrades.duplicate()
