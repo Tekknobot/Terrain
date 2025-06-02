@@ -195,6 +195,9 @@ func _physics_process(delta):
 		if selected_unit.global_position.distance_to(world_pos) < 2:
 			selected_unit.global_position = world_pos
 			selected_unit.tile_pos = next_tile
+			
+			update_astar_grid()
+			
 			current_path.remove_at(0)
 			if current_path.is_empty():
 				moving = false
