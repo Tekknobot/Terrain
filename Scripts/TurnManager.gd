@@ -3,6 +3,7 @@ extends Node
 
 signal turn_started(current_team)
 signal turn_ended(current_team)
+signal round_ended()
 
 enum Team { ENEMY, PLAYER }
 
@@ -255,6 +256,9 @@ func end_turn(game_over: bool = false):
 		
 	emit_signal("turn_ended", turn_order[current_turn_index])
 
+	if turn_order[current_turn_index] == Team.ENEMY:
+		emit_signal("round_ended")
+		
 	if game_over:
 		print("🏁 Game Over detected in end_turn, aborting spawn.")
 		return

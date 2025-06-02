@@ -346,10 +346,12 @@ func _input(event):
 				selected_unit.ground_slam(mouse_tile)
 				print("Ground Slam activated by unit: ", selected_unit.name)
 				ground_slam_mode = false
+				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Ground Slam.")
 				ground_slam_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — Mark & Pounce —
@@ -362,13 +364,16 @@ func _input(event):
 					selected_unit.mark_and_pounce(target_unit)
 					print("Mark & Pounce activated by unit:", selected_unit.name, "on target:", target_unit.name)
 					mark_and_pounce_mode = false
+					ability_button.button_pressed = false
 					GameData.selected_special_ability = ""
 				else:
 					print("No valid enemy at that tile for Mark & Pounce.")
 					mark_and_pounce_mode = false
+					ability_button.button_pressed = false
 			else:
 				print("No player unit selected for Mark & Pounce.")
 				mark_and_pounce_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — Guardian Halo —
@@ -379,10 +384,12 @@ func _input(event):
 				selected_unit.guardian_halo(mouse_tile)
 				print("Guardian Halo activated by unit:", selected_unit.name)
 				guardian_halo_mode = false
+				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Guardian Halo.")
 				guardian_halo_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — High Arcing Shot —
@@ -393,10 +400,12 @@ func _input(event):
 				selected_unit.high_arcing_shot(mouse_tile)
 				print("High Arcing Shot activated by unit:", selected_unit.name)
 				high_arcing_shot_mode = false
+				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for High Arcing Shot.")
 				high_arcing_shot_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — Suppressive Fire —
@@ -410,10 +419,12 @@ func _input(event):
 				selected_unit.suppressive_fire(dir)
 				print("Suppressive Fire activated by unit:", selected_unit.name, "dir:", dir)
 				suppressive_fire_mode = false
+				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Suppressive Fire.")
 				suppressive_fire_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — Fortify —
@@ -424,10 +435,12 @@ func _input(event):
 				selected_unit.fortify()
 				print("Fortify activated by unit:", selected_unit.name)
 				fortify_mode = false
+				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Fortify.")
 				fortify_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — Web Field —
@@ -438,10 +451,12 @@ func _input(event):
 				selected_unit.web_field(mouse_tile)
 				print("Web Field activated by unit:", selected_unit.name)
 				web_field_mode = false
+				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Web Field.")
 				web_field_mode = false
+				ability_button.button_pressed = false
 			return
 
 		# — Airlift & Bomb (two‐step) —
@@ -460,11 +475,13 @@ func _input(event):
 					selected_unit.airlift_and_bomb(chosen_airlift_unit, mouse_tile)
 					print("Airlift & Bomb executed: bomb at", mouse_tile)
 					airlift_and_bomb_mode = false
+					ability_button.button_pressed = false
 					chosen_airlift_unit = null
 					GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Airlift & Bomb.")
 				airlift_and_bomb_mode = false
+				ability_button.button_pressed = false
 			return
 		# … continue with your normal input processing …
 		if event.button_index == MOUSE_BUTTON_LEFT:

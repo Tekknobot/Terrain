@@ -70,6 +70,9 @@ var original_material : Material = null
 var ExplosionScene := preload("res://Scenes/VFX/Explosion.tscn")
 const TILE_SIZE := Vector2(64, 64)
 
+var missile_sfx := preload("res://Audio/SFX/missile_launch.wav")
+var attack_sfx := preload("res://Audio/SFX/attack_default.wav")
+
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
@@ -93,7 +96,11 @@ func _ready():
 	update_health_bar()
 	update_xp_bar()
 	debug_print_units()
-	
+
+	var tm = get_node("/root/TurnManager")
+	if tm:
+		tm.connect("round_ended", Callable(self, "_on_round_ended"))
+			
 	print("Multiplayer authority? ", get_tree().get_multiplayer().is_server())
 
 func debug_print_units():
@@ -205,13 +212,9 @@ func take_damage(amount: int) -> bool:
 		amount = int(amount * 1.25)
 		remove_meta("is_marked")
 	
-	# 1) Angel shield absorption
-	if shield_amount > 0:
-		var soak = min(shield_amount, amount)
-		amount -= soak
-		shield_amount -= soak
-		if amount <= 0:
-			return false  # shield ate all damage
+	# 1) Angel shield duration
+	if shield_duration > 0:
+		return false
 	
 	# 2) Brute fortify: reduce by half if fortified
 	if is_fortified:
@@ -959,88 +962,129 @@ func _on_pounce_finished() -> void:
 func guardian_halo(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var ally = tilemap.get_unit_at_tile(target_tile)
+	
 	if ally and ally.is_player == is_player:
-		ally.shield_amount = 30
-		ally.shield_duration = 1
-		print("Angel ", name, " granted shield to ", ally.name)
+		# — Grant immunity for one round —
+		ally.shield_duration = 1   # we’ll treat any shield_duration > 0 as “immune”
+		print("Angel ", name, " granted Guardian Halo to ", ally.name)
+		
+		# Turn on the Halo particle effect:
+		if ally.has_node("Halo"):
+			var halo = ally.get_node("Halo") as CPUParticles2D
+			halo.emitting = true
+			$AudioStreamPlayer2D.play()
+		
+		# Play your attack animation
 		var sprite = $AnimatedSprite2D
 		if sprite:
 			sprite.play("attack")
 			await sprite.animation_finished
 			sprite.play("default")
 	else:
+		# No ally found → heal self instead
 		health = min(max_health, health + 20)
 		update_health_bar()
 		print("Angel ", name, " healed self for 20 HP. Now at:", health)
+		
 		var sprite = $AnimatedSprite2D
 		if sprite:
 			sprite.play("attack")
 			await sprite.animation_finished
 			sprite.play("default")
+	
 	has_attacked = true
 	has_moved = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-# 4) Cannon – High-Arcing Shot
+func _on_round_ended() -> void:
+	if shield_duration > 0:
+		shield_duration -= 1
+		if shield_duration == 0 and has_node("Halo"):
+			get_node("Halo").emitting = false
+			
+# 4) Cannon – High-Arcing Shot (animated trajectory over 2 seconds, no ternary)
 func high_arcing_shot(target_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 	var du = target_tile - tile_pos
 	var dist = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
+	
+	$AudioStreamPlayer2D.stream = missile_sfx
+	$AudioStreamPlayer2D.play()
+	
+	# 1) Play attack animation immediately
 	var sprite = $AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
-		await sprite.animation_finished
-		sprite.play("default")
-	# Inside high_arcing_shot:
+	
+	# 2) Compute world start/end positions
+	var start_world: Vector2 = global_position
+	var end_world: Vector2 = tilemap.to_global(tilemap.map_to_local(target_tile))
+	end_world.y += Y_OFFSET
+	
+	# 3) Build parabolic trajectory points
+	var point_count := 64
+	var points := PackedVector2Array()
+	for i in range(point_count + 1):
+		var t = float(i) / float(point_count)
+		var x = lerp(start_world.x, end_world.x, t)
+		var base_y = lerp(start_world.y, end_world.y, t)
+		var height_offset := -100.0 * sin(PI * t)
+		var y = base_y + height_offset
+		points.append(Vector2(x, y))
+	
+	# 4) Create Line2D for trajectory, but don’t add points yet
+	var line := Line2D.new()
+	line.width = 1
+	line.z_index = 4000
+	line.default_color = Color(1, 0.8, 0.2)
+	get_tree().get_current_scene().add_child(line)
+	
+	# 5) Animate the line being drawn over 2 seconds
+	var interval = 2.0 / float(point_count)
+	for i in range(points.size()):
+		line.add_point(points[i])
+		await get_tree().create_timer(interval).timeout
+	
+	# 6) Once the trajectory is fully drawn, remove the line
+	if is_instance_valid(line):
+		line.queue_free()
+	
+	# 7) Damage & VFX in a 3×3 around target_tile (no ternary)
+	var ExplosionScene := preload("res://Scenes/VFX/Explosion.tscn")
 	for dx in [-1, 0, 1]:
 		for dy in [-1, 0, 1]:
-			var tile = Vector2i(target_tile.x + dx, target_tile.y + dy)
+			var tile := Vector2i(target_tile.x + dx, target_tile.y + dy)
 			if not tilemap.is_within_bounds(tile):
 				continue
-
-			# Determine damage without using a ternary:
+			
+			# Determine damage without a ternary
 			var damage_val: int
 			if dx == 0 and dy == 0:
 				damage_val = 40
 			else:
 				damage_val = 15
-
+			
+			# 7a) Damage enemy units
 			var u = tilemap.get_unit_at_tile(tile)
 			if u and u.is_player != is_player:
 				u.take_damage(damage_val)
 				u.flash_white()
 				u.shake()
-
-			var st = tilemap.get_structure_at_tile(tile)
-			if st:
-				var vfx = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
-				vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
-				get_tree().get_current_scene().add_child(vfx)
-
-		for dy in [-1, 0, 1]:
-			var tile = Vector2i(target_tile.x + dx, target_tile.y + dy)
-			if not tilemap.is_within_bounds(tile):
-				continue
-			var damage_val: int
-			if dx == 0 and dy == 0:
-				damage_val = 40
-			else:
-				damage_val = 15			
-			var u = tilemap.get_unit_at_tile(tile)
-			if u and u.is_player != is_player:
-				u.take_damage(damage_val)
-				u.flash_white()
-				u.shake()
-			var st = tilemap.get_structure_at_tile(tile)
-			if st:
-				var vfx = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
-				vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
-				get_tree().get_current_scene().add_child(vfx)
+			
+			# 7b) Spawn explosion VFX
+			var vfx := ExplosionScene.instantiate()
+			vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
+			get_tree().get_current_scene().add_child(vfx)
+			await get_tree().create_timer(0.1).timeout
+	
+	# 8) Mark cannon as used
 	has_attacked = true
 	has_moved = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	$AudioStreamPlayer2D.stream = attack_sfx
+	sprite.play("default")
 
 # 5) Multi Turret – Suppressive Fire
 func suppressive_fire(line_dir: Vector2i) -> void:
