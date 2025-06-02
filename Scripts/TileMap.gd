@@ -98,7 +98,7 @@ var guardian_halo_mode: bool = false
 var high_arcing_shot_mode: bool = false
 var suppressive_fire_mode: bool = false
 var fortify_mode: bool = false
-var airlift_and_bomb_mode: bool = false
+var heavy_rain_mode: bool = false
 var web_field_mode: bool = false
 
 var suppressive_fire_dir: Vector2i = Vector2i.ZERO
@@ -749,90 +749,51 @@ func _input(event):
 			return
 
 
+		# new: use spider_blast instead of web_field
+		if heavy_rain_mode:
+			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				if GameData.multiplayer_mode:
+					var authority_id = get_multiplayer_authority()
+					if get_tree().get_multiplayer().get_unique_id() == authority_id:
+						request_heavy_rain(selected_unit.unit_id, mouse_tile)
+						# or, if you want a new “rpc” just for spider_blast, create request_spider_blast(...)
+					else:
+						rpc_id(authority_id, "request_heavy_rain", selected_unit.unit_id, mouse_tile)
+				else:
+					selected_unit.spider_blast(mouse_tile)
+				print("Spider Blast (formerly Web Field) activated by unit:", selected_unit.name)
+				heavy_rain_mode = false
+				ability_button.button_pressed = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Spider Blast.")
+				heavy_rain_mode = false
+				ability_button.button_pressed = false
+			return
+
+		# new: use spider_blast instead of web_field
 		if web_field_mode:
 			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				if GameData.multiplayer_mode:
 					var authority_id = get_multiplayer_authority()
 					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_web_field(selected_unit.unit_id, mouse_tile)
+						request_thread_attack(selected_unit.unit_id, mouse_tile)       # reuse your thread_attack RPC
+						# or, if you want a new “rpc” just for spider_blast, create request_spider_blast(...)
 					else:
-						rpc_id(authority_id, "request_web_field", selected_unit.unit_id, mouse_tile)
+						rpc_id(authority_id, "request_thread_attack", selected_unit.unit_id, mouse_tile)
 				else:
-					selected_unit.web_field(mouse_tile)
-				print("Web Field activated by unit:", selected_unit.name)
+					selected_unit.thread_attack(mouse_tile)
+				print("Spider Blast (formerly Web Field) activated by unit:", selected_unit.name)
 				web_field_mode = false
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("No player unit selected for Web Field.")
+				print("No player unit selected for Spider Blast.")
 				web_field_mode = false
 				ability_button.button_pressed = false
 			return
-
-
-		if airlift_and_bomb_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked:
-				_clear_highlights()
-				var heli = selected_unit
-				var tilemap = get_node("/root/BattleGrid/TileMap")
-				var clicked_tile = mouse_tile
-				var maybe_unit = get_unit_at_tile(clicked_tile)
-
-				# 1) PICKUP PHASE: If we haven't picked anyone up yet AND clicked on a friendly ally ≤ 3 tiles away:
-				if heli.queued_airlift_unit == null and maybe_unit and maybe_unit.is_player and maybe_unit != heli:
-					var dist_to_ally = manhattan_distance(heli.tile_pos, maybe_unit.tile_pos)
-					if dist_to_ally <= 5:
-						# Tell server to run “pick up” logic
-						if GameData.multiplayer_mode:
-							var server_id = get_multiplayer_authority()
-							if get_tree().get_multiplayer().get_unique_id() == server_id:
-								heli.request_airlift_pick(heli.unit_id, maybe_unit.unit_id)
-							else:
-								rpc_id(server_id, "request_airlift_pick", heli.unit_id, maybe_unit.unit_id)
-						else:
-							heli.request_airlift_pick(heli.unit_id, maybe_unit.unit_id)
-
-						print("Helicopter picking up → ", maybe_unit.name)
-					else:
-						print("Ally is too far to pick up (must be ≤ 5 tiles).")
-					# Stay in airlift mode until drop or missile
-					return
-
-				# 2) DROP PHASE: If we are already carrying an ally AND clicked on an empty tile ≤ 5:
-				elif heli.queued_airlift_unit != null and not maybe_unit:
-					var carried = heli.queued_airlift_unit
-					var drop_dist = manhattan_distance(heli.tile_pos, clicked_tile)
-					if drop_dist <= 5 and not tilemap.is_tile_occupied(clicked_tile) and tilemap.get_structure_at_tile(clicked_tile) == null:
-						if GameData.multiplayer_mode:
-							var server_id = get_multiplayer_authority()
-							if get_tree().get_multiplayer().get_unique_id() == server_id:
-								heli.request_airlift_drop(heli.unit_id, carried.unit_id, clicked_tile)
-							else:
-								rpc_id(server_id, "request_airlift_drop", heli.unit_id, carried.unit_id, clicked_tile)
-						else:
-							heli.request_airlift_drop(heli.unit_id, carried.unit_id, clicked_tile)
-
-						print("Helicopter dropping ally at → ", clicked_tile)
-						# Locally clear the carried unit so next click can be pickup/missile again
-						heli.queued_airlift_unit = null
-					else:
-						print("Drop tile invalid (must be empty & ≤ 5 tiles).")
-					return
-
-				# 3) MISSILE PHASE (unchanged)...
-
-				else:
-					print("For Airlift & Drop, click a friendly (≤ 3), then drop (≤ 5), or click an enemy (≤ 8).")
-					return
-
-			else:
-				print("No valid helicopter selected or helicopter has already acted.")
-				airlift_and_bomb_mode = false
-				ability_button.button_pressed = false
-				GameData.selected_special_ability = ""
-			return
-
 
 		# NORMAL MOVEMENT / ATTACK LOGIC
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -1158,51 +1119,152 @@ func sync_fortify(attacker_id: int) -> void:
 	if not is_multiplayer_authority():
 		atk.fortify()
 
-# 7a) Airlift—pick ally (phase 1)
+# ─────────────────────────────────────────────────────────────────────────────
+# 7a) Airlift — PICK UP an ally
+# ─────────────────────────────────────────────────────────────────────────────
+
 @rpc("any_peer", "reliable")
-func request_pick_airlift(attacker_id: int, ally_id: int, new_tile: Vector2i) -> void:
+func request_airlift_pick(attacker_id: int, ally_id: int) -> void:
 	if not is_multiplayer_authority():
 		return
+
 	var heli = get_unit_by_id(attacker_id)
 	var ally = get_unit_by_id(ally_id)
-	if not heli or not ally:
+	if heli == null or ally == null:
 		return
-	ally.tile_pos = new_tile
-	ally.global_position = to_global(map_to_local(new_tile)) + Vector2(0, ally.Y_OFFSET)
+
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+
+	# Find one valid neighbor of the ally’s tile
+	var adjacent_tile := Vector2i(-1, -1)
+	for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var candidate = ally.tile_pos + dir
+		if tilemap.is_within_bounds(candidate) and tilemap._is_tile_walkable(candidate) and not tilemap.is_tile_occupied(candidate):
+			adjacent_tile = candidate
+			break
+
+	if adjacent_tile == Vector2i(-1, -1):
+		push_warning("❗ Helicopter cannot find any adjacent tile to pick up the ally.")
+		return
+
+	# Teleport the ally onto the helicopter’s tile and hide it
+	var heli_tile = heli.tile_pos
+	ally.tile_pos = heli_tile
+	ally.global_position = tilemap.to_global(tilemap.map_to_local(heli_tile)) + Vector2(0, ally.Y_OFFSET)
+	ally.visible = false
 	heli.queued_airlift_unit = ally
-	rpc("sync_pick_airlift", attacker_id, ally_id, new_tile)
+
+	# Broadcast to clients
+	rpc("sync_airlift_pick", attacker_id, ally_id, heli_tile)
+
 
 @rpc("any_peer", "reliable")
-func sync_pick_airlift(attacker_id: int, ally_id: int, new_tile: Vector2i) -> void:
+func sync_airlift_pick(attacker_id: int, ally_id: int, heli_tile: Vector2i) -> void:
+	# Clients mirror exactly what the server did above.
+	if is_multiplayer_authority():
+		return
+
 	var heli = get_unit_by_id(attacker_id)
 	var ally = get_unit_by_id(ally_id)
-	if not heli or not ally:
+	if heli == null or ally == null:
 		return
-	if not is_multiplayer_authority():
-		ally.tile_pos = new_tile
-		ally.global_position = to_global(map_to_local(new_tile)) + Vector2(0, ally.Y_OFFSET)
-		heli.queued_airlift_unit = ally
 
-# 7b) Bomb drop (phase 2)
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	ally.tile_pos = heli_tile
+	ally.global_position = tilemap.to_global(tilemap.map_to_local(heli_tile)) + Vector2(0, ally.Y_OFFSET)
+	ally.visible = false
+	heli.queued_airlift_unit = ally
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7b) Airlift — DROP the carried ally at a target tile
+# ─────────────────────────────────────────────────────────────────────────────
+
 @rpc("any_peer", "reliable")
-func request_bomb(attacker_id: int, bomb_tile: Vector2i) -> void:
+func request_airlift_drop(attacker_id: int, ally_id: int, click_tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		return
+
 	var heli = get_unit_by_id(attacker_id)
-	if not heli or not heli.queued_airlift_unit:
+	if heli == null or heli.queued_airlift_unit == null:
 		return
-	heli.airlift_and_bomb(heli.queued_airlift_unit, bomb_tile)
+
+	var carried = heli.queued_airlift_unit
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+
+	# 1) If the clicked tile is invalid, find a valid neighbor
+	var final_drop = _get_adjacent_tile(click_tile)
+	if final_drop == Vector2i(-1, -1):
+		push_warning("❗ No valid adjacent tile to drop the ally.")
+		return
+
+	# 2) Teleport & unhide the ally
+	carried.tile_pos = final_drop
+	carried.global_position = tilemap.to_global(tilemap.map_to_local(final_drop)) + Vector2(0, carried.Y_OFFSET)
+	carried.visible = true
+
+	# 3) Clear the helicopter’s carry pointer
 	heli.queued_airlift_unit = null
-	rpc("sync_bomb", attacker_id, bomb_tile)
+
+	# 4) Play a small landing VFX
+	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
+	explosion.global_position = tilemap.to_global(tilemap.map_to_local(final_drop))
+	get_tree().get_current_scene().add_child(explosion)
+
+	# 5) Broadcast to clients
+	rpc("sync_airlift_drop", attacker_id, ally_id, final_drop)
+
+	# 6) Mark helicopter as used
+	heli.has_attacked = true
+	heli.has_moved = true
+	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+
 
 @rpc("any_peer", "reliable")
-func sync_bomb(attacker_id: int, bomb_tile: Vector2i) -> void:
-	var heli = get_unit_by_id(attacker_id)
-	if not heli:
+func sync_airlift_drop(attacker_id: int, ally_id: int, final_drop: Vector2i) -> void:
+	# Clients mirror the “teleport & unhide” step
+	if is_multiplayer_authority():
 		return
-	if not is_multiplayer_authority():
-		heli.airlift_and_bomb(heli.queued_airlift_unit, bomb_tile)
-		heli.queued_airlift_unit = null
+
+	var heli = get_unit_by_id(attacker_id)
+	var carried = get_unit_by_id(ally_id)
+	if heli == null or carried == null:
+		return
+
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	carried.tile_pos = final_drop
+	carried.global_position = tilemap.to_global(tilemap.map_to_local(final_drop)) + Vector2(0, carried.Y_OFFSET)
+	carried.visible = true
+	heli.queued_airlift_unit = null
+
+	# Spawn the same landing VFX
+	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
+	explosion.global_position = tilemap.to_global(tilemap.map_to_local(final_drop))
+	get_tree().get_current_scene().add_child(explosion)
+
+	heli.has_attacked = true
+	heli.has_moved = true
+	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: find a nearby valid tile for dropping
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _get_adjacent_tile(base: Vector2i) -> Vector2i:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var neighbor = base + dir
+		if tilemap.is_within_bounds(neighbor) and tilemap._is_tile_walkable(neighbor) and not tilemap.is_tile_occupied(neighbor):
+			return neighbor
+	return Vector2i(-1, -1)
+
+
+func get_unit_by_id(target_id: int) -> Node:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u.has_meta("unit_id") and u.get_meta("unit_id") == target_id:
+			return u
+	return null
 
 # 8) Web Field
 @rpc("any_peer", "reliable")
@@ -1260,6 +1322,26 @@ func sync_lightning_surge(attacker_id: int, target_tile: Vector2i) -> void:
 		return
 	if not is_multiplayer_authority():
 		atk.lightning_surge(target_tile)
+
+# 11) Heavy Rain
+@rpc("any_peer", "reliable")
+func request_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if not atk:
+		return
+	atk.spider_blast(target_tile)
+	rpc("sync_heavy_rain", attacker_id, target_tile)
+
+@rpc("any_peer", "reliable")
+func sync_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk:
+		return
+	if not is_multiplayer_authority():
+		atk.spider_blast(target_tile)
+
 
 # ———————————————————————————————————————————————————————————————
 # VISUAL HELPERS
@@ -1344,7 +1426,7 @@ func _clear_ability_modes() -> void:
 	high_arcing_shot_mode = false
 	suppressive_fire_mode = false
 	fortify_mode = false
-	airlift_and_bomb_mode = false
+	heavy_rain_mode = false
 	web_field_mode = false
 
 	# Also clear any “in‐flight” helper state:
@@ -1611,12 +1693,6 @@ func get_structure_by_id(target_id: int) -> Node:
 			return s
 	return null
 
-func get_unit_by_id(target_id: int) -> Node:
-	for u in get_tree().get_nodes_in_group("Units"):
-		if u.has_meta("unit_id") and u.get_meta("unit_id") == target_id:
-			return u
-	return null
-
 func get_unit_at_tile(tile: Vector2i) -> Node:
 	for unit in get_tree().get_nodes_in_group("Units"):
 		if local_to_map(to_local(unit.global_position)) == tile:
@@ -1853,7 +1929,7 @@ func set_abilities_off() -> void:
 	high_arcing_shot_mode = false
 	suppressive_fire_mode = false
 	fortify_mode = false
-	airlift_and_bomb_mode = false
+	heavy_rain_mode = false
 	web_field_mode = false
 	chosen_airlift_unit = null
 	GameData.selected_special_ability = ""
@@ -1899,8 +1975,8 @@ func _on_FortifyButton_pressed() -> void:
 
 func _on_AirliftAndBombButton_pressed() -> void:
 	_clear_ability_modes()
-	airlift_and_bomb_mode = true
-	GameData.selected_special_ability = "Airlift & Drop"
+	heavy_rain_mode = true
+	GameData.selected_special_ability = "Healing Wave"
 	print("Mode set → Airlift & Drop. Step 1: pick a friendly unit to move.")
 
 func _on_WebFieldButton_pressed() -> void:
@@ -1926,8 +2002,8 @@ func _on_ability_pressed() -> void:
 			suppressive_fire_mode = true
 		"Fortify":
 			fortify_mode = true
-		"Airlift & Drop":
-			airlift_and_bomb_mode = true
+		"Heavy Rain":
+			heavy_rain_mode = true
 		"Web Field":
 			web_field_mode = true
 		"Lightning Surge":

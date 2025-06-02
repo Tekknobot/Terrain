@@ -7,7 +7,7 @@ res://Scenes/Structures_Scenes/stadium.tscn::1887f4453c3a42281c12f4e39e4f868b::1
 res://Scenes/Structures_Scenes/tower.tscn::d9c466e5470a3644b7a49e041d473b81::1743192633::res://.godot/exported/133200997/export-c24d90934d18a010f48bc6d9401a9e39-tower.scn
 res://Scenes/VFX/Explosion.tscn::14848c90f51a575f6e2ddba9aa95e617::1743246618::res://.godot/exported/133200997/export-0bbec0715e1f5c77c03474c4caabc4d0-Explosion.scn
 res://Scenes/VFX/StarNight.tscn::3e27410aba44bf5852db1aede5c3556d::1743218036::res://.godot/exported/133200997/export-2ad2015dac44f8d400669fb8a4b4dbfa-StarNight.scn
-res://Scenes/Main.tscn::20d83beaf3b229bcabfa9c97425605c9::1748839072::res://.godot/exported/133200997/export-a8e1520d83f25710dd4e3da8c6f32601-Main.scn
+res://Scenes/Main.tscn::20d83beaf3b229bcabfa9c97425605c9::1748850046::res://.godot/exported/133200997/export-a8e1520d83f25710dd4e3da8c6f32601-Main.scn
 res://Textures/in_water.tres::85b3671767ac2977b6882d60c2c73c06::1748818579::res://.godot/exported/133200997/export-928fbd6ae5adbf811ed658bd759fcf39-in_water.res
 res://Textures/level_up.tres::f042007dcb052b6ba532229e639dd0a5::1748818579::res://.godot/exported/133200997/export-faf6b108f34bf342b6f23119315b7640-level_up.res
 res://Scenes/GameOver.tscn::c971a87b0faafb657c1a967173061dd6::1748830907::res://.godot/exported/133200997/export-65c7be664135646c8b1d80384e4ee831-GameOver.scn
@@ -16,7 +16,7 @@ res://Scenes/RewardUpgrade.tscn::5da34e264623f680c4047835b85c23eb::1748830908::r
 res://Scenes/TitleScreen.tscn::1303dd8a31bf391026424eca9a32f5cf::1748830907::res://.godot/exported/133200997/export-d5bf480432d23be8d7ee9621b49ab4de-TitleScreen.scn
 res://Prefabs/CriticalStrikeMissile.tscn::c30ed68734babcd7b36b09ac50dcb112::1744074764::res://.godot/exported/133200997/export-d0aef66b249c500eb7d3ea46c5d3006c-CriticalStrikeMissile.scn
 res://Scenes/Projectile_Scenes/Grenade.tscn::b2a4de5f86b2b9c0306d08880f130587::1744074764::res://.godot/exported/133200997/export-61e0e60161a2ab3785be150dcd85725c-Grenade.scn
-res://Scenes/Projectile_Scenes/Projectile.tscn::38f90bd4c80ae76eee00ffb121977752::1744074764::res://.godot/exported/133200997/export-96f28fdf67310d4343faeeacb6feb5af-Projectile.scn
+res://Scenes/Projectile_Scenes/Projectile.tscn::38f90bd4c80ae76eee00ffb121977752::1748850046::res://.godot/exported/133200997/export-96f28fdf67310d4343faeeacb6feb5af-Projectile.scn
 res://Prefabs/SpiderBlastMissile.tscn::304be5a1885bcfbb9bcfeb952d3e613f::1744074764::res://.godot/exported/133200997/export-63bc746fd5e8b6f4733b2d5447b8da14-SpiderBlastMissile.scn
 res://Scenes/Transition.tscn::596195fcd314b526daa11ef68f11b1ce::1748830908::res://.godot/exported/133200997/export-73144784594ce0b2ace8221ea84bdc5d-Transition.scn
 res://Textures/pixel_effect.tres::6831cd33580a79fbf63f10b3f3fce17a::1748818579::res://.godot/exported/133200997/export-3b2f28a3609002a43fe58b2d8ee280c4-pixel_effect.res
@@ -24,3 +24,4 @@ res://Prefabs/ThreadAttackMissile.tscn::4be3877d4cb5690cc108b68b9351b9a7::174421
 res://Prefabs/UpgradeWindow.tscn::45b58d17d66e52e2973f3e4cdcf19b35::1744223170::res://.godot/exported/133200997/export-dd9a85b10e71ae4ffb2e7876a91b6c69-UpgradeWindow.scn
 res://Prefabs/LightningSurgeMissile.tscn::ed934d3a35fd279271b0666a07460221::1744404820::res://.godot/exported/133200997/export-d200455e887a414802e595fc353f2a6d-LightningSurgeMissile.scn
 res://Scenes/MultiplayerLobby.tscn::a3bf16f2bc89051cd30ec0789753faa8::1748830907::res://.godot/exported/133200997/export-42d23f899e3d67bd420b2d55426d2c59-MultiplayerLobby.scn
+res://Scenes/VFX/FortifyAura.tscn::f95f9ffd110c4499aa1a4629abe41939::1748850046::res://.godot/exported/133200997/export-270132e181081652523e3ec788a2bd36-FortifyAura.scn

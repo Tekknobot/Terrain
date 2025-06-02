@@ -1325,23 +1325,23 @@ var queued_airlift_origin: Vector2i = Vector2i(-1, -1)
 # 7a) RPC: Pick Up an Ally
 # The helicopter will move adjacent to the ally, pick it up (hide), then return.
 # ─────────────────────────────────────────────────────────────────────────────
+# 7a) RPC: Pick Up an Ally
 @rpc("any_peer", "reliable")
 func request_airlift_pick(attacker_id: int, ally_id: int) -> void:
 	if not is_multiplayer_authority():
 		return
+
 	var heli = get_unit_by_id(attacker_id)
 	var ally = get_unit_by_id(ally_id)
 	if heli == null or ally == null:
 		return
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-
-	# 1) Remember the helicopter’s starting tile so we can return later:
 	queued_airlift_origin = heli.tile_pos
 
-	# 2) Find a walkable tile adjacent to the ally (pick the first available):
+	# 1) find a walkable tile adjacent to the ally
 	var ally_tile = ally.tile_pos
-	var target_adjacent: Vector2i = Vector2i(-1, -1)
+	var target_adjacent = Vector2i(-1, -1)
 	for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
 		var candidate = ally_tile + dir
 		if tilemap.is_within_bounds(candidate) and tilemap._is_tile_walkable(candidate) and not tilemap.is_tile_occupied(candidate):
@@ -1351,137 +1351,100 @@ func request_airlift_pick(attacker_id: int, ally_id: int) -> void:
 		push_warning("Helicopter cannot find adjacent tile to pick up ally.")
 		return
 
-	# 3) Move helicopter step-by-step along the A* path to that adjacent tile.
+	# 2) move heli step-by-step to that adjacent tile
 	var path_to_ally = tilemap.get_weighted_path(heli.tile_pos, target_adjacent)
-	if path_to_ally.is_empty():
-		push_warning("No path for helicopter to reach the ally.")
-		return
-
 	for step in path_to_ally:
-		# Directly await move_to(...) instead of storing its return value in a variable.
 		await heli.move_to(step)
-		# After each step, rebuild the A* grid so occupancy is correct.
 		tilemap.update_astar_grid()
 
-	# 4) “Pick up” the ally: teleport it onto the helicopter’s tile and hide it.
+	# 3) teleport & hide the ally onto the helicopter’s tile
 	ally.tile_pos = heli.tile_pos
 	ally.global_position = tilemap.to_global(tilemap.map_to_local(heli.tile_pos)) + Vector2(0, ally.Y_OFFSET)
 	ally.visible = false
 	heli.queued_airlift_unit = ally
 
-	# Rebuild A* once more now that the ally is removed from the ground.
 	tilemap.update_astar_grid()
 
-	# 5) Move helicopter back along the same A* path to its original origin:
+	# 4) move helicopter BACK to its original origin
 	var path_back = tilemap.get_weighted_path(heli.tile_pos, queued_airlift_origin)
 	for step in path_back:
 		await heli.move_to(step)
 		tilemap.update_astar_grid()
 
-	# 6) Mark that helicopter has used its move but hasn't yet “dropped” the ally:
+	# 5) mark heli as having used its move
 	heli.has_moved = true
 	heli.has_attacked = false
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-	# 7) Tell all clients that the pickup is complete:
+	# 6) tell all clients the pickup is complete
 	rpc("sync_airlift_pick", attacker_id, ally_id)
 
 @rpc("any_peer", "reliable")
 func sync_airlift_pick(attacker_id: int, ally_id: int) -> void:
-	# On clients, we skip doing the step‐by‐step fly‐to/fly‐back logic,
-	# because every “move_to(...)” on the server already issued a `remote_start_move`
-	# RPC that automatically animated the helicopter’s path for all peers.
-
 	if is_multiplayer_authority():
 		return
+
 	var heli = get_unit_by_id(attacker_id)
 	var ally = get_unit_by_id(ally_id)
 	if heli == null or ally == null:
 		return
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-
-	# 1) Teleport & hide the ally to the helicopter’s tile:
+	queued_airlift_origin = heli.tile_pos
 	ally.tile_pos = heli.tile_pos
 	ally.global_position = tilemap.to_global(tilemap.map_to_local(heli.tile_pos)) + Vector2(0, ally.Y_OFFSET)
 	ally.visible = false
-
-	# 2) Remember origin so drop logic can happen later:
-	queued_airlift_origin = heli.tile_pos
-	queued_airlift_unit = ally
-
-	# 3) Update A* grid so clients know the ally is off‐board:
 	tilemap.update_astar_grid()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7b) RPC: Drop the carried ally at an empty tile (adjacent) and spawn a bomb VFX
-# ─────────────────────────────────────────────────────────────────────────────
+# 7b) RPC: Drop the carried ally
 @rpc("any_peer", "reliable")
 func request_airlift_drop(attacker_id: int, ally_id: int, drop_tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		return
+
 	var heli = get_unit_by_id(attacker_id)
 	if heli == null or heli.queued_airlift_unit == null:
 		return
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var carried = heli.queued_airlift_unit
-	var origin = queued_airlift_origin
 
-	# 0) Instead of using drop_tile directly, pick an adjacent tile if needed:
+	# 0) If drop_tile itself is not empty, pick an adjacent tile automatically
 	var final_drop = _get_adjacent_tile(tilemap, drop_tile)
 	if final_drop == Vector2i(-1, -1):
 		push_warning("No valid adjacent tile to actually drop the ally.")
 		return
 
-	# 1) Move helicopter step‐by‐step from origin to final_drop:
-	var path_to_drop = tilemap.get_weighted_path(origin, drop_tile)
-	if path_to_drop.is_empty():
-		push_warning("No path for helicopter to drop off ally.")
-	else:
-		for step in path_to_drop:
-			await heli.move_to(step)
-			tilemap.update_astar_grid()
+	# 1) move helicopter from queued_airlift_origin to final_drop
+	var path_to_drop = tilemap.get_weighted_path(queued_airlift_origin, drop_tile)
+	for step in path_to_drop:
+		await heli.move_to(step)
+		tilemap.update_astar_grid()
 
-	# 2) “Drop” the ally onto final_drop:
+	# 2) unhide & teleport the ally onto final_drop
 	carried.tile_pos = final_drop
 	carried.global_position = tilemap.to_global(tilemap.map_to_local(final_drop)) + Vector2(0, carried.Y_OFFSET)
 	carried.visible = true
 
-	# 3) Clear the carried reference:
+	# 3) clear heli’s carried pointer
 	heli.queued_airlift_unit = null
 
-	# 4) Spawn the explosion VFX at final_drop:
-	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
-	var vfx = explosion_scene.instantiate()
+	# 4) spawn explosion VFX (optional)
+	var vfx = ExplosionScene.instantiate()
 	vfx.global_position = tilemap.to_global(tilemap.map_to_local(final_drop))
 	get_tree().get_current_scene().add_child(vfx)
 
-	# 5) Update A* grid so the ally is back on the ground:
 	tilemap.update_astar_grid()
 
-	# 6) Mark the heli as having acted:
 	heli.has_attacked = true
 	heli.has_moved = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-	# 7) Tell clients to mirror this drop (passing final_drop, not original drop_tile):
 	rpc("sync_airlift_drop", attacker_id, ally_id, final_drop)
-
-func _get_adjacent_tile(tilemap: TileMap, base: Vector2i) -> Vector2i:
-	# Check up, down, left, right in that order and return the first valid one.
-	for dir in [Vector2i( 1,  0), Vector2i(-1,  0), Vector2i( 0,  1), Vector2i( 0, -1)]:
-		var neighbor = base + dir
-		if tilemap.is_within_bounds(neighbor) and tilemap._is_tile_walkable(neighbor) and not tilemap.is_tile_occupied(neighbor):
-			return neighbor
-	# If none are valid, return the original tile (or Vector2i(-1,-1) to signal “none found”)
-	return Vector2i(-1, -1)
 
 @rpc("any_peer", "reliable")
 func sync_airlift_drop(attacker_id: int, ally_id: int, drop_tile: Vector2i) -> void:
-	# The server already performed all path‐following and VFX spawns.
-	# Clients only need to mirror the “teleport & unhide” step.
-
 	if is_multiplayer_authority():
 		return
 
@@ -1491,155 +1454,48 @@ func sync_airlift_drop(attacker_id: int, ally_id: int, drop_tile: Vector2i) -> v
 		return
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-
-	# 1) Move helicopter along that same path (clients will receive remote_start_move for each step)
-	#    We already know exactly where the heli ended up—clients saw those moves via RPCs—so we can skip awaiting them.
-	#    But for consistency, let’s still call move_to(...) so that
-	#    remote_start_move() has already been fired on every step.
-	var origin = queued_airlift_origin
-	var path_to_drop = tilemap.get_weighted_path(origin, drop_tile)
-	for step in path_to_drop:
-		heli.move_to(step)
-		tilemap.update_astar_grid()
-
-	# 2) “Drop” the carried ally: teleport it to drop_tile, un‐hide it:
 	carried.tile_pos = drop_tile
 	carried.global_position = tilemap.to_global(tilemap.map_to_local(drop_tile)) + Vector2(0, carried.Y_OFFSET)
 	carried.visible = true
-
-	# 3) Clear the helicopter’s carried pointer:
 	heli.queued_airlift_unit = null
 
-	# 4) Spawn the same explosion VFX at drop_tile:
-	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
-	var vfx = explosion_scene.instantiate()
+	var vfx = ExplosionScene.instantiate()
 	vfx.global_position = tilemap.to_global(tilemap.map_to_local(drop_tile))
 	get_tree().get_current_scene().add_child(vfx)
 
-	# 5) Update A* grid now that the carried ally is back on the ground:
 	tilemap.update_astar_grid()
 
 	heli.has_attacked = true
 	heli.has_moved = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+func _get_adjacent_tile(tilemap: TileMap, base: Vector2i) -> Vector2i:
+	for dir in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+		var n = base + dir
+		if tilemap.is_within_bounds(n) and tilemap._is_tile_walkable(n) and not tilemap.is_tile_occupied(n):
+			return n
+	return Vector2i(-1, -1)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7c) RPC: Fire a Long‐Range Missile at an Enemy
+# 8) (Re‐using “Web Field” button) → actually call spider_blast
 # ─────────────────────────────────────────────────────────────────────────────
-@rpc("any_peer", "reliable")
-func request_helicopter_missile(attacker_id: int, enemy_id: int) -> void:
-	if not is_multiplayer_authority():
-		return
-	var heli = get_unit_by_id(attacker_id)
-	var enemy = get_unit_by_id(enemy_id)
-	if heli and enemy:
-		# Server does the “shoot” animation + missile instantiation
-		_do_helicopter_missile(heli, enemy)
-	rpc("sync_helicopter_missile", attacker_id, enemy_id)
 
 @rpc("any_peer", "reliable")
-func sync_helicopter_missile(attacker_id: int, enemy_id: int) -> void:
-	if is_multiplayer_authority():
-		return
-	var heli = get_unit_by_id(attacker_id)
-	var enemy = get_unit_by_id(enemy_id)
-	if heli and enemy:
-		_do_helicopter_missile(heli, enemy)
-
-
-func _do_helicopter_missile(heli: Node2D, enemy: Node2D) -> void:
-	# 1) Play the helicopter’s “attack” animation
-	var anim = heli.get_node("AnimatedSprite2D")
-	if anim:
-		anim.play("attack")
-		await anim.animation_finished
-		anim.play("default")
-
-	# 2) Spawn a missile that travels from heli → enemy
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var start_pos = heli.global_position
-	var end_pos = enemy.global_position
-
-	# a) Use a HelicopterMissile.tscn that has set_target(start, end) and emits "reached_target"
-	var missile_scene = preload("res://Scenes/Projectile_Scenes/Grenade.tscn")
-	var missile = missile_scene.instantiate()
-	get_tree().get_current_scene().add_child(missile)
-	missile.global_position = start_pos
-	missile.set_target(start_pos, end_pos)
-
-	# b) When it reaches its target, run impact logic:
-	missile.connect("reached_target", Callable(self, "_on_helicopter_missile_impact").bind(enemy))
-
-	# 3) Mark helicopter as having used its action:
-	heli.has_moved = true
-	heli.has_attacked = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
-
-
-func _on_helicopter_missile_impact(enemy: Node2D) -> void:
-	# Called when the missile hits its target
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if enemy == null or not enemy.is_inside_tree():
-		return
-
-	var enemy_tile = tilemap.local_to_map(tilemap.to_local(enemy.global_position))
-
-	# a) Spawn explosion VFX at the enemy’s tile
-	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
-	var vfx = explosion_scene.instantiate()
-	vfx.global_position = tilemap.to_global(tilemap.map_to_local(enemy_tile))
-	get_tree().get_current_scene().add_child(vfx)
-
-	# b) Deal damage
-	if enemy and enemy.is_valid():
-		enemy.take_damage(50)
-		enemy.flash_white()
-		enemy.shake()
-
-	print("Helicopter missile hit ", enemy.name, " at tile ", enemy_tile)
-	
-# 8) Spider – Web Field
-@rpc("any_peer", "reliable")
-func request_web_field(attacker_id: int, center_tile: Vector2i) -> void:
+func request_spider_blast(attacker_id: int, target_tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		return
 	var atk = get_unit_by_id(attacker_id)
 	if atk:
-		atk.web_field(center_tile)
-	rpc("sync_web_field", attacker_id, center_tile)
+		atk.spider_blast(target_tile)
+	# propagate to all peers:
+	rpc("sync_spider_blast", attacker_id, target_tile)
 
 @rpc("any_peer", "reliable")
-func sync_web_field(attacker_id: int, center_tile: Vector2i) -> void:
+func sync_spider_blast(attacker_id: int, target_tile: Vector2i) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	if atk and not is_multiplayer_authority():
-		atk.web_field(center_tile)
-
-func web_field(center_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var du = center_tile - tile_pos
-	var dist = abs(du.x) + abs(du.y)
-	if dist > 4:
-		return
-	for dx in [-1, 0, 1]:
-		for dy in [-1, 0, 1]:
-			var tx = center_tile.x + dx
-			var ty = center_tile.y + dy
-			if tx >= 0 and tx < 10 and ty >= 0 and ty < 10:
-				web_grid[tx][ty]["duration"] = 2
-				print("Web placed at:", Vector2i(tx, ty))
-				var vfx = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
-				vfx.global_position = tilemap.to_global(tilemap.map_to_local(Vector2i(tx, ty)))
-				get_tree().get_current_scene().add_child(vfx)
-
-	var sprite = $AnimatedSprite2D
-	if sprite:
-		sprite.play("attack")
-		await sprite.animation_finished
-		sprite.play("default")
-	has_attacked = true
-	has_moved = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+		atk.spider_blast(target_tile)
 
 # Called when a Spider’s “thread_attack” missile reaches its target:
 func _on_thread_attack_reached(target_tile: Vector2i) -> void:
@@ -1905,3 +1761,61 @@ func spider_blast(target_tile: Vector2i) -> void:
 	var sprite = get_child(0)
 	if sprite:
 		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7) Healing Wave (localized “heal an ally” ability)
+#    RPCs for networked healing:
+# ─────────────────────────────────────────────────────────────────────────────
+
+@rpc("any_peer", "reliable")
+func request_healing_wave(attacker_id: int, target_id: int) -> void:
+	# Only the server (authority) actually executes the heal, then broadcasts
+	if not is_multiplayer_authority():
+		return
+
+	var healer = get_unit_by_id(attacker_id)
+	var ally   = get_unit_by_id(target_id)
+	if not healer or not ally:
+		return
+
+	# Check range on the server side
+	var dist = abs(healer.tile_pos.x - ally.tile_pos.x) + abs(healer.tile_pos.y - ally.tile_pos.y)
+	if dist > 5:
+		return
+
+	# Perform heal
+	ally.health = min(ally.max_health, ally.health + 50)
+	ally.update_health_bar()
+
+	# (Optional) play VFX/audio on server
+	if healer.has_node("AnimatedSprite2D"):
+		$AnimatedSprite2D.play("attack")
+	# broadcast to all peers so they update this unit’s health locally
+	rpc("sync_healing_wave", attacker_id, target_id, ally.health)
+
+
+@rpc("any_peer", "reliable")
+func sync_healing_wave(attacker_id: int, target_id: int, new_health: int) -> void:
+	# Every client (including the server) forces its local copy of the target’s health
+	var healer = get_unit_by_id(attacker_id)
+	var ally   = get_unit_by_id(target_id)
+	if not healer or not ally:
+		return
+
+	ally.health = new_health
+	ally.update_health_bar()
+
+	# Play the same “heal” animation/VFX on each peer
+	if healer.has_node("AnimatedSprite2D"):
+		$AnimatedSprite2D.play("attack")
+	if ally.has_node("AnimatedSprite2D"):
+		# flash the healed ally blue briefly
+		ally.flash_blue()
+
+
+func play_heal_sound():
+	var sfx = preload("res://Audio/SFX/powerUp.wav") # make sure you have a heal.wav in this path
+	var player = AudioStreamPlayer.new()
+	player.stream = sfx
+	add_child(player)
+	player.play()
