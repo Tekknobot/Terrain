@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3 uid="uid://bdkt2wilhjodc"]
+
+[ext_resource type="Texture2D" uid="uid://clo23itpu1kpp" path="res://Textures/bw_gradient.png" id="1_3mubk"]
+
+[node name="FortifyAura" type="Node2D"]
+
+[node name="Particles2D" type="CPUParticles2D" parent="."]
+position = Vector2(0, -21)
+amount = 20
+lifetime = 0.5
+texture = ExtResource("1_3mubk")
+emission_shape = 1
+emission_sphere_radius = 17.75
+gravity = Vector2(0, 0)
+initial_velocity_min = 50.0
+initial_velocity_max = 50.0

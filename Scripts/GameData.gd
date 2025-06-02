@@ -24,7 +24,7 @@ var available_abilities: Array[String] = [
 	"High Arcing Shot",  # Cannon
 	"Suppressive Fire",  # Multi Turret
 	"Fortify",           # Brute
-	"Airlift & Bomb",    # Helicopter
+	"Airlift & Drop",    # Helicopter
 	"Web Field"          # Spider
 ]
 

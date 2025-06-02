@@ -772,42 +772,65 @@ func _input(event):
 
 
 		if airlift_and_bomb_mode:
-			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
-				if chosen_airlift_unit == null:
-					var maybe_ally = get_unit_at_tile(mouse_tile)
-					if maybe_ally and maybe_ally.is_player and maybe_ally != selected_unit:
-						chosen_airlift_unit = maybe_ally
+			if selected_unit and selected_unit.is_player and not selected_unit.has_attacked:
+				_clear_highlights()
+				var heli = selected_unit
+				var tilemap = get_node("/root/BattleGrid/TileMap")
+				var clicked_tile = mouse_tile
+				var maybe_unit = get_unit_at_tile(clicked_tile)
+
+				# 1) PICKUP PHASE: If we haven't picked anyone up yet AND clicked on a friendly ally ≤ 3 tiles away:
+				if heli.queued_airlift_unit == null and maybe_unit and maybe_unit.is_player and maybe_unit != heli:
+					var dist_to_ally = manhattan_distance(heli.tile_pos, maybe_unit.tile_pos)
+					if dist_to_ally <= 5:
+						# Tell server to run “pick up” logic
 						if GameData.multiplayer_mode:
-							var authority_id = get_multiplayer_authority()
-							if get_tree().get_multiplayer().get_unique_id() == authority_id:
-								request_pick_airlift(selected_unit.unit_id, chosen_airlift_unit.unit_id, chosen_airlift_unit.tile_pos)
+							var server_id = get_multiplayer_authority()
+							if get_tree().get_multiplayer().get_unique_id() == server_id:
+								heli.request_airlift_pick(heli.unit_id, maybe_unit.unit_id)
 							else:
-								rpc_id(authority_id, "request_airlift_pick", selected_unit.unit_id, chosen_airlift_unit.unit_id, chosen_airlift_unit.tile_pos)
+								rpc_id(server_id, "request_airlift_pick", heli.unit_id, maybe_unit.unit_id)
 						else:
-							# Single‐player fallback
-							selected_unit.airlift_and_bomb(chosen_airlift_unit, chosen_airlift_unit.tile_pos)
-						print("Requested pick‐airlift of ally →", chosen_airlift_unit.name)
+							heli.request_airlift_pick(heli.unit_id, maybe_unit.unit_id)
+
+						print("Helicopter picking up → ", maybe_unit.name)
 					else:
-						print("Airlift & Bomb: click on your own unit to pick for airlift first.")
+						print("Ally is too far to pick up (must be ≤ 5 tiles).")
+					# Stay in airlift mode until drop or missile
+					return
+
+				# 2) DROP PHASE: If we are already carrying an ally AND clicked on an empty tile ≤ 5:
+				elif heli.queued_airlift_unit != null and not maybe_unit:
+					var carried = heli.queued_airlift_unit
+					var drop_dist = manhattan_distance(heli.tile_pos, clicked_tile)
+					if drop_dist <= 5 and not tilemap.is_tile_occupied(clicked_tile) and tilemap.get_structure_at_tile(clicked_tile) == null:
+						if GameData.multiplayer_mode:
+							var server_id = get_multiplayer_authority()
+							if get_tree().get_multiplayer().get_unique_id() == server_id:
+								heli.request_airlift_drop(heli.unit_id, carried.unit_id, clicked_tile)
+							else:
+								rpc_id(server_id, "request_airlift_drop", heli.unit_id, carried.unit_id, clicked_tile)
+						else:
+							heli.request_airlift_drop(heli.unit_id, carried.unit_id, clicked_tile)
+
+						print("Helicopter dropping ally at → ", clicked_tile)
+						# Locally clear the carried unit so next click can be pickup/missile again
+						heli.queued_airlift_unit = null
+					else:
+						print("Drop tile invalid (must be empty & ≤ 5 tiles).")
+					return
+
+				# 3) MISSILE PHASE (unchanged)...
+
 				else:
-					_clear_highlights()
-					if GameData.multiplayer_mode:
-						var authority_id = get_multiplayer_authority()
-						if get_tree().get_multiplayer().get_unique_id() == authority_id:
-							request_bomb(selected_unit.unit_id, mouse_tile)
-						else:
-							rpc_id(authority_id, "request_bomb_drop", selected_unit.unit_id, mouse_tile)
-					else:
-						selected_unit.airlift_and_bomb(chosen_airlift_unit, mouse_tile)
-					print("Requested bomb at", mouse_tile)
-					airlift_and_bomb_mode = false
-					ability_button.button_pressed = false
-					chosen_airlift_unit = null
-					GameData.selected_special_ability = ""
+					print("For Airlift & Drop, click a friendly (≤ 3), then drop (≤ 5), or click an enemy (≤ 8).")
+					return
+
 			else:
-				print("No player unit selected for Airlift & Bomb.")
+				print("No valid helicopter selected or helicopter has already acted.")
 				airlift_and_bomb_mode = false
 				ability_button.button_pressed = false
+				GameData.selected_special_ability = ""
 			return
 
 
@@ -1877,8 +1900,8 @@ func _on_FortifyButton_pressed() -> void:
 func _on_AirliftAndBombButton_pressed() -> void:
 	_clear_ability_modes()
 	airlift_and_bomb_mode = true
-	GameData.selected_special_ability = "Airlift & Bomb"
-	print("Mode set → Airlift & Bomb. Step 1: pick a friendly unit to move.")
+	GameData.selected_special_ability = "Airlift & Drop"
+	print("Mode set → Airlift & Drop. Step 1: pick a friendly unit to move.")
 
 func _on_WebFieldButton_pressed() -> void:
 	_clear_ability_modes()
@@ -1903,7 +1926,7 @@ func _on_ability_pressed() -> void:
 			suppressive_fire_mode = true
 		"Fortify":
 			fortify_mode = true
-		"Airlift & Bomb":
+		"Airlift & Drop":
 			airlift_and_bomb_mode = true
 		"Web Field":
 			web_field_mode = true

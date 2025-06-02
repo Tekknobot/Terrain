@@ -1,3 +1,4 @@
+# RapidFireProjectile.gd
 extends Node2D
 
 signal finished
@@ -22,7 +23,6 @@ func _ready() -> void:
 	visible = false
 	progress = 0.0
 	is_ready = false
-	# Use the local Line2D node (if available) for a missile trail.
 	if line_renderer:
 		line_renderer.clear_points()
 		line_renderer.width = pixel_size
@@ -42,15 +42,11 @@ func _process(delta: float) -> void:
 		update_rotation()
 		if line_renderer:
 			line_renderer.add_point(global_position)
-		
-		# Update the projectile's z-index based on its current tile position.
 		var tilemap = get_node("/root/BattleGrid/TileMap")
 		if tilemap:
 			var current_tile = tilemap.local_to_map(tilemap.to_local(global_position))
-			# Example: use a base z-index and add a multiple of the tile's y coordinate.
-			var base_z = 1000  # Adjust as needed.
+			var base_z = 1000
 			z_index = base_z + current_tile.y * 10
-			
 	elif is_ready and progress >= 1.0:
 		is_ready = false
 		if line_renderer:
@@ -59,25 +55,23 @@ func _process(delta: float) -> void:
 		emit_signal("finished")
 		queue_free()
 
-
-# Calculate a quadratic Bezier point.
 func bezier_point(t: float) -> Vector2:
-	# B(t) = (1-t)^2 * p0 + 2(1-t)t * p1 + t^2 * p2
-	return (1 - t) * (1 - t) * start_pos + 2 * (1 - t) * t * control_point + t * t * end_pos
+	return (1 - t) * (1 - t) * start_pos \
+		   + 2 * (1 - t) * t * control_point \
+		   + t * t * end_pos
 
-# Update the missile's rotation to face its direction.
 func update_rotation() -> void:
 	var next_pos = bezier_point(min(progress + 0.05, 1.0))
 	var dir = next_pos - global_position
-	#sprite.rotation = dir.angle()
+	# If you want the sprite to rotate to face direction, uncomment:
+	# sprite.rotation = dir.angle()
 
-# Call this function to set the missile's path.
-# For Rapid Fire, the first projectile uses set_target as normal.
+# ————————————— Call this to configure the projectile —————————————
 func set_target(start: Vector2, target: Vector2) -> void:
 	start_pos = start
 	end_pos = target
-	# Set a control point for an arcing trajectory (offset upward by 200 pixels).
-	control_point = (start + target) / 2 + Vector2(0, 0)
+	# For a flat shot, control_point is simply the midpoint:
+	control_point = (start + target) / 2
 	global_position = start_pos
 	visible = true
 	is_ready = true
@@ -86,21 +80,17 @@ func set_target(start: Vector2, target: Vector2) -> void:
 		line_renderer.clear_points()
 		line_renderer.visible = true
 
-# When the missile reaches its destination, explode.
 func explode() -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		print("No TileMap found!")
 		return
 	var impact_tile = tilemap.local_to_map(tilemap.to_local(global_position))
-	
-	# Spawn a primary explosion at the impact tile.
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
 	var explosion = explosion_scene.instantiate()
 	explosion.global_position = tilemap.to_global(tilemap.map_to_local(impact_tile))
 	get_tree().get_current_scene().add_child(explosion)
-	
-	# Damage the impact tile.
+
 	var unit = tilemap.get_unit_at_tile(impact_tile)
 	if unit:
 		unit.take_damage(primary_damage)
