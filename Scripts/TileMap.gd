@@ -69,6 +69,7 @@ signal units_spawned
 @export var endturn_button: Button
 
 var next_structure_id: int = 1
+@export var ability_button: Button
 
 var difficulty_tiers: Dictionary = {
 	1: "Novice",
@@ -337,6 +338,125 @@ func _input(event):
 				print("No player unit selected for Lightning Surge.")
 			return  # Exit input processing for this click.
 
+		# — Ground Slam —
+		if ground_slam_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.ground_slam(mouse_tile)
+				print("Ground Slam activated by unit: ", selected_unit.name)
+				ground_slam_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Ground Slam.")
+			return
+
+		# — Mark & Pounce —
+		if mark_and_pounce_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				var target_unit = get_unit_at_tile(mouse_tile)
+				if target_unit and not target_unit.is_player:
+					_clear_highlights()
+					selected_unit.mark_and_pounce(target_unit)
+					print("Mark & Pounce activated by unit:", selected_unit.name, "on target:", target_unit.name)
+					mark_and_pounce_mode = false
+					GameData.selected_special_ability = ""
+				else:
+					print("No valid enemy at that tile for Mark & Pounce.")
+			else:
+				print("No player unit selected for Mark & Pounce.")
+			return
+
+		# — Guardian Halo —
+		if guardian_halo_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.guardian_halo(mouse_tile)
+				print("Guardian Halo activated by unit:", selected_unit.name)
+				guardian_halo_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Guardian Halo.")
+			return
+
+		# — High Arcing Shot —
+		if high_arcing_shot_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.high_arcing_shot(mouse_tile)
+				print("High Arcing Shot activated by unit:", selected_unit.name)
+				high_arcing_shot_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for High Arcing Shot.")
+			return
+
+		# — Suppressive Fire —
+		if suppressive_fire_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				var dir = mouse_tile - selected_unit.tile_pos
+				dir.x = sign(dir.x)
+				dir.y = sign(dir.y)
+				selected_unit.suppressive_fire(dir)
+				print("Suppressive Fire activated by unit:", selected_unit.name, "dir:", dir)
+				suppressive_fire_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Suppressive Fire.")
+			return
+
+		# — Fortify —
+		if fortify_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.fortify()
+				print("Fortify activated by unit:", selected_unit.name)
+				fortify_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Fortify.")
+			return
+
+		# — Web Field —
+		if web_field_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				_clear_highlights()
+				selected_unit.web_field(mouse_tile)
+				print("Web Field activated by unit:", selected_unit.name)
+				web_field_mode = false
+				GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Web Field.")
+			return
+
+		# — Airlift & Bomb (two‐step) —
+		if airlift_and_bomb_mode:
+			if selected_unit and selected_unit.is_player and !selected_unit.has_attacked \
+			   and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+				if chosen_airlift_unit == null:
+					var maybe_ally = get_unit_at_tile(mouse_tile)
+					if maybe_ally and maybe_ally.is_player and maybe_ally != selected_unit:
+						chosen_airlift_unit = maybe_ally
+						print("Airlift & Bomb: picked ally →", chosen_airlift_unit.name)
+					else:
+						print("Airlift & Bomb: click on your own unit to pick for airlift first.")
+				else:
+					_clear_highlights()
+					selected_unit.airlift_and_bomb(chosen_airlift_unit, mouse_tile)
+					print("Airlift & Bomb executed: bomb at", mouse_tile)
+					airlift_and_bomb_mode = false
+					chosen_airlift_unit = null
+					GameData.selected_special_ability = ""
+			else:
+				print("No player unit selected for Airlift & Bomb.")
+			return
 		# … continue with your normal input processing …
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit and is_instance_valid(selected_unit):
@@ -636,20 +756,16 @@ func toggle_borders():
 				node.visible = borders_visible
 				
 func _select_unit_at_mouse():
-	# clients only select on ENEMY turn
-	if GameData.multiplayer_mode:
-		var team = TurnManager.turn_order[ TurnManager.current_turn_index ]
-		if is_multiplayer_authority():
-			if team != TurnManager.Team.PLAYER:
-				return
-		else:
-			if team != TurnManager.Team.ENEMY:
-				return
+	# 1) If you have an Ability button exported, clear it here:
+	_clear_ability_modes()
+	if ability_button:
+		ability_button.button_pressed = false
 
-	_clear_highlights()
+	# 2) (Optional) Hide the HUD until a valid unit is found:
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	hud.visible = true
 
+	# …rest of your existing selection code…
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 16
 	var tile = local_to_map(to_local(mouse_pos))
@@ -661,13 +777,10 @@ func _select_unit_at_mouse():
 		hud.visible = false
 		return
 
-	# Always show the HUD and play the beep
+	# Now a unit was found → do the normal selection steps:
 	_update_hud_with(unit)
 	play_beep_sound(tile)
-
 	emit_signal("unit_selected", unit)
-
-	# Make this your "selected_unit" so you can toggle into attack mode
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
@@ -689,15 +802,6 @@ func _update_hud_with(unit):
 	hud.update_hud(hud_data)
 	hud.visible = true
 
-# helper to actually select & highlight your unit
-func _begin_select(unit, tile):
-	selected_unit = unit
-	showing_attack = false
-	_show_range_for_selected_unit()
-	play_beep_sound(tile)
-	emit_signal("unit_selected", unit)
-	_update_hud_with(unit)
-
 # helper to show HUD but not allow movement
 func _show_only_hud(unit, tile):
 	selected_unit = null
@@ -705,23 +809,26 @@ func _show_only_hud(unit, tile):
 	play_beep_sound(tile)
 	_update_hud_with(unit)
 
-
 func _show_range_for_selected_unit():
-	var range = 0
-	var tile_id = 0
-
 	if selected_unit == null:
 		return
 
+	# 1) Clear out any old highlights (so `highlighted_tiles` starts empty).
+	_clear_highlights()
+
+	# 2) Figure out whether we’re in attack-mode or move-mode:
+	var range: int
+	var tile_id: int
 	if showing_attack:
-		range = selected_unit.attack_range
+		range   = selected_unit.attack_range
 		tile_id = attack_tile_id
 	else:
-		range = selected_unit.movement_range
+		range   = selected_unit.movement_range
 		tile_id = highlight_tile_id
 
+	# 3) Highlight, which will push each position into `highlighted_tiles`
 	_highlight_range(selected_unit.tile_pos, range, tile_id)
-
+	
 func _update_highlight_display():
 	# Clear old highlights
 	for tile in highlighted_tiles:
@@ -1691,3 +1798,94 @@ func _generate_client_map(map_data: Dictionary, unit_data: Array, structure_data
 	_setup_camera()
 	update_astar_grid()
 	print("Client map generated from host data.")
+
+func _clear_ability_modes() -> void:
+	ground_slam_mode = false
+	mark_and_pounce_mode = false
+	guardian_halo_mode = false
+	high_arcing_shot_mode = false
+	suppressive_fire_mode = false
+	fortify_mode = false
+	airlift_and_bomb_mode = false
+	web_field_mode = false
+	lightning_surge_mode = false
+	# Reset any “in-flight” helper state:
+	chosen_airlift_unit = null
+	# Also clear GameData.selected_special_ability if you want:
+	GameData.selected_special_ability = ""
+
+func _on_GroundSlamButton_pressed() -> void:
+	_clear_ability_modes()
+	ground_slam_mode = true
+	GameData.selected_special_ability = "Ground Slam"
+	print("Mode set → Ground Slam.")
+
+func _on_MarkAndPounceButton_pressed() -> void:
+	_clear_ability_modes()
+	mark_and_pounce_mode = true
+	GameData.selected_special_ability = "Mark & Pounce"
+	print("Mode set → Mark & Pounce.")
+
+func _on_GuardianHaloButton_pressed() -> void:
+	_clear_ability_modes()
+	guardian_halo_mode = true
+	GameData.selected_special_ability = "Guardian Halo"
+	print("Mode set → Guardian Halo.")
+
+func _on_HighArcingShotButton_pressed() -> void:
+	_clear_ability_modes()
+	high_arcing_shot_mode = true
+	GameData.selected_special_ability = "High Arcing Shot"
+	print("Mode set → High Arcing Shot.")
+
+func _on_SuppressiveFireButton_pressed() -> void:
+	_clear_ability_modes()
+	suppressive_fire_mode = true
+	GameData.selected_special_ability = "Suppressive Fire"
+	print("Mode set → Suppressive Fire.")
+
+func _on_FortifyButton_pressed() -> void:
+	_clear_ability_modes()
+	fortify_mode = true
+	GameData.selected_special_ability = "Fortify"
+	print("Mode set → Fortify.")
+
+func _on_AirliftAndBombButton_pressed() -> void:
+	_clear_ability_modes()
+	airlift_and_bomb_mode = true
+	GameData.selected_special_ability = "Airlift & Bomb"
+	print("Mode set → Airlift & Bomb. Step 1: pick a friendly unit to move.")
+
+func _on_WebFieldButton_pressed() -> void:
+	_clear_ability_modes()
+	web_field_mode = true
+	GameData.selected_special_ability = "Web Field"
+	print("Mode set → Web Field.")
+
+
+func _on_ability_pressed() -> void:
+	_clear_ability_modes()
+	var ability_name = ability_button.text
+	match ability_name:
+		"Ground Slam":
+			ground_slam_mode = true
+		"Mark & Pounce":
+			mark_and_pounce_mode = true
+		"Guardian Halo":
+			guardian_halo_mode = true
+		"High Arcing Shot":
+			high_arcing_shot_mode = true
+		"Suppressive Fire":
+			suppressive_fire_mode = true
+		"Fortify":
+			fortify_mode = true
+		"Airlift & Bomb":
+			airlift_and_bomb_mode = true
+		"Web Field":
+			web_field_mode = true
+		"Lightning Surge":
+			lightning_surge_mode = true
+		_:
+			print("Unknown ability text on button:", ability_name)
+	GameData.selected_special_ability = ability_name
+	print("Mode set →", ability_name)

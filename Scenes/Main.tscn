@@ -229,7 +229,7 @@ bg_color = Color(1, 0, 0, 1)
 
 [node name="BattleGrid" type="Node2D"]
 
-[node name="TileMap" type="TileMap" parent="." node_paths=PackedStringArray("map_details", "reset_button", "menu_button", "endturn_button")]
+[node name="TileMap" type="TileMap" parent="." node_paths=PackedStringArray("map_details", "reset_button", "menu_button", "endturn_button", "ability_button")]
 y_sort_enabled = true
 tile_set = SubResource("TileSet_k2046")
 format = 2
@@ -245,6 +245,7 @@ max_structures = 8
 reset_button = NodePath("../CanvasLayer/Control/HBoxContainer/Reset")
 menu_button = NodePath("../CanvasLayer/Control/HBoxContainer/Menu")
 endturn_button = NodePath("../CanvasLayer/Control/HBoxContainer/EndTurn")
+ability_button = NodePath("../HUDLayer/Control/Ability")
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
 
@@ -478,4 +479,4 @@ transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Menu" to="TileMap" method="_on_back_pressed"]
-[connection signal="toggled" from="HUDLayer/Control/Ability" to="HUDLayer/Control" method="_on_ability_toggled"]
+[connection signal="pressed" from="HUDLayer/Control/Ability" to="TileMap" method="_on_ability_pressed"]

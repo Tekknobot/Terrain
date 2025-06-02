@@ -16,3 +16,4 @@ res://Scripts/Unit.gd
 res://Scripts/TileMap.gd
 res://Scripts/HUD_Panel.gd
 res://Scripts/GameData.gd
+res://Scenes/Structures_Scenes/building_c2.scn

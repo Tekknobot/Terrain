@@ -67,6 +67,9 @@ var visited_tiles: Array = []
 var level_up_material = preload("res://Textures/level_up.tres")
 var original_material : Material = null
 
+var ExplosionScene := preload("res://Scenes/VFX/Explosion.tscn")
+const TILE_SIZE := Vector2(64, 64)
+
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
@@ -766,31 +769,105 @@ func apply_level_up_material() -> void:
 		await get_tree().create_timer(1.0).timeout
 		sprite.material = original_material
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 1) Hulk – Ground Slam
 func ground_slam(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
 	if dist > 2:
 		return
+
+	# — hop up and slam down effect —
+	var jump_height := 40.0
+	var original_pos := global_position
+	var up_pos := original_pos + Vector2(0, -jump_height)
+
+	var hop_tween := create_tween()
+	hop_tween.tween_property(self, "global_position", up_pos, 0.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	hop_tween.tween_property(self, "global_position", original_pos, 0.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await hop_tween.finished
+
+	# — play the attack animation on ourselves —
 	var sprite = $AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
 		await sprite.animation_finished
 		sprite.play("default")
-	var enemy = tilemap.get_unit_at_tile(target_tile)
-	if enemy and enemy.is_player != is_player:
-		enemy.take_damage(30)
-		var delta = enemy.tile_pos - tile_pos
-		delta.x = sign(delta.x)
-		delta.y = sign(delta.y)
-		var new_tile = enemy.tile_pos + delta
-		if tilemap.is_within_bounds(new_tile):
-			if tilemap.get_cell_source_id(0, new_tile) == tilemap.water_tile_id:
-				enemy.take_damage(20)
-			enemy.tile_pos = new_tile
-			enemy.global_position = tilemap.to_global(tilemap.map_to_local(new_tile)) + Vector2(0, enemy.Y_OFFSET)
-			tilemap.update_astar_grid()
+
+	# — spawn explosion at the slam location itself —
+	# Determine where to place the explosion on target_tile
+	var center_unit = tilemap.get_unit_at_tile(target_tile)
+	var center_structure: Node2D = null
+	for struct_node in get_tree().get_nodes_in_group("structure"):
+		if struct_node.tile_pos == target_tile:
+			center_structure = struct_node
+			break
+
+	var slam_position: Vector2
+	if center_unit:
+		slam_position = center_unit.global_position
+	elif center_structure:
+		slam_position = center_structure.global_position
+	else:
+		var tile_top_left = tilemap.to_global(tilemap.map_to_local(target_tile))
+		slam_position = tile_top_left
+
+	var slam_explosion = ExplosionScene.instantiate()
+	slam_explosion.global_position = slam_position
+	get_tree().get_current_scene().add_child(slam_explosion)
+
+	# — spawn explosion on tiles adjacent to the *attacker’s* position —
+	var directions := [
+		Vector2i( 1,  0), Vector2i(-1,  0),
+		Vector2i( 0,  1), Vector2i( 0, -1),
+		Vector2i( 1,  1), Vector2i( 1, -1),
+		Vector2i(-1,  1), Vector2i(-1, -1),
+	]
+
+	for dir in directions:
+		var adj_tile = tile_pos + dir
+		if not tilemap.is_within_bounds(adj_tile):
+			continue
+
+		# 1) See if any unit is on this adjacent tile
+		var adj_unit = tilemap.get_unit_at_tile(adj_tile)
+
+		# 2) See if any structure (group="structure") is on this adjacent tile
+		var adj_structure: Node2D = null
+		for struct_node in get_tree().get_nodes_in_group("structure"):
+			if struct_node.tile_pos == adj_tile:
+				adj_structure = struct_node
+				break
+
+		# 3) Compute the correct global position for the explosion
+		var explosion_position: Vector2
+		if adj_unit:
+			explosion_position = adj_unit.global_position
+		elif adj_structure:
+			explosion_position = adj_structure.global_position
+		else:
+			var tile_top_left = tilemap.to_global(tilemap.map_to_local(adj_tile))
+			explosion_position = tile_top_left
+
+		# 4) Instantiate & add the Explosion effect
+		var explosion_instance = ExplosionScene.instantiate()
+		explosion_instance.global_position = explosion_position
+		get_tree().get_current_scene().add_child(explosion_instance)
+
+		# 5) Damage any unit found (friend or foe), but skip self
+		if adj_unit and adj_unit != self:
+			adj_unit.take_damage(30)
+
+		# 6) Damage or demolish the structure found
+		if adj_structure:
+			if adj_structure.has_method("take_damage"):
+				adj_structure.take_damage(50)
+			else:
+				var anim_player = adj_structure.get_child(0)
+				if anim_player and anim_player.has_method("play"):
+					anim_player.play("demolished")
+					adj_structure.modulate = Color(1, 1, 1, 1)
+
+		await get_tree().create_timer(0.1).timeout
+
 	has_attacked = true
 	has_moved = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
