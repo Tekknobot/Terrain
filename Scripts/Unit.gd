@@ -569,10 +569,10 @@ func plan_move(dest: Vector2i):
 	
 	if distances.has(dest):
 		var path = []
-		var current = dest
-		while current != tile_pos:
-			path.insert(0, current)
-			current = parents[current]
+		var current_pos = dest
+		while current_pos != tile_pos:
+			path.insert(0, current_pos)
+			current_pos = parents[current_pos]
 		var steps_to_take = min(path.size(), movement_range)
 		var move_target = path[steps_to_take - 1]
 		queued_move = move_target
@@ -772,7 +772,23 @@ func apply_level_up_material() -> void:
 		await get_tree().create_timer(1.0).timeout
 		sprite.material = original_material
 
+# ─────────────────────────────────────────────────────────────────────────────
 # 1) Hulk – Ground Slam
+@rpc("any_peer", "reliable")
+func request_ground_slam(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.ground_slam(target_tile)
+	rpc("sync_ground_slam", attacker_id, target_tile)
+
+@rpc("any_peer", "reliable")
+func sync_ground_slam(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.ground_slam(target_tile)
+
 func ground_slam(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
@@ -797,7 +813,6 @@ func ground_slam(target_tile: Vector2i) -> void:
 		sprite.play("default")
 
 	# — spawn explosion at the slam location itself —
-	# Determine where to place the explosion on target_tile
 	var center_unit = tilemap.get_unit_at_tile(target_tile)
 	var center_structure: Node2D = null
 	for struct_node in get_tree().get_nodes_in_group("structure"):
@@ -834,7 +849,7 @@ func ground_slam(target_tile: Vector2i) -> void:
 		# 1) See if any unit is on this adjacent tile
 		var adj_unit = tilemap.get_unit_at_tile(adj_tile)
 
-		# 2) See if any structure (group="structure") is on this adjacent tile
+		# 2) See if any structure is on this adjacent tile
 		var adj_structure: Node2D = null
 		for struct_node in get_tree().get_nodes_in_group("structure"):
 			if struct_node.tile_pos == adj_tile:
@@ -878,6 +893,23 @@ func ground_slam(target_tile: Vector2i) -> void:
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 # 2) Panther – Mark & Pounce
+@rpc("any_peer", "reliable")
+func request_mark_and_pounce(attacker_id: int, target_id: int) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if atk and tgt:
+		atk.mark_and_pounce(tgt)
+	rpc("sync_mark_and_pounce", attacker_id, target_id)
+
+@rpc("any_peer", "reliable")
+func sync_mark_and_pounce(attacker_id: int, target_id: int) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if atk and tgt and not is_multiplayer_authority():
+		atk.mark_and_pounce(tgt)
+
 func mark_and_pounce(target_unit: Node) -> void:
 	if not target_unit or not target_unit.is_inside_tree():
 		return
@@ -916,7 +948,7 @@ func mark_and_pounce(target_unit: Node) -> void:
 	tween.tween_property(self, "global_position", apex, 0.4) \
 		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-	# (b) Then, drop down onto the actual target in 0.1s
+	# (b) Then, drop down onto the actual target in 0.4s
 	tween.tween_property(self, "global_position", target_world, 0.4) \
 		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
@@ -959,6 +991,21 @@ func _on_pounce_finished() -> void:
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 # 3) Angel – Guardian Halo
+@rpc("any_peer", "reliable")
+func request_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.guardian_halo(target_tile)
+	rpc("sync_guardian_halo", attacker_id, target_tile)
+
+@rpc("any_peer", "reliable")
+func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.guardian_halo(target_tile)
+
 func guardian_halo(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var ally = tilemap.get_unit_at_tile(target_tile)
@@ -1003,6 +1050,21 @@ func _on_round_ended() -> void:
 			get_node("Halo").emitting = false
 			
 # 4) Cannon – High-Arcing Shot (animated trajectory over 2 seconds, no ternary)
+@rpc("any_peer", "reliable")
+func request_high_arcing_shot(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.high_arcing_shot(target_tile)
+	rpc("sync_high_arcing_shot", attacker_id, target_tile)
+
+@rpc("any_peer", "reliable")
+func sync_high_arcing_shot(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.high_arcing_shot(target_tile)
+
 func high_arcing_shot(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 	var du = target_tile - tile_pos
@@ -1073,7 +1135,15 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 				u.flash_white()
 				u.shake()
 			
-			# 7b) Spawn explosion VFX
+			# 7b) Damage or demolish any structure on this tile
+			var st = tilemap.get_structure_at_tile(tile)
+			if st:
+				var st_sprite = st.get_node_or_null("AnimatedSprite2D")
+				if st_sprite:
+					st_sprite.play("demolished")
+					st_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+			
+			# 7c) Spawn explosion VFX
 			var vfx := ExplosionScene.instantiate()
 			vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 			get_tree().get_current_scene().add_child(vfx)
@@ -1087,6 +1157,21 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 	sprite.play("default")
 
 # 5) Multi Turret – Suppressive Fire
+@rpc("any_peer", "reliable")
+func request_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.suppressive_fire(dir)
+	rpc("sync_suppressive_fire", attacker_id, dir)
+
+@rpc("any_peer", "reliable")
+func sync_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.suppressive_fire(dir)
+
 func suppressive_fire(line_dir: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	for step in 4:
@@ -1115,6 +1200,21 @@ func suppressive_fire(line_dir: Vector2i) -> void:
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 # 6) Brute – Fortify
+@rpc("any_peer", "reliable")
+func request_fortify(attacker_id: int) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.fortify()
+	rpc("sync_fortify", attacker_id)
+
+@rpc("any_peer", "reliable")
+func sync_fortify(attacker_id: int) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.fortify()
+
 func fortify() -> void:
 	is_fortified = true
 	print("Brute ", name, " is now fortified.")
@@ -1128,6 +1228,44 @@ func fortify() -> void:
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 # 7) Helicopter – Airlift & Bomb
+@rpc("any_peer", "reliable")
+func request_airlift_pick(attacker_id: int, ally_id: int, new_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var heli = get_unit_by_id(attacker_id)
+	var ally = get_unit_by_id(ally_id)
+	if heli and ally:
+		ally.tile_pos = new_tile
+		ally.global_position = get_tree().get_current_scene().get_node("TileMap").to_global(get_tree().get_current_scene().get_node("TileMap").map_to_local(new_tile)) + Vector2(0, ally.Y_OFFSET)
+		heli.queued_airlift_unit = ally
+	rpc("sync_airlift_pick", attacker_id, ally_id, new_tile)
+
+@rpc("any_peer", "reliable")
+func sync_airlift_pick(attacker_id: int, ally_id: int, new_tile: Vector2i) -> void:
+	var heli = get_unit_by_id(attacker_id)
+	var ally = get_unit_by_id(ally_id)
+	if heli and ally and not is_multiplayer_authority():
+		ally.tile_pos = new_tile
+		ally.global_position = get_tree().get_current_scene().get_node("TileMap").to_global(get_tree().get_current_scene().get_node("TileMap").map_to_local(new_tile)) + Vector2(0, ally.Y_OFFSET)
+		heli.queued_airlift_unit = ally
+
+@rpc("any_peer", "reliable")
+func request_bomb_drop(attacker_id: int, bomb_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var heli = get_unit_by_id(attacker_id)
+	if heli and heli.queued_airlift_unit:
+		heli.airlift_and_bomb(heli.queued_airlift_unit, bomb_tile)
+		heli.queued_airlift_unit = null
+	rpc("sync_bomb_drop", attacker_id, bomb_tile)
+
+@rpc("any_peer", "reliable")
+func sync_bomb_drop(attacker_id: int, bomb_tile: Vector2i) -> void:
+	var heli = get_unit_by_id(attacker_id)
+	if heli and heli.queued_airlift_unit and not is_multiplayer_authority():
+		heli.airlift_and_bomb(heli.queued_airlift_unit, bomb_tile)
+		heli.queued_airlift_unit = null
+
 func airlift_and_bomb(airlift_unit: Node, bomb_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if not airlift_unit or airlift_unit.is_player != is_player:
@@ -1159,6 +1297,21 @@ func airlift_and_bomb(airlift_unit: Node, bomb_tile: Vector2i) -> void:
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 # 8) Spider – Web Field
+@rpc("any_peer", "reliable")
+func request_web_field(attacker_id: int, center_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.web_field(center_tile)
+	rpc("sync_web_field", attacker_id, center_tile)
+
+@rpc("any_peer", "reliable")
+func sync_web_field(attacker_id: int, center_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.web_field(center_tile)
+
 func web_field(center_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var du = center_tile - tile_pos
@@ -1190,7 +1343,80 @@ func _on_thread_attack_reached(target_tile: Vector2i) -> void:
 	spawn_explosions_at_tile(target_tile)
 	print("Thread Attack exploded at tile: ", target_tile)
 
-# Lightning Surge callbacks
+# 9) Thread Attack
+@rpc("any_peer", "reliable")
+func request_thread_attack(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.thread_attack(target_tile)
+	rpc("sync_thread_attack", attacker_id, target_tile)
+
+@rpc("any_peer", "reliable")
+func sync_thread_attack(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.thread_attack(target_tile)
+
+func thread_attack(target_tile: Vector2i) -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var start_tile: Vector2i = tile_pos
+	var line_tiles: Array = TurnManager.manhattan_line(start_tile, target_tile)
+	var offset: Vector2i = Vector2i(0, -3)
+	var global_path: Array = []
+	for tile in line_tiles:
+		global_path.append(tilemap.to_global(tilemap.map_to_local(tile + offset)))
+	for i in range(global_path.size()):
+		var p = global_path[i]
+		p.y -= 24
+		global_path[i] = p
+	var missile_scene = preload("res://Prefabs/ThreadAttackMissile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+	missile.global_position = global_path[0]
+	missile.follow_path(global_path)
+	missile.connect("reached_target", Callable(self, "_on_thread_attack_reached").bind(target_tile))
+	has_attacked = true
+	has_moved = true
+	var sprite = get_node("AnimatedSprite2D")
+	if sprite:
+		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+# 10) Lightning Surge
+@rpc("any_peer", "reliable")
+func request_lightning_surge(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority():
+		return
+	var atk = get_unit_by_id(attacker_id)
+	if atk:
+		atk.lightning_surge(target_tile)
+	rpc("sync_lightning_surge", attacker_id, target_tile)
+
+@rpc("any_peer", "reliable")
+func sync_lightning_surge(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if atk and not is_multiplayer_authority():
+		atk.lightning_surge(target_tile)
+
+func lightning_surge(target_tile: Vector2i) -> void:
+	var tilemap = get_node("/root/BattleGrid/TileMap")
+	var target_pos: Vector2 = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, Y_OFFSET)
+	target_pos.y -= 8
+	var missile_scene = preload("res://Prefabs/LightningSurgeMissile.tscn")
+	var missile = missile_scene.instantiate()
+	get_tree().get_current_scene().add_child(missile)
+	tilemap.play_attack_sound(global_position)
+	missile.global_position = global_position
+	missile.set_target(global_position, target_pos)
+	print("Lightning Surge toward ", target_tile)
+	has_attacked = true
+	has_moved = true
+	var sprite := get_node("AnimatedSprite2D")
+	if sprite:
+		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	missile.connect("reached_target", Callable(self, "on_lightning_surge_reached").bind(target_tile))
+
 func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
@@ -1376,47 +1602,3 @@ func spider_blast(target_tile: Vector2i) -> void:
 	var sprite = get_child(0)
 	if sprite:
 		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-
-
-func thread_attack(target_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var start_tile: Vector2i = tile_pos
-	var line_tiles: Array = TurnManager.manhattan_line(start_tile, target_tile)
-	var offset: Vector2i = Vector2i(0, -3)
-	var global_path: Array = []
-	for tile in line_tiles:
-		global_path.append(tilemap.to_global(tilemap.map_to_local(tile + offset)))
-	for i in range(global_path.size()):
-		var p = global_path[i]
-		p.y -= 24
-		global_path[i] = p
-	var missile_scene = preload("res://Prefabs/ThreadAttackMissile.tscn")
-	var missile = missile_scene.instantiate()
-	get_tree().get_current_scene().add_child(missile)
-	missile.global_position = global_path[0]
-	missile.follow_path(global_path)
-	missile.connect("reached_target", Callable(self, "_on_thread_attack_reached").bind(target_tile))
-	has_attacked = true
-	has_moved = true
-	var sprite = get_node("AnimatedSprite2D")
-	if sprite:
-		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-
-
-func lightning_surge(target_tile: Vector2i) -> void:
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-	var target_pos: Vector2 = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, Y_OFFSET)
-	target_pos.y -= 8
-	var missile_scene = preload("res://Prefabs/LightningSurgeMissile.tscn")
-	var missile = missile_scene.instantiate()
-	get_tree().get_current_scene().add_child(missile)
-	tilemap.play_attack_sound(global_position)
-	missile.global_position = global_position
-	missile.set_target(global_position, target_pos)
-	print("Lightning Surge toward ", target_tile)
-	has_attacked = true
-	has_moved = true
-	var sprite := get_node("AnimatedSprite2D")
-	if sprite:
-		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
-	missile.connect("reached_target", Callable(self, "on_lightning_surge_reached").bind(target_tile))
