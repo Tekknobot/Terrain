@@ -769,6 +769,7 @@ func apply_level_up_material() -> void:
 		await get_tree().create_timer(1.0).timeout
 		sprite.material = original_material
 
+# 1) Hulk – Ground Slam
 func ground_slam(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
@@ -776,7 +777,7 @@ func ground_slam(target_tile: Vector2i) -> void:
 		return
 
 	# — hop up and slam down effect —
-	var jump_height := 40.0
+	var jump_height := 64.0
 	var original_pos := global_position
 	var up_pos := original_pos + Vector2(0, -jump_height)
 
@@ -855,6 +856,7 @@ func ground_slam(target_tile: Vector2i) -> void:
 		# 5) Damage any unit found (friend or foe), but skip self
 		if adj_unit and adj_unit != self:
 			adj_unit.take_damage(30)
+			adj_unit.shake()
 
 		# 6) Damage or demolish the structure found
 		if adj_structure:
@@ -876,18 +878,80 @@ func ground_slam(target_tile: Vector2i) -> void:
 func mark_and_pounce(target_unit: Node) -> void:
 	if not target_unit or not target_unit.is_inside_tree():
 		return
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+
+	$AnimatedSprite2D.play("attack")
+	$AudioStreamPlayer2D.play()
+	
+	# 1) Basic distance-check
 	var du = target_unit.tile_pos - tile_pos
 	var dist = abs(du.x) + abs(du.y)
 	if target_unit.is_player == is_player or dist > 3:
 		return
+
+	# 2) “Mark” the target
 	target_unit.set_meta("is_marked", true)
 	print("Panther ", name, " marked ", target_unit.name)
-	var sprite = $AnimatedSprite2D
-	if sprite:
-		sprite.play("attack")
-		await sprite.animation_finished
-		sprite.play("default")
+
+	# 3) Compute world positions:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+	var start_world = global_position
+	var target_world = tilemap.to_global(tilemap.map_to_local(target_unit.tile_pos))
+	# If units sit above the tile:
+	target_world.y += target_unit.Y_OFFSET
+
+	# 4) Face the target:
+	if target_world.x > start_world.x:
+		$AnimatedSprite2D.flip_h = false
+	else:
+		$AnimatedSprite2D.flip_h = true
+
+	# 5) Build a Tween with a small “hop” in Y:
+	var tween = create_tween()
+
+	# (a) First, move to an “apex” above the target (e.g. 32 pixels up) in 0.1s
+	var apex = Vector2(target_world.x, target_world.y - 32)
+	tween.tween_property(self, "global_position", apex, 0.4) \
+		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+	# (b) Then, drop down onto the actual target in 0.1s
+	tween.tween_property(self, "global_position", target_world, 0.4) \
+		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+	# (c) Once we arrive, call _on_pounce_arrived(target_unit)
+	var cb_arrived = Callable(self, "_on_pounce_arrived").bind(target_unit)
+	tween.tween_callback(cb_arrived)
+
+	# (d) Now move back—first hover up from the target, then return to start:
+	#     (d1) hop back up 32px above target in 0.1s
+	var apex_back = Vector2(start_world.x, start_world.y - 32)
+	tween.tween_property(self, "global_position", apex_back, 0.1) \
+		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+	#     (d2) drop from that apex back to the original start position in 0.1s
+	tween.tween_property(self, "global_position", start_world, 0.1) \
+		 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+	# (e) Once fully back, call _on_pounce_finished()
+	var cb_finished = Callable(self, "_on_pounce_finished")
+	tween.tween_callback(cb_finished)
+
+func _on_pounce_arrived(target_unit: Node) -> void:
+	var explosion_instance = ExplosionScene.instantiate()
+	explosion_instance.global_position = target_unit.global_position
+	get_tree().get_current_scene().add_child(explosion_instance)
+			
+	# Play “attack” animation, then damage:
+	$AnimatedSprite2D.play("attack")
+	await $AnimatedSprite2D.animation_finished
+
+	if target_unit.has_method("take_damage"):
+		target_unit.take_damage(damage)
+		target_unit.flash_white()
+		target_unit.shake()
+
+	$AnimatedSprite2D.play("default")
+
+func _on_pounce_finished() -> void:
 	has_attacked = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 

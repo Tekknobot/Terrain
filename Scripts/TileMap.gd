@@ -349,6 +349,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Ground Slam.")
+				ground_slam_mode = false
 			return
 
 		# — Mark & Pounce —
@@ -364,8 +365,10 @@ func _input(event):
 					GameData.selected_special_ability = ""
 				else:
 					print("No valid enemy at that tile for Mark & Pounce.")
+					mark_and_pounce_mode = false
 			else:
 				print("No player unit selected for Mark & Pounce.")
+				mark_and_pounce_mode = false
 			return
 
 		# — Guardian Halo —
@@ -379,6 +382,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Guardian Halo.")
+				guardian_halo_mode = false
 			return
 
 		# — High Arcing Shot —
@@ -392,6 +396,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for High Arcing Shot.")
+				high_arcing_shot_mode = false
 			return
 
 		# — Suppressive Fire —
@@ -408,6 +413,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Suppressive Fire.")
+				suppressive_fire_mode = false
 			return
 
 		# — Fortify —
@@ -421,6 +427,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Fortify.")
+				fortify_mode = false
 			return
 
 		# — Web Field —
@@ -434,6 +441,7 @@ func _input(event):
 				GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Web Field.")
+				web_field_mode = false
 			return
 
 		# — Airlift & Bomb (two‐step) —
@@ -456,6 +464,7 @@ func _input(event):
 					GameData.selected_special_ability = ""
 			else:
 				print("No player unit selected for Airlift & Bomb.")
+				airlift_and_bomb_mode = false
 			return
 		# … continue with your normal input processing …
 		if event.button_index == MOUSE_BUTTON_LEFT:
