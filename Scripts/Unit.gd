@@ -1064,11 +1064,11 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 			if dx == 0 and dy == 0:
 				damage_val = 40
 			else:
-				damage_val = 15
+				damage_val = 30
 			
 			# 7a) Damage enemy units
 			var u = tilemap.get_unit_at_tile(tile)
-			if u and u.is_player != is_player:
+			if u:
 				u.take_damage(damage_val)
 				u.flash_white()
 				u.shake()

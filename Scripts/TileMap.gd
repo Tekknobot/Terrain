@@ -1891,6 +1891,7 @@ func _on_WebFieldButton_pressed() -> void:
 
 func _on_ability_pressed() -> void:
 	_clear_ability_modes()
+	_clear_highlights()
 	var ability_name = ability_button.text
 	match ability_name:
 		"Ground Slam":
