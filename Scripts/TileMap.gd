@@ -1137,27 +1137,46 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Ve
 	if not atk or not tgt:
 		return
 
+	# If this is a client, apply damage locally; otherwise, the server already applied it.
 	var actually_died = died
 	if not is_multiplayer_authority():
 		actually_died = tgt.take_damage(damage)
 
-	atk.get_node("AnimatedSprite2D").play("attack")
+	# Play the attack animation & sound on the attacker
+	var atk_sprite = atk.get_node("AnimatedSprite2D")
+	if atk_sprite:
+		atk_sprite.play("attack")
 	play_attack_sound(atk.global_position)
+
+	# Grant XP for the hit (and extra if it died)
 	atk.gain_xp(25)
 	if actually_died:
 		atk.gain_xp(25)
 
+	# Flash the target briefly to show it was hit
 	tgt.flash_white()
+
+	# Compute the world‐space position corresponding to new_tile (after push)
 	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
+
+	# Create a Tween to animate the target from its current position to world_dest
 	var tw = tgt.create_tween()
 	tw.tween_property(tgt, "global_position", world_dest, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+	# If the target died, queue it for freeing once the animation is done
 	if actually_died:
 		tw.tween_callback(func():
 			if is_instance_valid(tgt):
 				tgt.queue_free()
 		)
 
-	update_astar_grid()
+	# Only after the visual Tween completes do we update the logical tile_pos and rebuild A⋆
+	tw.tween_callback(func():
+		if is_instance_valid(tgt):
+			tgt.tile_pos = new_tile
+			update_astar_grid()
+		# If it died, it's already freed above, so nothing more is needed here.
+	)
 
 # ———————————————————————————————————————————————————————————————
 # NEW RPCS FOR THE “EIGHT NEW SPECIAL ABILITIES”
