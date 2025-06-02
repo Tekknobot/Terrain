@@ -6,3 +6,4 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/pixel_effect.gdshader
 res://Scripts/TileMap.gd
+res://Scripts/HUD_Panel.gd
