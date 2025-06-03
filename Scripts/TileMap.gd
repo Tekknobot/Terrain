@@ -551,11 +551,13 @@ func _setup_camera():
 func _peek_show_range_for(unit: Node2D):
 	var old_selected = selected_unit
 	var old_showing_attack = showing_attack
-
+	
 	# Show movement range when peeking
 	showing_attack = false
 	selected_unit = unit
 	_show_range_for_selected_unit()
+	_update_hud_with(unit)
+	play_beep_sound(unit.tile_pos)
 
 	# Restore previous state
 	selected_unit = old_selected
@@ -910,16 +912,16 @@ func _input(event):
 		# === NORMAL MOVEMENT / ATTACK / SELECTION ===
 		#
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			# 1) If showing_attack is true, try melee or ranged attack first:
 			if selected_unit and is_instance_valid(selected_unit):
+				# 1) compute “is it actually this unit’s turn?”
 				var turn_team    = TurnManager.turn_order[TurnManager.current_turn_index]
 				var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
 				var is_enemy_turn  = (turn_team == TurnManager.Team.ENEMY)
-
 				var can_act    = (is_player_turn and selected_unit.is_player) \
 							   or (is_enemy_turn  and not selected_unit.is_player)
 				var not_tinted  = (selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1))
 
+				# 2) attack logic (only if can_act AND showing_attack)
 				if not_tinted and can_act and showing_attack:
 					var enemy     = get_unit_at_tile(mouse_tile)
 					var structure = get_structure_at_tile(mouse_tile)
@@ -932,8 +934,7 @@ func _input(event):
 							rpc_id(server, "request_auto_attack_ranged_unit", selected_unit.unit_id, enemy.unit_id)
 							if is_multiplayer_authority():
 								request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
-							var spr = selected_unit.get_node("AnimatedSprite2D")
-							spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							showing_attack = false
 							_clear_highlights()
 							return
@@ -943,19 +944,17 @@ func _input(event):
 							rpc_id(server, "request_auto_attack_ranged_structure", selected_unit.unit_id, tpos)
 							if is_multiplayer_authority():
 								request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
-							var spr = selected_unit.get_node("AnimatedSprite2D")
-							spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							showing_attack = false
 							_clear_highlights()
 							return
 						elif not enemy and not structure \
-						and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
+							 and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 							var server = get_multiplayer_authority()
 							rpc_id(server, "request_auto_attack_ranged_empty", selected_unit.unit_id, mouse_tile)
 							if is_multiplayer_authority():
 								request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
-							var spr = selected_unit.get_node("AnimatedSprite2D")
-							spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							showing_attack = false
 							_clear_highlights()
 							return
@@ -963,14 +962,13 @@ func _input(event):
 					else:
 						if enemy and enemy.is_player != selected_unit.is_player \
 						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
-							# We found a valid melee target. Attack instead of selecting.
 							if GameData.multiplayer_mode:
 								var server_id = get_multiplayer_authority()
 								rpc_id(server_id, "request_auto_attack_adjacent", selected_unit.unit_id, enemy.unit_id)
 								if is_multiplayer_authority():
 									request_auto_attack_adjacent(selected_unit.unit_id, enemy.unit_id)
 								else:
-									# client‐side prediction (optional)
+									# client‐side prediction
 									selected_unit.has_moved = true
 									showing_attack = false
 									_clear_highlights()
@@ -986,37 +984,35 @@ func _input(event):
 								_clear_highlights()
 								play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 							return
-				# end if not_tinted && can_act && showing_attack
+					# end melee
 
-				# 2) If we didn’t attack, and not currently showing_attack, try movement
+				# 3) movement logic – only if can_act is true
 				if not showing_attack and not selected_unit.has_moved:
 					if highlighted_tiles.has(mouse_tile):
 						_move_selected_to(mouse_tile)
 						var sprite = selected_unit.get_node("AnimatedSprite2D")
 						sprite.self_modulate = Color(1, 0.6, 0.6, 1)
 						return
-				# 3) If attack was invalid or unit cannot act, just show range
+				# 4) if it wasn’t a valid attack or move, but it’s still that unit’s turn, show range
 				if not_tinted and can_act and showing_attack == false:
-					# Already handled movement above; fall through to selection if not moved
+					# (nothing special here—just fall through to selection if they aren’t trying to move)
 					pass
+				# 5) if it’s not that unit’s turn, show its range anyway (peeking)
 				elif not_tinted and can_act == false:
 					_show_range_for_selected_unit()
 					return
 			# end if selected_unit
 
-			#
-			# 4) If we didn’t attack or move, check for “peek an enemy’s movement range”:
-			#
+			# 6) if we didn’t attack or move, check for an enemy‐peek click
 			var click_unit = get_unit_at_tile(mouse_tile)
 			if click_unit and click_unit.is_player == false:
 				_clear_highlights()
 				_peek_show_range_for(click_unit)
 				return
 
-			#
-			# 5) Otherwise, select whichever unit is under the mouse (or clear if none):
-			#
+			# 7) otherwise, select a new unit (or clear selection)
 			_select_unit_at_mouse()
+
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# If we have a selected_unit, behave as before (show its attack range)
@@ -1562,6 +1558,7 @@ func play_splash_sound(pos: Vector2):
 # SELECTION & HIGHLIGHTING
 # ———————————————————————————————————————————————————————————————
 func _select_unit_at_mouse():
+	_clear_highlights()
 	_clear_ability_modes()
 	if ability_button:
 		ability_button.button_pressed = false
