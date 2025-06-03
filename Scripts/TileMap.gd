@@ -986,13 +986,17 @@ func _input(event):
 							return
 					# end melee
 
-				# 3) movement logic – only if can_act is true
+				# 3) movement logic – only if we are in “movement‐range shown” mode
 				if not showing_attack and not selected_unit.has_moved:
-					if highlighted_tiles.has(mouse_tile):
+					var dist = manhattan_distance(selected_unit.tile_pos, mouse_tile)
+					if highlighted_tiles.size() > 0 \
+					and highlighted_tiles.has(mouse_tile) \
+					and dist <= selected_unit.movement_range:
 						_move_selected_to(mouse_tile)
 						var sprite = selected_unit.get_node("AnimatedSprite2D")
 						sprite.self_modulate = Color(1, 0.6, 0.6, 1)
 						return
+
 				# 4) if it wasn’t a valid attack or move, but it’s still that unit’s turn, show range
 				if not_tinted and can_act and showing_attack == false:
 					# (nothing special here—just fall through to selection if they aren’t trying to move)
