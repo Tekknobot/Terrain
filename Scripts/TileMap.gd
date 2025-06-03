@@ -354,24 +354,29 @@ func _post_map_generation():
 
 @rpc
 func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
-	# 1) Reconstruct everything exactly as the host did.
+	# 1) Reconstruct exactly as the host did:
 	_generate_client_map(map_data, unit_data, structure_data)
 	print("Client map and state rebuilt.")
-
-	# 2) NOW assign “unit_id → ability” for every client‐spawned Unit:
-	#    (mirror the host’s order of GameData.available_abilities)
-	if not is_multiplayer_authority():
-		var all_units = get_tree().get_nodes_in_group("Units")
-		for i in range(all_units.size()):
-			var unit = all_units[i]
-			var uid = unit.unit_id
-			var ability_name = ""
-			if i < GameData.available_abilities.size():
-				ability_name = GameData.available_abilities[i]
-			GameData.unit_upgrades[uid] = ability_name
-		print("[Client] forced GameData.unit_upgrades =", GameData.unit_upgrades)
-
-	# 3) Finally switch back into Main.tscn (or whatever scene has your HUD)
+	
+	# 2) Override peer_id for every enemy unit so the client truly owns them:
+	var my_id = get_tree().get_multiplayer().get_unique_id()
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not u.is_player:
+			u.peer_id = my_id
+			u.set_meta("peer_id", my_id)
+	
+	# 3) Mirror the host’s ability assignment (unchanged):
+	var all_units = get_tree().get_nodes_in_group("Units")
+	for i in range(all_units.size()):
+		var unit = all_units[i]
+		var uid = unit.unit_id
+		var ability_name = ""
+		if i < GameData.available_abilities.size():
+			ability_name = GameData.available_abilities[i]
+		GameData.unit_upgrades[uid] = ability_name
+	print("[Client] forced GameData.unit_upgrades =", GameData.unit_upgrades)
+	
+	# 4) Finally switch to the Main scene:
 	await get_tree().process_frame
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
@@ -580,17 +585,23 @@ func _peek_show_attack_range_for(unit: Node2D):
 
 func _input(event):
 	# ──────────────────────────────────────────────────────────────────────────
-	# Do NOT block clicks here—only block actions once a unit is already selected.
+	# If multiplayer, immediately ignore any client‐side clicks
+	# when it’s not this peer’s turn. Only allow “peeking” (right‐click) below.
 	# ──────────────────────────────────────────────────────────────────────────
-	if GameData.multiplayer_mode:
-		var team = TurnManager.turn_order[TurnManager.current_turn_index]
+	if GameData.multiplayer_mode and event is InputEventMouseButton:
+		var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 		if is_multiplayer_authority():
-			if team != TurnManager.Team.PLAYER:
-				# We don’t return here; we only block actual actions below.
-				pass
+			# server only acts on PLAYER’s turn
+			if turn_team != TurnManager.Team.PLAYER:
+				# Not player’s turn on the server → ignore all LEFT‐clicks/specials.
+				# But still let right‐click peeks happen (handled later).
+				if event.button_index == MOUSE_BUTTON_LEFT:
+					return
 		else:
-			if team != TurnManager.Team.ENEMY:
-				pass
+			# client only acts on ENEMY’s turn
+			if turn_team != TurnManager.Team.ENEMY:
+				if event.button_index == MOUSE_BUTTON_LEFT:
+					return
 
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_pos = get_global_mouse_position()
@@ -919,6 +930,13 @@ func _input(event):
 				var is_enemy_turn  = (turn_team == TurnManager.Team.ENEMY)
 				var can_act    = (is_player_turn and selected_unit.is_player) \
 							   or (is_enemy_turn  and not selected_unit.is_player)
+
+				# ── NEW “unit_owner vs. my_id” check ──
+				var unit_owner = selected_unit.peer_id
+				var my_id      = get_tree().get_multiplayer().get_unique_id()
+				if unit_owner != my_id:
+					can_act = false
+
 				var not_tinted  = (selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1))
 
 				# 2) attack logic (only if can_act AND showing_attack)
@@ -987,7 +1005,7 @@ func _input(event):
 					# end melee
 
 				# 3) movement logic – only if we are in “movement‐range shown” mode
-				if not showing_attack and not selected_unit.has_moved:
+				if not showing_attack and not selected_unit.has_moved and can_act:
 					var dist = manhattan_distance(selected_unit.tile_pos, mouse_tile)
 					if highlighted_tiles.size() > 0 \
 					and highlighted_tiles.has(mouse_tile) \
