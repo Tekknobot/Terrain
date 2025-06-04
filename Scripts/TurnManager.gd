@@ -131,6 +131,17 @@ func evaluate_candidate(candidate: Vector2i, unit, tilemap, target) -> int:
 	return score
 
 func _start_unit_action(team):
+	# 1) If any unit is still flagged as being pushed, wait one frame and retry
+	while true:
+		var any_still_pushing = false
+		for u in get_tree().get_nodes_in_group("Units"):
+			if is_instance_valid(u) and u.being_pushed:
+				any_still_pushing = true
+				break
+		if not any_still_pushing:
+			break
+		await get_tree().process_frame
+			
 	active_units = active_units.filter(is_instance_valid)
 	
 	while active_unit_index < active_units.size():

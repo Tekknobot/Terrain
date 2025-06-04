@@ -9,3 +9,4 @@ res://Textures/pixel_effect.tres
 res://Scripts/TileMap.gd
 res://Scenes/TitleScreen.tscn
 res://Scripts/Unit.gd
+res://Scripts/TurnManager.gd

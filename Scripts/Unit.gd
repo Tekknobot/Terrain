@@ -286,13 +286,15 @@ func auto_attack_adjacent():
 					gain_xp(25)
 					continue
 
+				# Mark as “being pushed” before any movement/awaits
 				unit.being_pushed = true
 				
-				# Push logic (water/off-grid/normal):
+				# ─── Push logic branch 1: into water ──────────────────
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
 				if tile_id == water_tile_id:
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0
+					# Move unit step‐by‐step into the water
 					while unit.global_position.distance_to(target_pos) > 1.0:
 						var delta = get_process_delta_time()
 						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
@@ -318,16 +320,25 @@ func auto_attack_adjacent():
 							gain_xp(25)
 							unit.die()
 							tilemap.update_astar_grid()
-							continue
+							# Push is “done” even if unit died
+							unit.being_pushed = false
+							continue  # go to next direction
 
 					var water_damage = 25
 					died = unit.take_damage(water_damage)
 					if not died:
 						unit.shake()
 
+					# **At this point, water‐push and splash‐damage have finished.**
 					await get_tree().create_timer(0.2).timeout
 					tilemap.update_astar_grid()
+					
+					# Turn off “being_pushed” now that all movement/awaits are done
+					unit.being_pushed = false
 					continue
+				# ────────────────────────────────────────────────────────
+
+				# ─── Push logic branch 2: off-grid (unit falls out of bounds) ──────────────────
 				elif not tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0
@@ -335,11 +346,17 @@ func auto_attack_adjacent():
 						var delta = get_process_delta_time()
 						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
 						await get_tree().process_frame
+					# Brief delay so death animation can play, etc.
 					await get_tree().create_timer(0.2).timeout
 					gain_xp(25)
 					unit.die()
 					tilemap.update_astar_grid()
+					# Push is done (unit died off-grid)
+					unit.being_pushed = false
 					continue
+				# ────────────────────────────────────────────────────────
+
+				# ─── Push logic branch 3: normal on‐grid push ──────────────────
 				elif tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0
@@ -366,6 +383,15 @@ func auto_attack_adjacent():
 							gain_xp(25)
 							unit.die()
 					tilemap.update_astar_grid()
+
+					# **At this point, the on‐grid push has finished.**
+					unit.being_pushed = false
+					continue
+				# ────────────────────────────────────────────────────────
+				
+			# end of “if unit to push” block
+		# end of “for unit in units” block
+	# end of “for dir in directions” block
 
 
 # Helper to retrieve occupant nodes (unit or structure) at a tile.

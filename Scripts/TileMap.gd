@@ -604,13 +604,16 @@ func _peek_show_attack_range_for(unit: Node2D):
 func _input(event):
 	if moving:
 		return
-		
+
+	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
+	if GameData.multiplayer_mode and turn_team != TurnManager.Team.PLAYER:
+		return
+				
 	# ──────────────────────────────────────────────────────────────────────────
 	# If multiplayer, immediately ignore any client‐side clicks
 	# when it’s not this peer’s turn. Only allow “peeking” (right‐click) below.
 	# ──────────────────────────────────────────────────────────────────────────
 	if GameData.multiplayer_mode and event is InputEventMouseButton:
-		var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 		if is_multiplayer_authority():
 			# server only acts on PLAYER’s turn
 			if turn_team != TurnManager.Team.PLAYER:
@@ -644,7 +647,6 @@ func _input(event):
 		# First, determine whether it’s “my turn” for the already-selected unit:
 		var is_my_turn = false
 		if selected_unit != null:
-			var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 			if selected_unit.is_player:
 				is_my_turn = (turn_team == TurnManager.Team.PLAYER)
 			else:
@@ -952,7 +954,6 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if selected_unit and is_instance_valid(selected_unit):
 				# 1) compute “is it actually this unit’s turn?”
-				var turn_team    = TurnManager.turn_order[TurnManager.current_turn_index]
 				var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
 				var is_enemy_turn  = (turn_team == TurnManager.Team.ENEMY)
 				var can_act    = (is_player_turn and selected_unit.is_player) \
