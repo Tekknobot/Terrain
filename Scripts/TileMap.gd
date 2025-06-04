@@ -584,6 +584,9 @@ func _peek_show_attack_range_for(unit: Node2D):
 
 
 func _input(event):
+	if moving:
+		return
+		
 	# ──────────────────────────────────────────────────────────────────────────
 	# If multiplayer, immediately ignore any client‐side clicks
 	# when it’s not this peer’s turn. Only allow “peeking” (right‐click) below.
