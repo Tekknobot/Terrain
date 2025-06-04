@@ -5,5 +5,7 @@ res://Textures/flash.gdshader
 res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/pixel_effect.gdshader
-res://Scripts/HUD_Panel.gd
 res://Scripts/TileMap.gd
+res://Scripts/Unit.gd
+res://Scenes/TitleScreen.tscn
+res://Textures/pixel_effect.tres

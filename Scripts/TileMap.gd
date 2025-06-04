@@ -1004,6 +1004,9 @@ func _input(event):
 							return
 					# end melee
 
+				if selected_unit.being_pushed:
+					return
+					
 				# 3) movement logic – only if we are in “movement‐range shown” mode
 				if not showing_attack and not selected_unit.has_moved and can_act:
 					var dist = manhattan_distance(selected_unit.tile_pos, mouse_tile)

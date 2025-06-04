@@ -25,6 +25,7 @@ signal movement_finished
 
 var has_moved
 var has_attacked
+var being_pushed: bool = false
 
 # ─────────────────────────────────────────────────────────────────────────────
 # New state for special abilities:
@@ -285,6 +286,8 @@ func auto_attack_adjacent():
 					gain_xp(25)
 					continue
 
+				unit.being_pushed = true
+				
 				# Push logic (water/off-grid/normal):
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
 				if tile_id == water_tile_id:
