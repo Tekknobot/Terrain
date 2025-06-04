@@ -803,7 +803,7 @@ func sync_ground_slam(attacker_id: int, target_tile: Vector2i) -> void:
 func ground_slam(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
-	if dist > 2:
+	if dist > 1:
 		return
 
 	# — hop up and slam down effect —
@@ -1020,7 +1020,11 @@ func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
 func guardian_halo(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var ally = tilemap.get_unit_at_tile(target_tile)
-	
+
+	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	if dist > 5:
+		return
+			
 	if ally and ally.is_player == is_player:
 		# — Grant immunity for one round —
 		ally.shield_duration = 1   # we’ll treat any shield_duration > 0 as “immune”
@@ -1194,28 +1198,44 @@ func sync_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
 	if atk and not is_multiplayer_authority():
 		atk.suppressive_fire(dir)
 
-func suppressive_fire(line_dir: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+func suppressive_fire(target_tile: Vector2i) -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+
+	# 1) Compute Δ and Manhattan distance to the clicked tile
+	var delta = target_tile - tile_pos
+	var dist  = abs(delta.x) + abs(delta.y)
+
+	# 2) Only allow if clicked tile is between 1 and max_dist away, and not diagonal.
+	#    (Here, max_dist = 2. Change this value to whatever “activation range” you need.)
+	if dist < 2:
+		return
+
+	# 3) Build a list of the four directly adjacent neighbors of this unit
+	var neighbors := [
+		tile_pos + Vector2i( 1,  0),
+		tile_pos + Vector2i(-1,  0),
+		tile_pos + Vector2i( 0,  1),
+		tile_pos + Vector2i( 0, -1)
+	]
+
+	# 4) Filter out any neighbor that lies outside the map bounds
 	var tiles_to_hit := []
+	for n in neighbors:
+		if tilemap.is_within_bounds(n):
+			tiles_to_hit.append(n)
 
-	# Collect up to 4 tiles in a straight line from this unit’s position.
-	for step in [1, 2, 3, 4]:
-		var tile = tile_pos + line_dir * step
-		if not tilemap.is_within_bounds(tile):
-			break
-		tiles_to_hit.append(tile)
-
-	# Fire one projectile at each tile, staggered by 0.1 seconds.
+	# 5) Fire one projectile at each valid neighbor (0.1 seconds apart)
 	_fire_projectiles_along(tiles_to_hit)
 
+	# 6) Mark this unit as used
 	has_attacked = true
-	has_moved = true
+	has_moved   = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 func _fire_projectiles_along(tiles: Array) -> void:
 	for i in range(tiles.size()):
 		var tile = tiles[i]
-		var delay_time = i * 0.1  # tile 0: 0 s, tile 1: 0.1 s, tile 2: 0.2 s, etc.
+		var delay_time = i * 0.01  # tile 0: 0 s, tile 1: 0.1 s, tile 2: 0.2 s, etc.
 
 		var t = Timer.new()
 		t.one_shot = true
@@ -1291,11 +1311,20 @@ func sync_fortify(attacker_id: int) -> void:
 	if atk and not is_multiplayer_authority():
 		atk.fortify()
 
-func fortify() -> void:
+func fortify(target_tile: Vector2i) -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+
+	# 1) Compute Manhattan distance to the clicked tile
+	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	# We only allow fortify if the player clicked exactly on the Brute's own tile.
+	if dist < 1:
+		return
+
+	# 2) Apply the "fortify" buff
 	is_fortified = true
 	print("Brute ", name, " is now fortified.")
 
-	# 1) Play your normal attack animation
+	# 3) Play the Brute’s attack animation and sound
 	var sprite = $AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
@@ -1303,7 +1332,7 @@ func fortify() -> void:
 		await sprite.animation_finished
 		sprite.play("default")
 
-	# 2) Spawn a visual “aura” or shield effect at the Brute’s position
+	# 4) Spawn a visual “fortify aura” effect at the Brute’s position
 	if fortify_effect_scene:
 		# If an aura is already active, remove it first
 		if _fortify_aura:
@@ -1311,16 +1340,15 @@ func fortify() -> void:
 			_fortify_aura = null
 
 		_fortify_aura = fortify_effect_scene.instantiate()
-		# Place the aura at the same world position (adjust for Y_OFFSET if needed)
 		_fortify_aura.global_position = global_position
 		get_tree().get_current_scene().add_child(_fortify_aura)
-		# We do NOT free it yet; we’ll free it later in _on_round_ended()
+		# (We’ll free this aura later in _on_round_ended())
 
-	# 3) Mark the unit as having acted
+	# 5) Mark the Brute as having acted
 	has_attacked = true
 	has_moved = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
-	
+		
 # We’ll store the allied unit we’re “carrying”, and the original tile so we can return.
 var queued_airlift_origin: Vector2i = Vector2i(-1, -1)
 
@@ -1582,6 +1610,11 @@ func lightning_surge(target_tile: Vector2i) -> void:
 func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+
+	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	if dist > 5:
+		return
+	
 	for x in range(-1, 2):
 		for y in range(-1, 2):
 			var tile = target_tile + Vector2i(x, y)
@@ -1745,6 +1778,10 @@ func explosive_rounds(target_tile: Vector2i) -> void:
 
 
 func spider_blast(target_tile: Vector2i) -> void:
+	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	if dist > 5:
+		return
+			
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	for x in range(-1, 2):
 		for y in range(-1, 2):

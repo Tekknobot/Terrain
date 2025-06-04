@@ -124,6 +124,24 @@ var difficulty_tiers: Dictionary = {
 	21: "Unstoppable", 22: "Cosmic", 23: "Infinite", 24: "Ultimate"
 }
 
+var ability_ranges: Dictionary = {
+	"Critical Strike":     2,
+	"Rapid Fire":          3,
+	"Healing Wave":        2,
+	"Overcharge Attack":   3,
+	"Explosive Rounds":    4,
+	"Spider Blast":        3,
+	"Thread Attack":       2,
+	"Lightning Surge":     4,
+	"Ground Slam":         1,
+	"Mark & Pounce":       3,
+	"Guardian Halo":       5,
+	"High Arcing Shot":    5,
+	"Suppressive Fire":    1,
+	"Fortify":             1,  # “Fortify” might not highlight anything; adjust as needed
+	"Heavy Rain":          5,
+	"Web Field":           5
+}
 # ———————————————————————————————————————————————————————————————
 # LIFECYCLE CALLBACKS
 # ———————————————————————————————————————————————————————————————
@@ -615,6 +633,11 @@ func _input(event):
 		if moving:
 			return
 
+		# Precompute distance (only if we have a selected_unit)
+		var dist := -1
+		if selected_unit != null:
+			dist = manhattan_distance(selected_unit.tile_pos, mouse_tile)
+			
 		#
 		# === SPECIAL-ABILITY HANDLERS ===
 		#
@@ -631,7 +654,8 @@ func _input(event):
 		if critical_strike_mode:
 			if selected_unit and is_my_turn \
 			and not selected_unit.has_attacked \
-			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
+			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1) \
+			and dist <= selected_unit.attack_range:
 				_clear_highlights()
 				selected_unit.critical_strike(mouse_tile)
 				print("Critical Strike activated by unit:", selected_unit.name)
@@ -865,7 +889,7 @@ func _input(event):
 					else:
 						rpc_id(authority_id, "request_fortify", selected_unit.unit_id)
 				else:
-					selected_unit.fortify()
+					selected_unit.fortify(mouse_tile)
 				print("Fortify activated by unit:", selected_unit.name)
 				fortify_mode = false
 				ability_button.button_pressed = false
@@ -1012,7 +1036,6 @@ func _input(event):
 					
 				# 3) movement logic – only if we are in “movement‐range shown” mode
 				if not showing_attack and not selected_unit.has_moved and can_act:
-					var dist = manhattan_distance(selected_unit.tile_pos, mouse_tile)
 					if highlighted_tiles.size() > 0 \
 					and highlighted_tiles.has(mouse_tile) \
 					and dist <= selected_unit.movement_range:
@@ -1669,7 +1692,7 @@ func _show_range_for_selected_unit():
 	var range: int
 	var tile_id: int
 	if showing_attack:
-		range = selected_unit.attack_range
+		range = _get_active_attack_range()
 		tile_id = attack_tile_id
 	else:
 		range = selected_unit.movement_range
@@ -1684,7 +1707,7 @@ func _update_highlight_display():
 
 	var range: int
 	if showing_attack:
-		range = selected_unit.attack_range
+		range = _get_active_attack_range()
 	else:
 		range = selected_unit.movement_range
 
@@ -2212,6 +2235,11 @@ func _on_ability_pressed() -> void:
 	GameData.selected_special_ability = ability_name
 	print("Mode set →", ability_name)
 
+	# Immediately show the attack‐range grid for the currently selected unit:
+	if selected_unit != null:
+		showing_attack = true
+		_update_highlight_display()	
+
 # ———————————————————————————————————————————————————————————————
 # HELPER FUNCTIONS FOR TURN FLOW
 # ———————————————————————————————————————————————————————————————
@@ -2235,3 +2263,14 @@ func _on_peer_connected(id: int) -> void:
 	# Send the current map/state first (this might already be happening in receive_game_state),
 	# then immediately send the upgrades dictionary so the late‐joiner can populate their HUD.
 	rpc_id(id, "client_receive_all_upgrades", GameData.unit_upgrades)
+
+func _get_active_attack_range() -> int:
+	# If the player has clicked “show attack range” for a special ability,
+	# GameData.selected_special_ability is set (via _on_ability_pressed()).
+	var ability_name: String = GameData.selected_special_ability
+	if ability_name != "" and ability_ranges.has(ability_name):
+		return ability_ranges[ability_name]
+	# Otherwise, default to the unit’s normal attack_range:
+	if selected_unit:
+		return selected_unit.attack_range
+	return 0
