@@ -1576,6 +1576,7 @@ func thread_attack(target_tile: Vector2i) -> void:
 	var missile_scene = preload("res://Prefabs/ThreadAttackMissile.tscn")
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
+	missile.get_child(0).emitting = true
 	missile.global_position = global_path[0]
 	missile.follow_path(global_path)
 	missile.connect("reached_target", Callable(self, "_on_thread_attack_reached").bind(target_tile))
