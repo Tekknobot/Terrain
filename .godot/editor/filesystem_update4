@@ -1,4 +1,4 @@
-res://Prefabs/Missile.tscn
+res://Scenes/Main.tscn
 res://Textures/level_up.gdshader
 res://Textures/level_up.tres
 res://Textures/flash.gdshader
@@ -6,6 +6,8 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
-res://Scripts/Missile.gd
-res://Scenes/Main.tscn
 res://Scenes/TitleScreen.tscn
+res://Prefabs/Missile.tscn
+res://Scripts/Unit.gd
+res://Scenes/VFX/FortifyAura.tscn
+res://Scripts/TurnManager.gd

@@ -474,9 +474,14 @@ func update_xp_bar():
 
 
 func die():
+	# Free any active fortify aura before dying
+	if _fortify_aura:
+		_fortify_aura.queue_free()
+		_fortify_aura = null
+
 	if is_player:
 		TurnManager.player_units_lost += 1
-			
+
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
 	explosion.position = global_position + Vector2(0, -8)
@@ -485,7 +490,7 @@ func die():
 	await get_tree().process_frame
 	if is_multiplayer_authority():
 		rpc("remote_unit_died", unit_id)
-		
+
 	queue_free()
 	await get_tree().process_frame
 
@@ -1263,7 +1268,7 @@ func suppressive_fire(target_tile: Vector2i) -> void:
 func _fire_projectiles_along(tiles: Array) -> void:
 	for i in range(tiles.size()):
 		var tile = tiles[i]
-		var delay_time = i * 0.01  # tile 0: 0 s, tile 1: 0.1 s, tile 2: 0.2 s, etc.
+		var delay_time = 0.01  # tile 0: 0 s, tile 1: 0.1 s, tile 2: 0.2 s, etc.
 
 		var t = Timer.new()
 		t.one_shot = true
