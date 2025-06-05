@@ -530,17 +530,26 @@ func flash_white():
 	if not sprite:
 		return
 
+	# Capture the current modulate color before flashing
+	var original_color = sprite.self_modulate
+
+	# If a previous flash‐tween is running, kill it and immediately restore the original
 	if _flash_tween:
 		_flash_tween.kill()
-		sprite.self_modulate = Color(1,1,1,1)
+		sprite.self_modulate = original_color
 		_flash_tween = null
 
 	_flash_tween = create_tween()
+	# Flash 3 times: white → original_color → white → original_color → …
 	for i in range(3):
-		_flash_tween.tween_property(sprite, "self_modulate", Color(1,1,1,1), 0.1)
-		_flash_tween.tween_property(sprite, "self_modulate", Color(1,1,1,0), 0.1)
+		# Tween from original_color → white over 0.1s
+		_flash_tween.tween_property(sprite, "self_modulate", Color(1, 1, 1, 1), 0.1)
+		# Then tween back from white → original_color over 0.1s
+		_flash_tween.tween_property(sprite, "self_modulate", original_color, 0.1)
+
+	# At the end, make absolutely sure we’re back to the original, and clear the tween reference
 	_flash_tween.tween_callback(func():
-		sprite.self_modulate = Color(1,1,1,1)
+		sprite.self_modulate = original_color
 		_flash_tween = null
 	)
 

@@ -112,6 +112,7 @@ func _process(delta):
 							if anim_sprite:
 								anim_sprite.play("demolished")
 								anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+								occupant.being_pushed = false
 						
 					# Else if the destination is water, animate push and apply 25 damage.
 					elif is_water:
@@ -122,6 +123,7 @@ func _process(delta):
 						await get_tree().create_timer(0.2).timeout
 						occupant.take_damage(25)
 						tilemap.play_splash_sound(dest_pos)
+						occupant.being_pushed = false
 					else:
 						# Otherwise, push the occupant normally into the destination tile.
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
@@ -130,8 +132,7 @@ func _process(delta):
 						occupant.tile_pos = dest_tile
 						occupant.take_damage(25)
 						occupant.shake()
-					
-					occupant.being_pushed = false
+						occupant.being_pushed = false
 					
 			emit_signal("finished")
 			queue_free()
