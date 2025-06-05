@@ -99,6 +99,7 @@ func _process(delta):
 					# If destination is out of bounds or occupied by another unit or structure (and not water), kill the occupant.
 					if (not tilemap.is_within_bounds(dest_tile)) or tilemap.get_unit_at_tile(dest_tile) or tilemap.get_structure_at_tile(dest_tile):
 						# Animate the push tween.
+						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
 						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -129,7 +130,9 @@ func _process(delta):
 						occupant.tile_pos = dest_tile
 						occupant.take_damage(25)
 						occupant.shake()
-			
+					
+					occupant.being_pushed = false
+					
 			emit_signal("finished")
 			queue_free()
 
