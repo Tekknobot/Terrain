@@ -1203,18 +1203,20 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Ve
 
 	# Flash the target briefly to show it was hit
 	tgt.flash_white()
-
+	tgt.being_pushed = true
+	
 	# Compute the world‐space position corresponding to new_tile (after push)
 	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
 
 	# Create a Tween to animate the target from its current position to world_dest
 	var tw = tgt.create_tween()
 	tw.tween_property(tgt, "global_position", world_dest, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-
+	
 	# If the target died, queue it for freeing once the animation is done
 	if actually_died:
 		tw.tween_callback(func():
 			if is_instance_valid(tgt):
+				tgt.being_pushed = false
 				tgt.queue_free()
 		)
 
@@ -1222,6 +1224,7 @@ func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Ve
 	tw.tween_callback(func():
 		if is_instance_valid(tgt):
 			tgt.tile_pos = new_tile
+			tgt.being_pushed = false
 			update_astar_grid()
 		# If it died, it's already freed above, so nothing more is needed here.
 	)
