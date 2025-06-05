@@ -515,43 +515,75 @@ func spawn_structures():
 		print("Spawned", count, "structures.")
 
 func spawn_new_enemy_units():
+	# 1) How many enemies are already on the board?
 	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)
 	var current_count = enemy_units_on_board.size()
+	
+	# 2) If we've already reached (or exceeded) the cap, bail out.
 	if current_count >= GameData.max_enemy_units:
 		print("Max enemy units reached:", current_count)
 		return
-
-	var units_to_spawn: int = GameData.current_level - 1
-	units_to_spawn = min(units_to_spawn, GameData.max_enemy_units - current_count)
+	
+	# 3) Compute “raw” spawn based on current_level, but much slower than (level - 1).
+	#    ‣ spawn_rate of 0.5 means “half a unit per level,” floored.
+	#    ‣ Guarantee at least 1 spawn until you hit the cap.
+	var level = GameData.current_level
+	var spawn_rate := 0.5
+	var base_spawn := int(floor(level * spawn_rate))
+	base_spawn = max(base_spawn, 1)  # always spawn at least 1 enemy, early on
+	
+	# 4) But do not exceed the remaining slots (max_enemy_units – current_count)
+	var slots_left = GameData.max_enemy_units - current_count
+	var units_to_spawn = min(base_spawn, slots_left)
+	
+	# Debug print for clarity:
+	print("🆕 Level", level, "→ trying to spawn", base_spawn,
+		  "(capped to", units_to_spawn, "by max_enemy_units).")
+	
+	# 5) Center them along the top row (row = 0) in contiguous X positions
 	var used_tiles: Array[Vector2i] = []
 	var spawn_row = 0
 	var start_x = int((grid_width - units_to_spawn) / 2)
-
+	
 	for i in range(units_to_spawn):
 		var x = clamp(start_x + i, 0, grid_width - 1)
 		var spawn_tile = Vector2i(x, spawn_row)
-		if not is_within_bounds(spawn_tile) or is_tile_occupied(spawn_tile) or is_water_tile(spawn_tile):
+		
+		# If that tile is invalid (off‐map / water / occupied), find nearest valid land
+		if not is_within_bounds(spawn_tile) \
+		   or is_tile_occupied(spawn_tile) \
+		   or is_water_tile(spawn_tile):
+		   
 			spawn_tile = _find_nearest_land(spawn_tile, used_tiles)
 			if spawn_tile == Vector2i(-1, -1):
+				# No valid tile found—skip this spawn slot
+				print("⚠ Couldn’t find valid land for spawn at X =", x)
 				continue
 		used_tiles.append(spawn_tile)
-
+		
+		# 6) Choose one random PackedScene from your enemy_units array:
 		var random_index = randi() % enemy_units.size()
 		var enemy_scene = enemy_units[random_index]
 		var enemy_unit = enemy_scene.instantiate()
-
+		
+		# 7) Mark it as “enemy,” assign tile, group, etc.
 		enemy_unit.set_team(false)
 		enemy_unit.tile_pos = spawn_tile
 		enemy_unit.add_to_group("Units")
 		add_child(enemy_unit)
-
+		
+		# 8) Drop it in from above (same as before)
 		var target_pos = to_global(map_to_local(spawn_tile)) + Vector2(0, enemy_unit.Y_OFFSET)
 		var drop_offset = 100.0
 		enemy_unit.global_position = target_pos - Vector2(0, drop_offset)
-
+		
 		var tween = enemy_unit.create_tween()
-		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-
+		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5) \
+			 .set_trans(Tween.TRANS_SINE) \
+			 .set_ease(Tween.EASE_OUT)
+	# end for
+	
+	# 9) Rebuild A⋆ so these new enemies act as blockers
 	update_astar_grid()
 
 # ———————————————————————————————————————————————————————————————
