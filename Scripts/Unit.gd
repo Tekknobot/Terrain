@@ -784,6 +784,7 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	has_moved = true
 	has_attacked = true
 
+
 func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
