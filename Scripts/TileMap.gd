@@ -2212,9 +2212,47 @@ func _on_WebFieldButton_pressed() -> void:
 	print("Mode set → Web Field.")
 
 func _on_ability_pressed() -> void:
+	# What button‐text did we just click?
+	var ability_name = ability_button.text
+	print("[AbilityPressed] Clicked button: ", ability_name)
+
+	# --- 1) Decide if this same ability is already active by checking its mode boolean ---
+	var same_as_current := false
+	match ability_name:
+		"Ground Slam":
+			same_as_current = ground_slam_mode
+		"Mark & Pounce":
+			same_as_current = mark_and_pounce_mode
+		"Guardian Halo":
+			same_as_current = guardian_halo_mode
+		"High Arcing Shot":
+			same_as_current = high_arcing_shot_mode
+		"Suppressive Fire":
+			same_as_current = suppressive_fire_mode
+		"Fortify":
+			same_as_current = fortify_mode
+		"Heavy Rain":
+			same_as_current = heavy_rain_mode
+		"Web Field":
+			same_as_current = web_field_mode
+		"Lightning Surge":
+			same_as_current = lightning_surge_mode
+		_:
+			print("[AbilityPressed] ! Unknown ability text: ", ability_name)
+
+	# --- 2) If it’s the same mode that’s already true, just clear highlights and redraw the grid. ---
+	if same_as_current:
+		print("[AbilityPressed] Same ability clicked → just refreshing highlights")
+		_clear_highlights()
+		_clear_ability_modes()
+		selected_unit = null
+		return
+
+	# --- 3) Otherwise, we clicked a different ability. Clear all modes, clear highlights, and switch on the new one. ---
+	print("[AbilityPressed] Switching to a new ability → clearing old modes")
 	_clear_ability_modes()
 	_clear_highlights()
-	var ability_name = ability_button.text
+
 	match ability_name:
 		"Ground Slam":
 			ground_slam_mode = true
@@ -2235,14 +2273,20 @@ func _on_ability_pressed() -> void:
 		"Lightning Surge":
 			lightning_surge_mode = true
 		_:
-			print("Unknown ability text on button:", ability_name)
-	GameData.selected_special_ability = ability_name
-	print("Mode set →", ability_name)
+			# Shouldn’t hit this if your button‐text is valid.
+			print("[AbilityPressed] ! Unexpected ability name in match: ", ability_name)
 
-	# Immediately show the attack‐range grid for the currently selected unit:
+	# Remember which special ability is now “selected.”
+	GameData.selected_special_ability = ability_name
+	print("[AbilityPressed] Mode set → ", ability_name)
+
+	# Finally, show that ability’s range grid (if we have a unit selected).
 	if selected_unit != null:
 		showing_attack = true
-		_update_highlight_display()	
+		_update_highlight_display()
+	else:
+		print("[AbilityPressed] No selected_unit, so highlight refresh was skipped.")
+
 
 # ———————————————————————————————————————————————————————————————
 # HELPER FUNCTIONS FOR TURN FLOW

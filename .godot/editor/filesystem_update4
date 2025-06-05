@@ -8,8 +8,5 @@ res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
 res://Scripts/TileMap.gd
 res://Scenes/TitleScreen.tscn
-res://Scripts/Unit.gd
 res://Prefabs/ThreadAttackMissile.tscn
-res://Scripts/TurnManager.gd
 res://Prefabs/Missile.tscn
-res://Scripts/Missile.gd
