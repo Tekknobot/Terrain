@@ -11,3 +11,6 @@ res://Prefabs/Missile.tscn
 res://Scripts/Unit.gd
 res://Scenes/VFX/FortifyAura.tscn
 res://Scripts/TurnManager.gd
+res://Scripts/Missile.gd
+res://Scripts/TileMap.gd
+res://Scripts/GameData.gd
