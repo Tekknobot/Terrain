@@ -1,4 +1,4 @@
-res://Scenes/Main.tscn
+res://Prefabs/Missile.tscn
 res://Textures/level_up.gdshader
 res://Textures/level_up.tres
 res://Textures/flash.gdshader
@@ -6,6 +6,6 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
-res://Scripts/TileMap.gd
+res://Scripts/Missile.gd
+res://Scenes/Main.tscn
 res://Scenes/TitleScreen.tscn
-res://Scripts/GameData.gd

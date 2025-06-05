@@ -112,7 +112,7 @@ func _process(delta):
 							if anim_sprite:
 								anim_sprite.play("demolished")
 								anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-								occupant.being_pushed = false
+						occupant.being_pushed = false
 						
 					# Else if the destination is water, animate push and apply 25 damage.
 					elif is_water:
