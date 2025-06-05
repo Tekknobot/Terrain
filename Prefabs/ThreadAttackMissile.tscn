@@ -7,5 +7,4 @@ script = ExtResource("1_y2ftg")
 
 [node name="CPUParticles2D" type="CPUParticles2D" parent="."]
 amount = 128
-lifetime = 3.0
 gravity = Vector2(0, 0)

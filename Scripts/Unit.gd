@@ -446,8 +446,8 @@ func gain_xp(amount):
 		xp -= max_xp
 		level += 1
 		max_xp = int(max_xp * 1.5)
-		health += 50
-		max_health += 50
+		health = max_health
+		#max_health += 50
 		damage += 25
 		update_health_bar()
 		if health >= max_health:
@@ -1047,7 +1047,8 @@ func guardian_halo(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var ally = tilemap.get_unit_at_tile(target_tile)
 
-	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	var du = target_tile - tile_pos
+	var dist = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
 			
@@ -1226,16 +1227,7 @@ func sync_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
 
 func suppressive_fire(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
-
-	# 1) Compute Δ and Manhattan distance to the clicked tile
-	var delta = target_tile - tile_pos
-	var dist  = abs(delta.x) + abs(delta.y)
-
-	# 2) Only allow if clicked tile is between 1 and max_dist away, and not diagonal.
-	#    (Here, max_dist = 2. Change this value to whatever “activation range” you need.)
-	if dist < 2:
-		return
-
+		
 	# 3) Build a list of the four directly adjacent neighbors of this unit
 	var neighbors := [
 		tile_pos + Vector2i( 1,  0),
@@ -1339,12 +1331,6 @@ func sync_fortify(attacker_id: int) -> void:
 
 func fortify(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
-
-	# 1) Compute Manhattan distance to the clicked tile
-	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
-	# We only allow fortify if the player clicked exactly on the Brute's own tile.
-	if dist < 1:
-		return
 
 	# 2) Apply the "fortify" buff
 	is_fortified = true
@@ -1637,7 +1623,8 @@ func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
 
-	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	var du = target_tile - tile_pos
+	var dist = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
 	

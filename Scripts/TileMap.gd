@@ -137,10 +137,10 @@ var ability_ranges: Dictionary = {
 	"Mark & Pounce":       3,
 	"Guardian Halo":       5,
 	"High Arcing Shot":    5,
-	"Suppressive Fire":    1,
-	"Fortify":             1,  # “Fortify” might not highlight anything; adjust as needed
+	"Suppressive Fire":    0,
+	"Fortify":             0,  # “Fortify” might not highlight anything; adjust as needed
 	"Heavy Rain":          5,
-	"Web Field":           5
+	"Web Field":           0
 }
 # ———————————————————————————————————————————————————————————————
 # LIFECYCLE CALLBACKS
