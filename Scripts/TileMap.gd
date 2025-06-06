@@ -144,6 +144,8 @@ var ability_ranges: Dictionary = {
 }
 
 var next_spawn_index := 0   # Tracks which index of `units[]` to take next.
+var input_locked: bool = false
+
 
 # ———————————————————————————————————————————————————————————————
 # LIFECYCLE CALLBACKS
@@ -701,7 +703,7 @@ func _input(event):
 		return
 
 	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
-	if GameData.multiplayer_mode and turn_team != TurnManager.Team.PLAYER:
+	if turn_team != TurnManager.Team.PLAYER or input_locked:
 		return
 				
 	# ──────────────────────────────────────────────────────────────────────────

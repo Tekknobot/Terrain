@@ -787,18 +787,30 @@ func check_water_status():
 func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	if not is_instance_valid(target):
 		return
+
+	# ── LOCK TILEMAP INPUT ──
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap.input_locked = true
+
 	var sprite = $AnimatedSprite2D
-	var target_pos: Vector2 = target.global_position
 	if sprite:
 		sprite.play("attack")
 		await sprite.animation_finished
 		sprite.play("default")
+
 	var missile_scene = preload("res://Prefabs/Missile.tscn")
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
-	missile.set_target(global_position, target_pos)
+	missile.set_target(global_position, target.global_position)
+
 	gain_xp(25)
+
+	# Wait until the missile emits “finished”
 	await missile.finished
+
+	# ── UNLOCK TILEMAP INPUT ──
+	tilemap.input_locked = false
+
 	has_moved = true
 	has_attacked = true
 
@@ -807,17 +819,26 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		return
+
+	# ── LOCK TILEMAP INPUT ──
+	tilemap.input_locked = true
+
 	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, unit.Y_OFFSET)
 	var sprite = $AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
 		await sprite.animation_finished
 		sprite.play("default")
+
 	var missile_scene = preload("res://Prefabs/Missile.tscn")
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	missile.set_target(global_position, target_pos)
+
 	await missile.finished
+
+	# ── UNLOCK TILEMAP INPUT ──
+	tilemap.input_locked = false
 
 func apply_level_up_material() -> void:
 	var sprite = $AnimatedSprite2D
@@ -1164,23 +1185,26 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 	var dist = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
-	
+
+	# ── LOCK TILEMAP INPUT ──
+	tilemap.input_locked = true
+
 	gain_xp(25)
-	
+
 	$AudioStreamPlayer2D.stream = missile_sfx
 	$AudioStreamPlayer2D.play()
-	
-	# 1) Play attack animation immediately
+
+	# (1) Immediately play attack animation
 	var sprite = $AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
-	
-	# 2) Compute world start/end positions
+
+	# (2) Compute world start/end positions
 	var start_world: Vector2 = global_position
 	var end_world: Vector2 = tilemap.to_global(tilemap.map_to_local(target_tile))
 	end_world.y += Y_OFFSET
-	
-	# 3) Build parabolic trajectory points
+
+	# (3) Build parabolic trajectory points
 	var point_count := 64
 	var points := PackedVector2Array()
 	for i in range(point_count + 1):
@@ -1190,66 +1214,71 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 		var height_offset := -100.0 * sin(PI * t)
 		var y = base_y + height_offset
 		points.append(Vector2(x, y))
-	
-	# 4) Create Line2D for trajectory, but don’t add points yet
+
+	# (4) Create a Line2D and add it to the scene, but don’t add points yet
 	var line := Line2D.new()
 	line.width = 1
 	line.z_index = 4000
 	line.default_color = Color(1, 0.8, 0.2)
 	get_tree().get_current_scene().add_child(line)
-	
-	# 5) Animate the line being drawn over 2 seconds
+
+	# (5) Animate the line being drawn over 2 seconds
 	var interval = 2.0 / float(point_count)
 	for i in range(points.size()):
 		line.add_point(points[i])
 		await get_tree().create_timer(interval).timeout
-	
-	# 6) Once the trajectory is fully drawn, remove the line
+
+	# (6) Once the trajectory is fully drawn, remove the line
 	if is_instance_valid(line):
 		line.queue_free()
-	
-	# 7) Damage & VFX in a 3×3 around target_tile (no ternary)
+
+	# (7) Damage & VFX in a 3×3 around target_tile (no ternary)
 	var ExplosionScene := preload("res://Scenes/VFX/Explosion.tscn")
 	for dx in [-1, 0, 1]:
 		for dy in [-1, 0, 1]:
 			var tile := Vector2i(target_tile.x + dx, target_tile.y + dy)
 			if not tilemap.is_within_bounds(tile):
 				continue
-			
+
 			# Determine damage without a ternary
 			var damage_val: int
 			if dx == 0 and dy == 0:
 				damage_val = 40
 			else:
 				damage_val = 30
-			
-			# 7a) Damage enemy units
+
+			# (7a) Damage enemy units
 			var u = tilemap.get_unit_at_tile(tile)
 			if u:
 				u.take_damage(damage_val)
 				u.flash_white()
 				u.shake()
-			
-			# 7b) Damage or demolish any structure on this tile
+
+			# (7b) Damage or demolish any structure on this tile
 			var st = tilemap.get_structure_at_tile(tile)
 			if st:
 				var st_sprite = st.get_node_or_null("AnimatedSprite2D")
 				if st_sprite:
 					st_sprite.play("demolished")
 					st_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-			
-			# 7c) Spawn explosion VFX
+
+			# (7c) Spawn explosion VFX
 			var vfx := ExplosionScene.instantiate()
 			vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 			get_tree().get_current_scene().add_child(vfx)
 			await get_tree().create_timer(0.1).timeout
-	
-	# 8) Mark cannon as used
+
+	# (8) Mark cannon as used
 	has_attacked = true
 	has_moved = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	if sprite:
+		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
 	$AudioStreamPlayer2D.stream = attack_sfx
-	sprite.play("default")
+	if sprite:
+		sprite.play("default")
+
+	# ── UNLOCK TILEMAP INPUT ──
+	tilemap.input_locked = false
 
 # 5) Multi Turret – Suppressive Fire
 @rpc("any_peer", "reliable")
