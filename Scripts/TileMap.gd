@@ -699,11 +699,11 @@ func _peek_show_attack_range_for(unit: Node2D):
 
 
 func _input(event):
-	if moving:
-		return
-
 	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 	if turn_team != TurnManager.Team.PLAYER or input_locked:
+		return
+			
+	if moving:
 		return
 				
 	# ──────────────────────────────────────────────────────────────────────────

@@ -18,32 +18,19 @@ func _ready():
 	visible = false
 	progress = 0.0
 
-	# Try to get a dedicated missile trail node from the current scene.
-	var scene = get_tree().get_current_scene()
-	line_renderer = scene.get_node("MissileTrail")
-	
+	# Instead of searching the root scene, just use our own child Line2D:
 	if line_renderer:
 		line_renderer.clear_points()
-		line_renderer.visible = true
-		# Use the average Y of start and end to sort depth.
-		var avg_y = (start_pos.y + end_pos.y) / 2
-		line_renderer.z_index = int(avg_y)
-		line_renderer.z_as_relative = false  # Use global z, not relative to parent
-
-		line_renderer.clear_points()
 		line_renderer.visible = false
-		line_renderer.width = pixel_size  # Match pixel size
-
+		line_renderer.width = pixel_size
 		line_renderer.texture = preload("res://Textures/missile.png")
 		line_renderer.texture_mode = Line2D.LINE_TEXTURE_TILE
 		line_renderer.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-		
+
 		# Optional visual tuning:
 		line_renderer.joint_mode = Line2D.LINE_JOINT_BEVEL
 		line_renderer.begin_cap_mode = Line2D.LINE_CAP_NONE
 		line_renderer.end_cap_mode = Line2D.LINE_CAP_NONE
-	else:
-		print("❌ Could not find Line2D in scene. No trail will render.")
 
 func _process(delta):
 	if is_ready and progress < 1.0:
@@ -91,6 +78,8 @@ func _process(delta):
 				# Check for a unit on the adjacent tile.
 				var occupant = tilemap.get_unit_at_tile(adjacent_tile)
 				if occupant:
+					occupant.being_pushed = true
+					
 					# Calculate destination tile by pushing occupant one tile further in the same direction.
 					var dest_tile = adjacent_tile + d
 					# Determine if the destination is a water tile.
@@ -99,39 +88,36 @@ func _process(delta):
 					# If destination is out of bounds or occupied by another unit or structure (and not water), kill the occupant.
 					if (not tilemap.is_within_bounds(dest_tile)) or tilemap.get_unit_at_tile(dest_tile) or tilemap.get_structure_at_tile(dest_tile):
 						# Animate the push tween.
-						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
 						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 						occupant.shake()
 						await get_tree().create_timer(0.2).timeout
+						if not is_instance_valid(occupant):
+							return									
+						occupant.being_pushed = false							
 						occupant.die()	
 						tilemap.get_unit_at_tile(dest_tile).take_damage(25)
 						if tilemap.get_structure_at_tile(dest_tile):
 							var anim_sprite = tilemap.get_structure_at_tile(dest_tile).get_node_or_null("AnimatedSprite2D")
 							if anim_sprite:
 								anim_sprite.play("demolished")
-								anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-						if not is_instance_valid(occupant):
-							return									
-						occupant.being_pushed = false		
+								anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)	
 						
 					# Else if the destination is water, animate push and apply 25 damage.
 					elif is_water:
-						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
 						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 						occupant.shake()
 						await get_tree().create_timer(0.2).timeout
-						occupant.take_damage(25)
-						tilemap.play_splash_sound(dest_pos)
 						if not is_instance_valid(occupant):
 							return						
-						occupant.being_pushed = false
+						occupant.being_pushed = false						
+						occupant.take_damage(25)
+						tilemap.play_splash_sound(dest_pos)
 					else:
 						# Otherwise, push the occupant normally into the destination tile.
-						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
 						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
