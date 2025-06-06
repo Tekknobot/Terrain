@@ -1,7 +1,11 @@
 extends Camera2D
 
 # List of available zoom levels.
-var zoom_levels = [Vector2(1, 1), Vector2(2, 2)]
+var zoom_levels = [
+	Vector2(1, 1),
+	Vector2(2, 2),
+]
+
 var current_zoom_index := 0
 
 var dragging := false
@@ -86,6 +90,10 @@ func _zoom_camera():
 	var target_zoom = zoom_levels[current_zoom_index]
 	var tween = create_tween()
 	tween.tween_property(self, "zoom", target_zoom, 0.2).set_trans(Tween.TRANS_CUBIC)
+	
+	# Debug‐print the index and actual zoom vector:
+	print("→ Camera zoom changed: index=", current_zoom_index,", zoom=", target_zoom)
+			
 	# Save the new zoom index in GameData.
 	GameData.current_zoom_index = current_zoom_index
 	GameData.save_settings()

@@ -76,15 +76,12 @@ func _process(delta):
 				target_unit.flash_white()
 			
 			# Now check adjacent tiles for structures and units.
-			var directions = [
-				Vector2i(0, -1), Vector2i(0, 1),
-				Vector2i(-1, 0), Vector2i(1, 0)
-			]
+			var directions = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 			for d in directions:
-				var adj_tile = impact_tile + d
+				var adjacent_tile = impact_tile + d
 				
 				# Check for a structure on the adjacent tile.
-				var structure = tilemap.get_structure_at_tile(adj_tile)
+				var structure = tilemap.get_structure_at_tile(impact_tile)
 				if structure:
 					var anim_sprite = structure.get_node_or_null("AnimatedSprite2D")
 					if anim_sprite:
@@ -92,92 +89,54 @@ func _process(delta):
 						anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 				
 				# Check for a unit on the adjacent tile.
-				var occupant = tilemap.get_unit_at_tile(adj_tile)
-				if not occupant:
-					continue
-				
-				# Calculate destination tile by pushing occupant one tile further
-				var dest_tile = adj_tile + d
-				var is_water = false
-				if tilemap.is_within_bounds(dest_tile):
-					is_water = (tilemap.get_cell_source_id(0, dest_tile) == tilemap.water_tile_id)
-				
-				# ── CASE 1: Die if out of bounds or blocked by another unit/structure ──
-				if (not tilemap.is_within_bounds(dest_tile)) \
-				   or tilemap.get_unit_at_tile(dest_tile) \
-				   or tilemap.get_structure_at_tile(dest_tile):
+				var occupant = tilemap.get_unit_at_tile(adjacent_tile)
+				if occupant:
+					# Calculate destination tile by pushing occupant one tile further in the same direction.
+					var dest_tile = adjacent_tile + d
+					# Determine if the destination is a water tile.
+					var is_water = tilemap.get_cell_source_id(0, dest_tile) == 6 #Water tile ID
 					
-					if is_instance_valid(occupant):
+					# If destination is out of bounds or occupied by another unit or structure (and not water), kill the occupant.
+					if (not tilemap.is_within_bounds(dest_tile)) or tilemap.get_unit_at_tile(dest_tile) or tilemap.get_structure_at_tile(dest_tile):
+						# Animate the push tween.
 						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
-						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2) \
-								  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 						occupant.shake()
-						
 						await get_tree().create_timer(0.2).timeout
+						occupant.being_pushed = false
+						occupant.die()	
+						tilemap.get_unit_at_tile(dest_tile).take_damage(25)
+						if tilemap.get_structure_at_tile(dest_tile):
+							var anim_sprite = tilemap.get_structure_at_tile(dest_tile).get_node_or_null("AnimatedSprite2D")
+							if anim_sprite:
+								anim_sprite.play("demolished")
+								anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 						
-						# Before calling die(), turn off being_pushed
-						if is_instance_valid(occupant):
-							occupant.being_pushed = false
-							occupant.die()
-						
-						# Now damage whoever is at dest_tile (if still valid)
-						var occupant_at_dest = tilemap.get_unit_at_tile(dest_tile)
-						if occupant_at_dest:
-							occupant_at_dest.take_damage(25)
-						var struct_at_dest = tilemap.get_structure_at_tile(dest_tile)
-						if struct_at_dest:
-							var s_anim = struct_at_dest.get_node_or_null("AnimatedSprite2D")
-							if s_anim:
-								s_anim.play("demolished")
-								s_anim.get_parent().modulate = Color(1, 1, 1, 1)
-					# Done with this occupant
-					continue
-				# ──────────────────────────────────────────────────────────────
-
-				# ── CASE 2: Destination is water ──
-				elif is_water:
-					if is_instance_valid(occupant):
+					# Else if the destination is water, animate push and apply 25 damage.
+					elif is_water:
 						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
-						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2) \
-								  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 						occupant.shake()
-						
 						await get_tree().create_timer(0.2).timeout
-						
-						# After arriving in water, deal damage and play splash
-						if is_instance_valid(occupant):
-							occupant.take_damage(25)
-							tilemap.play_splash_sound(dest_pos)
-							occupant.being_pushed = false
-					continue
-				# ──────────────────────────────────────────────────────────────
-
-				# ── CASE 3: Normal on‐grid push ──
-				else:
-					if is_instance_valid(occupant):
+						occupant.take_damage(25)
+						tilemap.play_splash_sound(dest_pos)
+						occupant.being_pushed = false
+					else:
+						# Otherwise, push the occupant normally into the destination tile.
 						occupant.being_pushed = true
 						var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
 						var push_tween = occupant.create_tween()
-						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2) \
-								  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-
-						# Update its logical tile, deal damage, and shake
+						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 						occupant.tile_pos = dest_tile
 						occupant.take_damage(25)
 						occupant.shake()
-						
 						await get_tree().create_timer(0.2).timeout
-						
-						if is_instance_valid(occupant):
-							occupant.being_pushed = false
-				# ──────────────────────────────────────────────────────────────
-
-			# end for directions
-			
+						occupant.being_pushed = false
+					
 			emit_signal("finished")
 			queue_free()
 
