@@ -96,6 +96,8 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
+						emit_signal("finished")
+						queue_free()						
 						return
 					occupant.being_pushed = false
 					occupant.die()
@@ -114,6 +116,8 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
+						emit_signal("finished")
+						queue_free()						
 						return
 					occupant.being_pushed = false
 					occupant.take_damage(25)
@@ -128,6 +132,8 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
+						emit_signal("finished")
+						queue_free()						
 						return
 					occupant.being_pushed = false
 
