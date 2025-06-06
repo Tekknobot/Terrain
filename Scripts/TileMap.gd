@@ -1059,12 +1059,10 @@ func _input(event):
 
 					# ─────────── RANGED LOGIC ───────────
 					if selected_unit.unit_type in ["Ranged", "Support"]:
-						if enemy and enemy.is_player != selected_unit.is_player \
+						if enemy \
 						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 							var server = get_multiplayer_authority()
-							rpc_id(server, "request_auto_attack_ranged_unit", selected_unit.unit_id, enemy.unit_id)
-							if is_multiplayer_authority():
-								request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
+							request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							showing_attack = false
 							_clear_highlights()
@@ -1072,9 +1070,7 @@ func _input(event):
 						elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
 							var server = get_multiplayer_authority()
 							var tpos = structure.tile_pos
-							rpc_id(server, "request_auto_attack_ranged_structure", selected_unit.unit_id, tpos)
-							if is_multiplayer_authority():
-								request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
+							request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							showing_attack = false
 							_clear_highlights()
@@ -1082,9 +1078,7 @@ func _input(event):
 						elif not enemy and not structure \
 							 and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 							var server = get_multiplayer_authority()
-							rpc_id(server, "request_auto_attack_ranged_empty", selected_unit.unit_id, mouse_tile)
-							if is_multiplayer_authority():
-								request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
+							request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							showing_attack = false
 							_clear_highlights()
