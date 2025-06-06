@@ -105,7 +105,6 @@ func _process(delta):
 						push_tween.tween_property(occupant, "global_position", dest_pos, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 						occupant.shake()
 						await get_tree().create_timer(0.2).timeout
-						occupant.being_pushed = false
 						occupant.die()	
 						tilemap.get_unit_at_tile(dest_tile).take_damage(25)
 						if tilemap.get_structure_at_tile(dest_tile):
@@ -113,6 +112,9 @@ func _process(delta):
 							if anim_sprite:
 								anim_sprite.play("demolished")
 								anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+						if not is_instance_valid(occupant):
+							return									
+						occupant.being_pushed = false		
 						
 					# Else if the destination is water, animate push and apply 25 damage.
 					elif is_water:
@@ -124,6 +126,8 @@ func _process(delta):
 						await get_tree().create_timer(0.2).timeout
 						occupant.take_damage(25)
 						tilemap.play_splash_sound(dest_pos)
+						if not is_instance_valid(occupant):
+							return						
 						occupant.being_pushed = false
 					else:
 						# Otherwise, push the occupant normally into the destination tile.
@@ -135,6 +139,8 @@ func _process(delta):
 						occupant.take_damage(25)
 						occupant.shake()
 						await get_tree().create_timer(0.2).timeout
+						if not is_instance_valid(occupant):
+							return
 						occupant.being_pushed = false
 					
 			emit_signal("finished")

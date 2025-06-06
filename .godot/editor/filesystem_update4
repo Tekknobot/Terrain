@@ -6,12 +6,9 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
+res://Scripts/TileMap.gd
 res://Scenes/TitleScreen.tscn
 res://Prefabs/Missile.tscn
-res://Scripts/Unit.gd
 res://Scenes/VFX/FortifyAura.tscn
-res://Scripts/TurnManager.gd
+res://Scripts/Unit.gd
 res://Scripts/Missile.gd
-res://Scripts/TileMap.gd
-res://Scripts/GameData.gd
-res://Scripts/Camera2D.gd
