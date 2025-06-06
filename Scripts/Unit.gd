@@ -492,6 +492,10 @@ func die():
 		rpc("remote_unit_died", unit_id)
 
 	queue_free()
+
+	# Tell the TileMap that we lost our selected_unit
+	if tilemap.selected_unit == self:
+		tilemap._on_selected_unit_died()	
 	await get_tree().process_frame
 
 	var units = get_tree().get_nodes_in_group("Units")

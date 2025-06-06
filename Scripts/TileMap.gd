@@ -159,6 +159,10 @@ func _ready():
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	connect("unit_selected", Callable(hud, "_on_unit_selected"))
 
+	# Listen globally for Units that die:
+	get_tree().connect("node_removed", Callable(self, "_on_node_removed"))
+	
+
 	if is_multiplayer_authority():
 		_generate_map()
 		call_deferred("_post_map_generation")
@@ -411,7 +415,13 @@ func _spawn_teams():
 func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]) -> void:
 	# 1) Decide how many to spawn: 4 at level 1, +1 per extra level.
 	var base := 4
-	var total_to_spawn = base + max(GameData.current_level - 1, 0)
+	var raw_spawn = base + max(GameData.current_level - 1, 0)
+
+	# Cap player spawns at 8 without using a ternary
+	var total_to_spawn = raw_spawn
+	if is_player:
+		total_to_spawn = min(raw_spawn, 8)
+		
 	var count := units.size()
 	if count == 0:
 		return  # nothing to spawn
@@ -2401,3 +2411,16 @@ func _get_active_attack_range() -> int:
 	if selected_unit:
 		return selected_unit.attack_range
 	return 0
+
+func _on_node_removed(node):
+	# Whenever any node is removed from the scene tree:
+	if node is Node2D and node.is_in_group("Units"):
+		# If it was our selected_unit, clear it
+		if node == selected_unit:
+			_on_selected_unit_died()
+
+func _on_selected_unit_died():
+	# If our selected_unit was just removed from the scene, clear everything
+	selected_unit = null
+	showing_attack = false
+	_clear_highlights()

@@ -131,13 +131,25 @@ func evaluate_candidate(candidate: Vector2i, unit, tilemap, target) -> int:
 	return score
 
 func _start_unit_action(team):
-	# ... (earlier code unchanged) ...
-
+	# 1) If any unit is still flagged as being pushed, wait one frame and retry
+	while true:
+		var any_still_pushing = false
+		for u in get_tree().get_nodes_in_group("Units"):
+			if is_instance_valid(u) and u.being_pushed:
+				any_still_pushing = true
+				break
+		if not any_still_pushing:
+			break
+		await get_tree().process_frame
+			
+	active_units = active_units.filter(is_instance_valid)
+	
 	while active_unit_index < active_units.size():
 		var unit = active_units[active_unit_index]
 		if not is_instance_valid(unit):
 			active_unit_index += 1
 			continue
+		
 		# Enemy branch:
 		if team == Team.ENEMY and not unit.is_player:
 			# First, plan movement toward the closest enemy.
@@ -147,56 +159,46 @@ func _start_unit_action(team):
 				var tilemap = get_tree().get_current_scene().get_node("TileMap")
 				tilemap.update_astar_grid()
 				path = await unit.compute_path(unit.tile_pos, target.tile_pos)
-			if not is_instance_valid(unit):
-				active_unit_index += 1
-				await get_tree().process_frame
-				_start_unit_action(team)
-				return
-
 			if path.size() > 1:
+				# Move as far as allowed by the unit's movement_range.
 				var max_steps = min(unit.movement_range, path.size() - 1)
 				var move_tile = path[max_steps]
+				print("🚶 Planning move to:", move_tile, "for enemy", unit.name)
 				unit.plan_move(move_tile)
+			else:
+				print("❌ No valid path found. Enemy won't move this turn.")
+			
+			# Execute the planned movement.
 			await unit.execute_actions()
-			if not is_instance_valid(unit):
-				active_unit_index += 1
-				await get_tree().process_frame
-				_start_unit_action(team)
-				return
-
+					
+			# Now, if the unit is ranged, check for a valid target.
 			if unit.unit_type == "Ranged" or unit.unit_type == "Support":
 				var ranged_target = _find_ranged_target(unit)
 				if ranged_target:
+					print("🤖 Ranged enemy", unit.name, "attacking target", ranged_target.name)
 					unit.has_moved = true
 					await unit.auto_attack_ranged(ranged_target, unit)
-				if not is_instance_valid(unit):
-					active_unit_index += 1
-					await get_tree().process_frame
-					_start_unit_action(team)
-					return
-
+				# (Optional: you might let a melee enemy also attack here if adjacent.)
 			else:
+				# For melee units, check if there is an adjacent enemy to attack.
 				if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
+					print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement attack.")
 					unit.has_moved = true
 					await _run_safe_enemy_action(unit)
-					if not is_instance_valid(unit):
-						active_unit_index += 1
-						await get_tree().process_frame
-						_start_unit_action(team)
-						return
-
+			
 			unit_finished_action(unit)
 			return
-
-		# Player branch (unchanged).
+		
+		# Player branch.
 		elif team == Team.PLAYER and unit.is_player:
+			print("🧍 Player unit turn:", unit.name)
 			unit.start_turn()
 			return
-
+		
 		active_unit_index += 1
-
-	end_turn()
 	
+	end_turn()
+
 func _run_safe_enemy_action(unit):
 	await unit.auto_attack_adjacent()
 
