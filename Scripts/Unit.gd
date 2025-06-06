@@ -822,11 +822,26 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 func apply_level_up_material() -> void:
 	var sprite = $AnimatedSprite2D
 	if sprite:
-		if original_material == null:
-			original_material = sprite.material
+		# 1) Grab the current modulate color before changing anything:
+		var prior_modulate = sprite.modulate
+
+		# 2) Remember the current material if needed
+		if not sprite.has_meta("saved_material"):
+			sprite.set_meta("saved_material", sprite.material)
+
+		# 3) Apply the level-up material
 		sprite.material = level_up_material
+
+		# 4) Wait for the effect duration (1 second):
 		await get_tree().create_timer(1.0).timeout
-		sprite.material = original_material
+
+		# 5) Restore the old material:
+		if sprite.has_meta("saved_material"):
+			sprite.material = sprite.get_meta("saved_material")
+			sprite.remove_meta("saved_material")
+
+		# 6) Restore the previously grabbed modulate:
+		sprite.modulate = prior_modulate
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1) Hulk – Ground Slam
@@ -851,6 +866,8 @@ func ground_slam(target_tile: Vector2i) -> void:
 	if dist > 1:
 		return
 
+	gain_xp(25)
+	
 	# — hop up and slam down effect —
 	var jump_height := 64.0
 	var original_pos := global_position
@@ -979,6 +996,8 @@ func mark_and_pounce(target_unit: Node) -> void:
 	if target_unit.is_player == is_player or dist > 3:
 		return
 
+	gain_xp(25)
+
 	# 2) “Mark” the target
 	target_unit.set_meta("is_marked", true)
 	print("Panther ", name, " marked ", target_unit.name)
@@ -1071,6 +1090,8 @@ func guardian_halo(target_tile: Vector2i) -> void:
 	if dist > 5:
 		return
 			
+	gain_xp(25)
+			
 	if ally and ally.is_player == is_player:
 		# — Grant immunity for one round —
 		ally.shield_duration = 1   # we’ll treat any shield_duration > 0 as “immune”
@@ -1143,6 +1164,8 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 	var dist = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
+	
+	gain_xp(25)
 	
 	$AudioStreamPlayer2D.stream = missile_sfx
 	$AudioStreamPlayer2D.play()
@@ -1247,6 +1270,8 @@ func sync_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
 func suppressive_fire(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 		
+	gain_xp(25)
+		
 	# 3) Build a list of the four directly adjacent neighbors of this unit
 	var neighbors := [
 		tile_pos + Vector2i( 1,  0),
@@ -1350,6 +1375,8 @@ func sync_fortify(attacker_id: int) -> void:
 
 func fortify(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+
+	gain_xp(25)
 
 	# 2) Apply the "fortify" buff
 	is_fortified = true
@@ -1601,6 +1628,9 @@ func thread_attack(target_tile: Vector2i) -> void:
 	missile.connect("reached_target", Callable(self, "_on_thread_attack_reached").bind(target_tile))
 	has_attacked = true
 	has_moved = true
+	
+	gain_xp(25)
+	
 	var sprite = get_node("AnimatedSprite2D")
 	if sprite:
 		sprite.self_modulate = Color(0.4, 0.4, 0.4, 1)
@@ -1647,6 +1677,8 @@ func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 	var dist = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
+		
+	gain_xp(25)
 	
 	for x in range(-1, 2):
 		for y in range(-1, 2):
@@ -1814,6 +1846,8 @@ func spider_blast(target_tile: Vector2i) -> void:
 	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
 	if dist > 5:
 		return
+			
+	gain_xp(25)
 			
 	var tilemap = get_node("/root/BattleGrid/TileMap")
 	for x in range(-1, 2):
