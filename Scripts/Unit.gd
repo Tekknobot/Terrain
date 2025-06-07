@@ -805,11 +805,11 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 
 	gain_xp(25)
 
-	# Wait until the missile emits “finished”
-	await missile.finished
-	
 	# ── UNLOCK TILEMAP INPUT ──
 	tilemap.input_locked = false
+	
+	# Wait until the missile emits “finished”
+	await missile.finished
 
 	has_moved = true
 	has_attacked = true
