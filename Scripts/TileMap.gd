@@ -192,6 +192,10 @@ func _ready():
 			GameData.unit_upgrades[uid] = ability_name
 
 		print("[Client] → seeded unit_upgrades:", GameData.unit_upgrades)
+		
+	TutorialManager.instruction_label = get_node("/root/BattleGrid/CanvasLayer/TutorialLabel")
+	TutorialManager.start()
+		
 
 
 func _process(delta):
@@ -1194,6 +1198,9 @@ func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 		atk.gain_xp(25)
 
 	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, died)
+	
+	# After performing the attack
+	TutorialManager.on_action("enemy_attacked")		
 
 @rpc("any_peer", "reliable")
 func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, died: bool) -> void:
@@ -1269,6 +1276,9 @@ func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 
 	sync_melee_push(attacker_id, target_id, damage, new_tile, died)
 	rpc("sync_melee_push", attacker_id, target_id, damage, new_tile, died)
+	
+	# After performing the attack
+	TutorialManager.on_action("enemy_attacked")		
 
 @rpc("any_peer", "reliable")
 func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Vector2i, died: bool) -> void:
@@ -1730,6 +1740,9 @@ func _select_unit_at_mouse():
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
+	
+	if TutorialManager.tutorial_active:
+		TutorialManager.on_action("unit_selected")	
 
 # ———————————————————————————————————————————————————————————————
 # Turn off every “mode” flag before selecting a new ability or a new unit.
@@ -1795,6 +1808,9 @@ func _show_range_for_selected_unit():
 		tile_id = highlight_tile_id
 
 	_highlight_range(selected_unit.tile_pos, range, tile_id)
+	
+	if showing_attack:
+		TutorialManager.on_action("attack_range_shown")	
 
 func _update_highlight_display():
 	for tile in highlighted_tiles:
@@ -1870,6 +1886,9 @@ func _move_selected_to(target: Vector2i) -> void:
 		var auth_id = get_multiplayer_authority()
 		print("Client → server_request_move → authority peer", auth_id)
 		rpc_id(auth_id, "server_request_move", selected_unit.unit_id, target.x, target.y)
+
+	if TutorialManager.tutorial_active:
+		TutorialManager.on_action("unit_moved")		
 
 @rpc("any_peer", "reliable")
 func server_request_move(unit_id: int, tx: int, ty: int) -> void:
@@ -1976,6 +1995,8 @@ func _do_end_turn() -> void:
 	_clear_highlights()
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	hud.visible = false
+	
+	TutorialManager.on_action("turn_ended")
 
 @rpc("any_peer", "reliable")
 func request_end_turn() -> void:

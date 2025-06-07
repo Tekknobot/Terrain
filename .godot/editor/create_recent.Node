@@ -1,3 +1,4 @@
+Label
 Node2D
 CPUParticles2D
 TextureRect
@@ -8,7 +9,6 @@ CanvasLayer
 Control
 Camera2D
 Panel
-Label
 HBoxContainer
 TextureButton
 GridContainer

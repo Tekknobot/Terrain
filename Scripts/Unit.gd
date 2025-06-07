@@ -393,6 +393,9 @@ func auto_attack_adjacent():
 			# end of “if unit to push” block
 		# end of “for unit in units” block
 	# end of “for dir in directions” block
+	
+	# After performing the attack
+	TutorialManager.on_action("enemy_attacked")	
 
 
 # Helper to retrieve occupant nodes (unit or structure) at a tile.
@@ -817,6 +820,9 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	
 	has_moved = true
 	has_attacked = true
+	
+	# After performing the attack
+	TutorialManager.on_action("enemy_attacked")		
 
 
 func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
@@ -844,6 +850,9 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	# ── UNLOCK TILEMAP INPUT ──
 	tilemap.input_locked = false
 
+	# After performing the attack
+	TutorialManager.on_action("enemy_attacked")	
+	
 func apply_level_up_material() -> void:
 	var sprite = $AnimatedSprite2D
 	if sprite:
