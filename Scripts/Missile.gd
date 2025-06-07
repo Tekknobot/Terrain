@@ -104,7 +104,10 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
-						if TurnManager.turn_order[TurnManager.Team.ENEMY]:
+						if TurnManager.turn_order[TurnManager.current_turn_index] == TurnManager.Team.PLAYER:
+							emit_signal("finished")
+							tilemap.input_locked = false	
+							queue_free()						
 							return						
 						emit_signal("finished")
 						tilemap.input_locked = false
@@ -128,7 +131,10 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
-						if TurnManager.turn_order[TurnManager.Team.ENEMY]:
+						if TurnManager.turn_order[TurnManager.current_turn_index] == TurnManager.Team.PLAYER:
+							emit_signal("finished")
+							tilemap.input_locked = false	
+							queue_free()						
 							return						
 						emit_signal("finished")
 						tilemap.input_locked = false
@@ -155,7 +161,10 @@ func _process(delta):
 												
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
-						if TurnManager.turn_order[TurnManager.Team.ENEMY]:
+						if TurnManager.turn_order[TurnManager.current_turn_index] == TurnManager.Team.PLAYER:
+							emit_signal("finished")
+							tilemap.input_locked = false
+							queue_free()							
 							return
 						emit_signal("finished")
 						tilemap.input_locked = false
