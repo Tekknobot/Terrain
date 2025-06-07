@@ -60,6 +60,12 @@ func _process(delta):
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		var impact_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 
+		if tilemap.get_structure_at_tile(impact_tile):
+			var anim_sprite = tilemap.get_structure_at_tile(impact_tile).get_node_or_null("AnimatedSprite2D")
+			if anim_sprite:
+				anim_sprite.play("demolished")
+				anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+				
 		# Damage any unit on the impact tile.
 		var target_unit = tilemap.get_unit_at_tile(impact_tile)
 		if target_unit:
@@ -86,6 +92,7 @@ func _process(delta):
 
 				# Calculate destination tile by pushing occupant one tile further in the same direction.
 				var dest_tile = adjacent_tile + d
+											
 				# Determine if the destination is a water tile.
 				var is_water = tilemap.get_cell_source_id(0, dest_tile) == 6
 
@@ -97,6 +104,8 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
+						if TurnManager.turn_order[TurnManager.Team.ENEMY]:
+							return						
 						emit_signal("finished")
 						tilemap.input_locked = false
 						TurnManager._start_unit_action(TurnManager.Team.ENEMY)
@@ -119,6 +128,8 @@ func _process(delta):
 					occupant.shake()
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
+						if TurnManager.turn_order[TurnManager.Team.ENEMY]:
+							return						
 						emit_signal("finished")
 						tilemap.input_locked = false
 						TurnManager._start_unit_action(TurnManager.Team.ENEMY)
@@ -135,8 +146,17 @@ func _process(delta):
 					occupant.tile_pos = dest_tile
 					occupant.take_damage(25)
 					occupant.shake()
+					
+					if tilemap.get_structure_at_tile(dest_tile):
+						var anim_sprite = tilemap.get_structure_at_tile(dest_tile).get_node_or_null("AnimatedSprite2D")
+						if anim_sprite:
+							anim_sprite.play("demolished")
+							anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+												
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
+						if TurnManager.turn_order[TurnManager.Team.ENEMY]:
+							return
 						emit_signal("finished")
 						tilemap.input_locked = false
 						TurnManager._start_unit_action(TurnManager.Team.ENEMY)

@@ -187,10 +187,6 @@ func _start_unit_action(team):
 					print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement attack.")
 					unit.has_moved = true
 					await _run_safe_enemy_action(unit)
-
-			if not is_instance_valid(unit):
-				end_turn()
-				return	
 							
 			unit_finished_action(unit)			
 			return
