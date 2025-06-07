@@ -159,12 +159,32 @@ func _start_unit_action(team):
 				var tilemap = get_tree().get_current_scene().get_node("TileMap")
 				tilemap.update_astar_grid()
 				path = await unit.compute_path(unit.tile_pos, target.tile_pos)
-			if path.size() > 1:
-				# Move as far as allowed by the unit's movement_range.
-				var max_steps = min(unit.movement_range, path.size() - 1)
-				var move_tile = path[max_steps]
-				print("🚶 Planning move to:", move_tile, "for enemy", unit.name)
-				unit.plan_move(move_tile)
+				if path.size() > 1:
+					var move_tile = unit.tile_pos  # default to current position
+
+					var max_range_tile = unit.tile_pos
+					var max_distance := -1
+					
+					if is_instance_valid(target):
+						for i in range(1, min(unit.movement_range + 1, path.size())):
+							var tile: Vector2i = path[i]
+							var distance = abs(tile.x - target.tile_pos.x) + abs(tile.y - target.tile_pos.y)
+
+							# Stay in attack range, but not adjacent
+							if distance <= unit.attack_range and distance > 1:
+								if distance > max_distance:
+									max_distance = distance
+									move_tile = tile
+					else:
+						print("⚠️ Skipping movement — target no longer valid for", unit.name)
+						
+					# If no suitable tile found, fall back to closest in movement range
+					if move_tile == unit.tile_pos and path.size() > 1:
+						move_tile = path[min(unit.movement_range, path.size() - 1)]
+
+					print("🎯 Planning move to:", move_tile, "for enemy", unit.name)
+					unit.plan_move(move_tile)
+
 			else:
 				print("❌ No valid path found. Enemy won't move this turn.")
 			

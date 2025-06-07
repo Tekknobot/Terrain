@@ -30,7 +30,7 @@ TutorialManager="*res://Scripts/TutorialManager.gd"
 
 [display]
 
-window/size/mode=2
+window/size/mode=3
 window/size/initial_position_type=3
 window/stretch/mode="viewport"
 

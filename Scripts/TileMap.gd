@@ -420,7 +420,7 @@ func _spawn_teams():
 
 func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]) -> void:
 	# 1) Decide how many to spawn: 4 at level 1, +1 per extra level.
-	var base := 3
+	var base := 8
 	var raw_spawn = base + max(GameData.current_level - 1, 0)
 
 	# Cap player spawns at 8 without using a ternary
