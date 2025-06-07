@@ -90,6 +90,8 @@ func _process(delta):
 			if occupant:
 				occupant.being_pushed = true
 
+				TutorialManager.on_action("push_mechanic")	
+					
 				# Calculate destination tile by pushing occupant one tile further in the same direction.
 				var dest_tile = adjacent_tile + d
 											
@@ -115,6 +117,9 @@ func _process(delta):
 						queue_free()						
 						return
 					occupant.being_pushed = false
+					
+					TutorialManager.on_action("collide_mechanic")
+											
 					occupant.die()
 					tilemap.get_unit_at_tile(dest_tile).take_damage(25)
 					if tilemap.get_structure_at_tile(dest_tile):

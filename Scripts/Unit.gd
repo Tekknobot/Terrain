@@ -289,6 +289,8 @@ func auto_attack_adjacent():
 				# Mark as “being pushed” before any movement/awaits
 				unit.being_pushed = true
 				
+				TutorialManager.on_action("push_mechanic")	
+				
 				# ─── Push logic branch 1: into water ──────────────────
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
 				if tile_id == water_tile_id:
@@ -350,7 +352,8 @@ func auto_attack_adjacent():
 					await get_tree().create_timer(0.2).timeout
 					gain_xp(25)
 					# Push is done (unit died off-grid)
-					unit.being_pushed = false					
+					unit.being_pushed = false	
+					TutorialManager.on_action("offgrid_mechanic")				
 					unit.die()
 					tilemap.update_astar_grid()
 					continue
@@ -382,6 +385,7 @@ func auto_attack_adjacent():
 									occ.shake()
 							gain_xp(25)
 							unit.being_pushed = false
+							TutorialManager.on_action("collide_mechanic")
 							unit.die()
 					tilemap.update_astar_grid()
 
@@ -459,6 +463,7 @@ func gain_xp(amount):
 		play_level_up_sound()
 		shake()
 		apply_level_up_material()
+		TutorialManager.on_action("leveled_up")
 	update_xp_bar()
 
 func play_level_up_sound():
