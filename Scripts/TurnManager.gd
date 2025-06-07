@@ -85,7 +85,7 @@ func start_turn():
 		return
 	# ────────────────────────────────────────────────────────
 	
-	_start_unit_action(team)
+	await _start_unit_action(team)
 
 # Helper to return adjacent positions (4-directional)
 func get_adjacent_tiles(tile: Vector2i) -> Array:
@@ -170,7 +170,9 @@ func _start_unit_action(team):
 			
 			# Execute the planned movement.
 			await unit.execute_actions()
-					
+			if not is_instance_valid(unit):
+				end_turn()
+								
 			# Now, if the unit is ranged, check for a valid target.
 			if unit.unit_type == "Ranged" or unit.unit_type == "Support":
 				var ranged_target = _find_ranged_target(unit)
@@ -185,8 +187,12 @@ func _start_unit_action(team):
 					print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement attack.")
 					unit.has_moved = true
 					await _run_safe_enemy_action(unit)
-			
-			unit_finished_action(unit)
+
+			if not is_instance_valid(unit):
+				end_turn()
+				return	
+							
+			unit_finished_action(unit)			
 			return
 		
 		# Player branch.
@@ -207,18 +213,23 @@ func _run_safe_enemy_action(unit):
 		print("☠️ Unit died during auto-attack. Skipping remaining actions.")
 		active_unit_index += 1
 		await get_tree().process_frame  # let the engine free nodes cleanly
-		_start_unit_action(turn_order[current_turn_index])
+		await _start_unit_action(turn_order[current_turn_index])
+		end_turn()
 		return
 
 	await unit.execute_actions()
-
+	if not is_instance_valid(unit):
+		end_turn()
+		return
+	
 	if is_instance_valid(unit):
 		unit_finished_action(unit)
 	else:
 		print("☠️ Unit died during execution. Skipping.")
 		active_unit_index += 1
 		await get_tree().process_frame
-		_start_unit_action(turn_order[current_turn_index])
+		await _start_unit_action(turn_order[current_turn_index])
+		end_turn()
 
 func find_next_reachable_enemy(unit, exclude := []):
 	var candidates = []
@@ -309,7 +320,7 @@ func unit_finished_action(unit):
 	active_unit_index += 1
 	await get_tree().process_frame  # Wait for any pending updates
 	active_units = active_units.filter(is_instance_valid)
-	_start_unit_action(turn_order[current_turn_index])
+	await _start_unit_action(turn_order[current_turn_index])
 
 func find_closest_enemy(unit) -> Node:
 	var closest: Node = null

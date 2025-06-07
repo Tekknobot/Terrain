@@ -318,10 +318,10 @@ func auto_attack_adjacent():
 									occ.take_damage(damage)
 									occ.shake()
 							gain_xp(25)
+							# Push is “done” even if unit died
+							unit.being_pushed = false							
 							unit.die()
 							tilemap.update_astar_grid()
-							# Push is “done” even if unit died
-							unit.being_pushed = false
 							continue  # go to next direction
 
 					var water_damage = 25
@@ -349,10 +349,10 @@ func auto_attack_adjacent():
 					# Brief delay so death animation can play, etc.
 					await get_tree().create_timer(0.2).timeout
 					gain_xp(25)
+					# Push is done (unit died off-grid)
+					unit.being_pushed = false					
 					unit.die()
 					tilemap.update_astar_grid()
-					# Push is done (unit died off-grid)
-					unit.being_pushed = false
 					continue
 				# ────────────────────────────────────────────────────────
 
@@ -381,6 +381,7 @@ func auto_attack_adjacent():
 									occ.take_damage(damage)
 									occ.shake()
 							gain_xp(25)
+							unit.being_pushed = false
 							unit.die()
 					tilemap.update_astar_grid()
 
@@ -786,6 +787,9 @@ func check_water_status():
 
 func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	if not is_instance_valid(target):
+		# ── UNLOCK TILEMAP INPUT ──
+		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		tilemap.input_locked = false		
 		return
 
 	# ── LOCK TILEMAP INPUT ──
@@ -804,13 +808,13 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	missile.set_target(global_position, target.global_position)
 
 	gain_xp(25)
-
-	# ── UNLOCK TILEMAP INPUT ──
-	tilemap.input_locked = false
 	
 	# Wait until the missile emits “finished”
 	await missile.finished
 
+	# ── UNLOCK TILEMAP INPUT ──
+	tilemap.input_locked = false
+	
 	has_moved = true
 	has_attacked = true
 

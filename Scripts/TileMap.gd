@@ -701,6 +701,7 @@ func _peek_show_attack_range_for(unit: Node2D):
 func _input(event):
 	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 	if turn_team != TurnManager.Team.PLAYER or input_locked:
+		print("Not Player Team or INPUT LOCKED")
 		return
 			
 	if moving:

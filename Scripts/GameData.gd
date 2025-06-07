@@ -6,7 +6,7 @@ var xp: int = 0
 var current_level: int = 1
 var selected_upgrade: String = ""
 var selected_special_ability: String = ""
-var max_enemy_units: int = 2
+var max_enemy_units: int = 1
 
 var map_difficulty: int = 1
 

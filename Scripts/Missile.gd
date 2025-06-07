@@ -41,6 +41,7 @@ func _process(delta):
 
 		if line_renderer:
 			line_renderer.add_point(global_position)
+			
 	elif is_ready and progress >= 1.0:
 		# stop further movement
 		is_ready = false
@@ -63,7 +64,7 @@ func _process(delta):
 		var target_unit = tilemap.get_unit_at_tile(impact_tile)
 		if target_unit:
 			target_unit.take_damage(40)  # Adjust damage as needed.
-			target_unit.flash_white()
+			target_unit.flash_white()	
 
 		# Now check adjacent tiles for structures and units.
 		var directions = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
@@ -97,6 +98,8 @@ func _process(delta):
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
 						emit_signal("finished")
+						tilemap.input_locked = false
+						TurnManager._start_unit_action(TurnManager.Team.ENEMY)
 						queue_free()						
 						return
 					occupant.being_pushed = false
@@ -117,6 +120,8 @@ func _process(delta):
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
 						emit_signal("finished")
+						tilemap.input_locked = false
+						TurnManager._start_unit_action(TurnManager.Team.ENEMY)
 						queue_free()						
 						return
 					occupant.being_pushed = false
@@ -133,6 +138,8 @@ func _process(delta):
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
 						emit_signal("finished")
+						tilemap.input_locked = false
+						TurnManager._start_unit_action(TurnManager.Team.ENEMY)
 						queue_free()						
 						return
 					occupant.being_pushed = false
