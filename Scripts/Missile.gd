@@ -14,6 +14,8 @@ var is_ready: bool = false
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var line_renderer: Line2D = $Line2D
 
+var owner_is_player: bool = true
+
 func _ready():
 	visible = false
 	progress = 0.0
@@ -66,11 +68,11 @@ func _process(delta):
 				anim_sprite.play("demolished")
 				anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 				
-		# Damage any unit on the impact tile.
+		# Damage any unit on the impact tile (only if enemy).
 		var target_unit = tilemap.get_unit_at_tile(impact_tile)
-		if target_unit:
-			target_unit.take_damage(40)  # Adjust damage as needed.
-			target_unit.flash_white()	
+		if target_unit and target_unit.is_player != owner_is_player:
+			target_unit.take_damage(40)
+			target_unit.flash_white()
 
 		# Now check adjacent tiles for structures and units.
 		var directions = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
@@ -87,7 +89,7 @@ func _process(delta):
 
 			# Check for a unit on the adjacent tile.
 			var occupant = tilemap.get_unit_at_tile(adjacent_tile)
-			if occupant:
+			if occupant and occupant.is_player != owner_is_player:
 				occupant.being_pushed = true
 
 				TutorialManager.on_action("push_mechanic")	
@@ -196,16 +198,16 @@ func update_rotation():
 	var direction = next_pos - global_position
 	sprite.rotation = direction.angle()
 
-func set_target(start: Vector2, target: Vector2):
+func set_target(start: Vector2, target: Vector2, from_player: bool = true):
+	await get_tree().process_frame
 	start_pos = start
 	end_pos = target
-	# Adjust the control point for a nice arc (here offset upward by 200 pixels).
 	control_point = (start + target) / 2 + Vector2(0, -200)
-
 	global_position = start_pos
+	owner_is_player = from_player  # ✅ Store the owner’s team
 	visible = true
 	is_ready = true
 
 	if line_renderer:
 		line_renderer.clear_points()
-		line_renderer.visible = true  # Show trail
+		line_renderer.visible = true

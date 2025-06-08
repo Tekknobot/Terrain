@@ -3,12 +3,12 @@ extends Node
 
 var coins: int = 0
 var xp: int = 0
-var current_level: int = 1
+var current_level: int = 4
 var selected_upgrade: String = ""
 var selected_special_ability: String = ""
-var max_enemy_units: int = 1
+var max_enemy_units: int = 8
 
-var map_difficulty: int = 1
+var map_difficulty: int = 4
 
 # Track unit upgrades by unit name.
 var unit_upgrades: Dictionary = {}

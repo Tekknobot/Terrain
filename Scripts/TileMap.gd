@@ -591,6 +591,7 @@ func spawn_new_enemy_units():
 	# 2) If we've already reached (or exceeded) the cap, bail out.
 	if current_count >= GameData.max_enemy_units:
 		print("Max enemy units reached:", current_count)
+		update_astar_grid()
 		return
 	
 	# 3) Compute “raw” spawn based on current_level, but much slower than (level - 1).
@@ -637,23 +638,33 @@ func spawn_new_enemy_units():
 		var enemy_unit = enemy_scene.instantiate()
 		
 		# 7) Mark it as “enemy,” assign tile, group, etc.
+		add_child(enemy_unit)  # 🔥 first!
 		enemy_unit.set_team(false)
 		enemy_unit.tile_pos = spawn_tile
 		enemy_unit.add_to_group("Units")
-		add_child(enemy_unit)
-		
+
+		# 🔧 Add these lines:
+		enemy_unit.unit_id = next_unit_id
+		enemy_unit.set_meta("unit_id", next_unit_id)
+		next_unit_id += 1
+
+		enemy_unit.peer_id = 1  # authority/server usually has peer_id 1
+		enemy_unit.set_meta("peer_id", 1)
+
+		enemy_unit.set_meta("scene_path", enemy_scene.resource_path)
+
 		# 8) Drop it in from above (same as before)
 		var target_pos = to_global(map_to_local(spawn_tile)) + Vector2(0, enemy_unit.Y_OFFSET)
 		var drop_offset = 100.0
 		enemy_unit.global_position = target_pos - Vector2(0, drop_offset)
-		
+
 		var tween = enemy_unit.create_tween()
 		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5) \
 			 .set_trans(Tween.TRANS_SINE) \
 			 .set_ease(Tween.EASE_OUT)
-	# end for
-	
+
 	# 9) Rebuild A⋆ so these new enemies act as blockers
+	await get_tree().process_frame
 	update_astar_grid()
 
 # ———————————————————————————————————————————————————————————————
@@ -1078,6 +1089,7 @@ func _input(event):
 					# ─────────── RANGED LOGIC ───────────
 					if selected_unit.unit_type in ["Ranged", "Support"]:
 						if enemy and enemy != selected_unit \
+						and enemy.is_player != selected_unit.is_player \
 						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 							var server = get_multiplayer_authority()
 							request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
@@ -1101,6 +1113,7 @@ func _input(event):
 							showing_attack = false
 							_clear_highlights()
 							return
+					
 					# ─────────── MELEE LOGIC ───────────
 					else:
 						if enemy and enemy.is_player != selected_unit.is_player \
@@ -1190,6 +1203,9 @@ func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if not atk or not tgt:
+		return
+	if atk.is_player == tgt.is_player:
+		print("⚠ Ignoring attack: target is a friendly unit.")
 		return
 
 	atk.auto_attack_ranged(tgt, atk)
@@ -2041,7 +2057,7 @@ func get_structure_by_id(target_id: int) -> Node:
 
 func get_unit_at_tile(tile: Vector2i) -> Node:
 	for unit in get_tree().get_nodes_in_group("Units"):
-		if local_to_map(to_local(unit.global_position)) == tile:
+		if unit.tile_pos == tile:  # ✅ Instead of comparing global_position
 			return unit
 	return null
 
@@ -2169,7 +2185,7 @@ func import_unit_data(unit_data: Array) -> void:
 		unit_instance.tile_pos = tile
 		unit_instance.global_position = to_global(map_to_local(tile))
 		unit_instance.global_position.y -= 8
-		unit_instance.is_player = info.get("is_player", true)
+		unit_instance.set_team(info.get("is_player", true))
 		unit_instance.health = info.get("health", 100)
 
 		if unit_instance.is_player:
