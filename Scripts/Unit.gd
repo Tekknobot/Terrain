@@ -832,7 +832,7 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	var missile_scene = preload("res://Prefabs/Missile.tscn")
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
-	missile.set_target(global_position, target.global_position, is_player)
+	missile.set_target(global_position, target.global_position)
 
 	gain_xp(25)
 	
@@ -867,7 +867,7 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var missile_scene = preload("res://Prefabs/Missile.tscn")
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
-	missile.set_target(global_position, target_pos, is_player)
+	missile.set_target(global_position, target_pos)
 
 	await missile.finished
 
@@ -1388,7 +1388,7 @@ func _on_fire_timer_timeout(target_tile: Vector2i) -> void:
 	get_tree().get_current_scene().add_child(proj)
 
 	# 3) Call set_target(...) instead of assigning to a nonexistent property
-	proj.set_target(start_pos, end_pos, is_player)
+	proj.set_target(start_pos, end_pos)
 
 	# 4) Connect its “reached_target” signal to handle impact
 	proj.connect("reached_target", Callable(self, "_on_projectile_impact").bind(target_tile))
@@ -1726,7 +1726,7 @@ func lightning_surge(target_tile: Vector2i) -> void:
 	get_tree().get_current_scene().add_child(missile)
 	tilemap.play_attack_sound(global_position)
 	missile.global_position = global_position
-	missile.set_target(global_position, target_pos, is_player)
+	missile.set_target(global_position, target_pos)
 	print("Lightning Surge toward ", target_tile)
 	has_attacked = true
 	has_moved = true
@@ -1807,7 +1807,7 @@ func critical_strike(target_tile: Vector2i) -> void:
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	missile.global_position = global_position
-	missile.set_target(global_position, target_pos, is_player)
+	missile.set_target(global_position, target_pos)
 	print("Unit ", name, " launched Critical Strike missile toward ", target_tile)
 	has_attacked = true
 	has_moved = true
@@ -1824,7 +1824,7 @@ func rapid_fire(target_tile: Vector2i) -> void:
 			var projectile = projectile_scene.instantiate()
 			get_tree().get_current_scene().add_child(projectile)
 			projectile.global_position = global_position
-			projectile.set_target(global_position, target_pos, is_player)
+			projectile.set_target(global_position, target_pos)
 			print("Rapid Fire projectile launched toward tile: ", this_tile)
 			await get_tree().create_timer(0.1).timeout
 	has_attacked = true
@@ -1899,7 +1899,7 @@ func explosive_rounds(target_tile: Vector2i) -> void:
 	if sprite:
 		sprite.play("attack")
 	missile.global_position = global_position
-	missile.set_target(global_position, target_pos, is_player)
+	missile.set_target(global_position, target_pos)
 	print("Unit ", name, " launched Explosive Rounds at ", target_tile)
 	has_attacked = true
 	has_moved = true
@@ -1925,7 +1925,7 @@ func spider_blast(target_tile: Vector2i) -> void:
 			var missile = missile_scene.instantiate()
 			get_tree().get_current_scene().add_child(missile)
 			missile.global_position = global_position
-			missile.set_target(global_position, target_pos, is_player)
+			missile.set_target(global_position, target_pos)
 			print("Spider Blast toward: ", blast_tile)
 			await get_tree().create_timer(0.2).timeout
 	print("Spider Blast activated on ", target_tile)

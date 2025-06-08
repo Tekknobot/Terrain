@@ -1089,7 +1089,6 @@ func _input(event):
 					# ─────────── RANGED LOGIC ───────────
 					if selected_unit.unit_type in ["Ranged", "Support"]:
 						if enemy and enemy != selected_unit \
-						and enemy.is_player != selected_unit.is_player \
 						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 							var server = get_multiplayer_authority()
 							request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
@@ -1203,9 +1202,6 @@ func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if not atk or not tgt:
-		return
-	if atk.is_player == tgt.is_player:
-		print("⚠ Ignoring attack: target is a friendly unit.")
 		return
 
 	atk.auto_attack_ranged(tgt, atk)
