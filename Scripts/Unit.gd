@@ -517,7 +517,18 @@ func die():
 	# Random death popup
 	var msg_index = randi() % death_messages.size()
 	spawn_text_popup(death_messages[msg_index], Color(1, 0.3, 0.3))
+		
+	# Store tile before anything
+	var death_tile = tile_pos
+	var death_scene = get_tree().get_current_scene()
 
+	# Delay one frame to let everything settle (optional)
+	await get_tree().process_frame
+
+	# Spawn coins **first**
+	await _spawn_coin_burst(death_scene, death_tile)
+
+	# Now free this unit AFTER coins exist
 	queue_free()
 
 	# Tell the TileMap that we lost our selected_unit
@@ -541,6 +552,45 @@ func die():
 		var tm = get_node_or_null("/root/TurnManager")
 		if tm:
 			tm.end_turn(true)
+
+func _spawn_coin_burst(tilemap: Node, tile_pos: Vector2i) -> void:
+	var coin_scene = preload("res://Prefabs/coin_pickup.tscn")
+	var num_coins := 2
+	var tilemap_node = tilemap.get_node("TileMap")  # or pass TileMap directly if you already have it
+	var base_pos = tilemap_node.to_global(tilemap_node.map_to_local(tile_pos))
+	base_pos.y -= 24
+	var radius := 64.0
+
+	for i in range(num_coins):
+		var coin = coin_scene.instantiate()
+		var collider = coin.get_node("CollisionShape2D")
+		collider.disabled = true
+
+		coin.global_position = base_pos + Vector2(0, -26)
+		tilemap.get_tree().get_root().add_child(coin)
+
+		var angle = TAU * float(i) / float(num_coins)
+		var direction = Vector2(cos(angle), sin(angle))
+		var target_offset = direction * radius
+		var target_pos = coin.position + target_offset
+
+		var tween = coin.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(coin, "position", target_pos, 0.4) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+		var arc_height := 20.0
+		tween.tween_property(coin, "position:y", coin.position.y - arc_height, 0.3) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tween.tween_property(coin, "position:y", coin.position.y, 0.3) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN).set_delay(0.3)
+
+		tween.tween_callback(func():
+			if is_instance_valid(collider):
+				collider.disabled = false
+		)
+
+	await get_tree().create_timer(0.1).timeout  # ensure they’re placed visually before moving on
 
 @rpc("reliable")
 func remote_unit_died(remote_id: int) -> void:
