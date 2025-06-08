@@ -29,6 +29,7 @@ animations = [{
 }]
 
 [node name="Control" type="Control"]
+z_index = 4096
 layout_mode = 3
 anchors_preset = 8
 anchor_left = 0.5
