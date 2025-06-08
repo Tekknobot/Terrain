@@ -22,6 +22,7 @@ signal movement_finished
 
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI
+@onready var step_player: AudioStreamPlayer2D = $SFX
 
 var has_moved
 var has_attacked
@@ -73,6 +74,7 @@ const TILE_SIZE := Vector2(64, 64)
 
 var missile_sfx := preload("res://Audio/SFX/missile_launch.wav")
 var attack_sfx := preload("res://Audio/SFX/attack_default.wav")
+var step_sfx := preload("res://Audio/SFX/step_tile.wav")  # Replace with your actual file
 
 @export var fortify_effect_scene := preload("res://Scenes/VFX/FortifyAura.tscn")
 var _fortify_aura: Node = null
@@ -87,6 +89,7 @@ var death_messages := [
 	"Eliminated!",
 	"Shut down!"
 ]
+
 
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
@@ -117,6 +120,10 @@ func _ready():
 		tm.connect("round_ended", Callable(self, "_on_round_ended"))
 			
 	print("Multiplayer authority? ", get_tree().get_multiplayer().is_server())
+	
+	# Assign footstep audio stream to the AudioStreamPlayer2D
+	if step_player and step_sfx:
+		step_player.stream = step_sfx
 
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
@@ -167,19 +174,22 @@ func _move_one(dest: Vector2i) -> void:
 		sprite.play("move")
 		sprite.flip_h = global_position.x < world_target.x
 
-	var speed := 100.0  # pixels/sec
+	var speed := 100.0
 	
+	# Play the step SFX as we begin moving toward the tile
+	if step_player:
+		step_player.pitch_scale = randf_range(0.9, 1.1)
+		step_player.play()
+
 	while global_position.distance_to(world_target) > 1.0:
 		var delta = get_process_delta_time()
 		global_position = global_position.move_toward(world_target, speed * delta)
-		print("DEBUG: Moving unit ", unit_id, " - distance left: ", global_position.distance_to(world_target))
 		await get_tree().process_frame
 
 	global_position = world_target
 	tile_pos = dest
 	if sprite:
 		sprite.play("default")
-	print("DEBUG: _move_one() completed for unit ", unit_id, ". New global pos: ", global_position)
 
 func move_to(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")   

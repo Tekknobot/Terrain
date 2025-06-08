@@ -230,6 +230,15 @@ func _physics_process(delta):
 			update_astar_grid()
 			
 			current_path.remove_at(0)
+
+			# Play step sound when arriving at a tile
+			if selected_unit.has_node("SFX"):
+				var step_player = selected_unit.get_node("SFX") as AudioStreamPlayer2D
+				if step_player:
+					step_player.stop()  # ensure replay
+					step_player.pitch_scale = randf_range(0.9, 1.1)
+					step_player.play()
+			
 			if current_path.is_empty():
 				moving = false
 				sprite.play("default")
