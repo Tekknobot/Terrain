@@ -8,45 +8,49 @@ var zoom_levels = [
 
 var current_zoom_index := 0
 
+# Camera drag
 var dragging := false
 var drag_start := Vector2.ZERO
 var camera_start := Vector2.ZERO
+var base_position := Vector2.ZERO  # position controlled by drag and centering logic
 
-# For pinch zooming.
+# For pinch zooming
 var active_touches := {}
 var pinch_initial_distance := 0.0
 var pinch_initial_zoom_index := 0
 
-# Camera shake variables
+# Camera shake
 var shake_amount := 0.0
 var shake_decay := 5.0
-var original_position := Vector2.ZERO
 
+var valid_drag := false
 
 func _ready():
-	# Load the saved zoom index from GameData.
 	GameData.load_settings()
 	current_zoom_index = GameData.current_zoom_index
 
-	# Set the camera's initial zoom.
 	zoom = zoom_levels[current_zoom_index]
 	
 	set_process_unhandled_input(true)
 	set_process(true)
 
-	# Center the camera over the TileMap.
+	# Center camera on TileMap
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var grid_width = 8
 	var grid_height = 8
 	var center_tile = Vector2(grid_width / 2, grid_height / 2)
-	global_position = tilemap.to_global(tilemap.map_to_local(center_tile))
-
-	# Store original position for shake
-	original_position = global_position
+	var world_pos = tilemap.to_global(tilemap.map_to_local(center_tile))
+	global_position = world_pos
+	base_position = world_pos
 
 
 func _unhandled_input(event):
-	# Desktop zooming via mouse wheel.
+	# Near the top of _unhandled_input
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap.selected_unit != null:
+		return  # disable all dragging/zoom logic while unit is selected
+	
+	# Zooming
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			current_zoom_index = max(current_zoom_index - 1, 0)
@@ -54,21 +58,26 @@ func _unhandled_input(event):
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			current_zoom_index = min(current_zoom_index + 1, zoom_levels.size() - 1)
 			_zoom_camera()
-		# Desktop dragging via left click.
-		elif event.button_index == MOUSE_BUTTON_LEFT:
+
+		# Start drag only if clicking empty tile
+		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if is_click_on_empty_tile():
 					dragging = true
+					valid_drag = true
 					drag_start = get_global_mouse_position()
-					camera_start = global_position
+					camera_start = base_position
+				else:
+					valid_drag = false
 			else:
 				dragging = false
+				valid_drag = false
 
-	# Desktop dragging motion.
-	elif event is InputEventMouseMotion and dragging:
-		global_position = camera_start - (get_global_mouse_position() - drag_start) * 0.6
+	elif event is InputEventMouseMotion and dragging and valid_drag:
+		base_position = camera_start - (get_global_mouse_position() - drag_start) * 0.6
 
-	# Touch events for pinch zoom (Android).
+
+	# Pinch zoom (mobile)
 	elif event is InputEventScreenTouch:
 		if event.pressed:
 			active_touches[event.index] = event.position
@@ -99,36 +108,40 @@ func _unhandled_input(event):
 
 
 func _zoom_camera():
-	# Tween the camera's zoom from its current value to the target value.
 	var target_zoom = zoom_levels[current_zoom_index]
 	var tween = create_tween()
 	tween.tween_property(self, "zoom", target_zoom, 0.2).set_trans(Tween.TRANS_CUBIC)
-	
 	print("→ Camera zoom changed: index=", current_zoom_index, ", zoom=", target_zoom)
-	
-	# Save the new zoom index in GameData.
 	GameData.current_zoom_index = current_zoom_index
 	GameData.save_settings()
 
 
 func is_click_on_empty_tile() -> bool:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var mouse_pos = tilemap.get_global_mouse_position()
-	var clicked_tile = tilemap.local_to_map(tilemap.to_local(mouse_pos))
-	return tilemap.get_unit_at_tile(clicked_tile) == null
+
+	# If a unit is selected, don't allow drag
+	if tilemap.has_node("selected_unit") and tilemap.selected_unit != null:
+		return false
+
+	var local_pos = tilemap.to_local(get_viewport().get_mouse_position())
+	var clicked_tile = tilemap.local_to_map(local_pos)
+
+	var has_unit := tilemap.get_unit_at_tile(clicked_tile) != null
+	var has_structure := tilemap.get_structure_at_tile(clicked_tile) != null
+
+	return not has_unit and not has_structure
 
 
 func _process(delta):
-	# Camera shake effect
 	if shake_amount > 0:
 		var shake_offset = Vector2(
 			randf_range(-1.0, 1.0),
 			randf_range(-1.0, 1.0)
 		) * shake_amount
-		global_position = original_position + shake_offset
+		global_position = base_position + shake_offset
 		shake_amount = max(shake_amount - shake_decay * delta, 0.0)
 	else:
-		global_position = original_position
+		global_position = base_position
 
 
 func shake(amount: float) -> void:
