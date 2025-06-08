@@ -39,3 +39,5 @@ res://Scenes/Meks_Scenes/PLAYER/R2.scn
 res://Scenes/Meks_Scenes/PLAYER/R3.scn
 res://Scenes/Meks_Scenes/PLAYER/R4.scn
 res://Scenes/Meks_Scenes/PLAYER/S2.scn
+res://Prefabs/health_pickup.tscn
+res://Scripts/health_pickup.gd

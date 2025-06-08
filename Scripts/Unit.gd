@@ -536,7 +536,7 @@ func die():
 	await get_tree().process_frame
 
 	# Spawn coins **first**
-	await _spawn_coin_burst(death_scene, death_tile)
+	await _spawn_burst(death_scene, death_tile)
 
 	# Now free this unit AFTER coins exist
 	queue_free()
@@ -563,36 +563,46 @@ func die():
 		if tm:
 			tm.end_turn(true)
 
-func _spawn_coin_burst(tilemap: Node, tile_pos: Vector2i) -> void:
+func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 	var coin_scene = preload("res://Prefabs/coin_pickup.tscn")
-	var num_coins := 2
-	var tilemap_node = tilemap.get_node("TileMap")  # or pass TileMap directly if you already have it
+	var health_scene = preload("res://Prefabs/health_pickup.tscn")
+	var num_attempts := 2
+	var tilemap_node = tilemap.get_node("TileMap")
 	var base_pos = tilemap_node.to_global(tilemap_node.map_to_local(tile_pos))
 	base_pos.y -= 24
 	var radius := 64.0
 
-	for i in range(num_coins):
-		var coin = coin_scene.instantiate()
-		var collider = coin.get_node("CollisionShape2D")
+	for i in range(num_attempts):
+		var roll := randi() % 100
+		var drop = null
+
+		if roll < 60:
+			drop = coin_scene.instantiate()
+		elif roll < 90:
+			drop = health_scene.instantiate()
+		else:
+			continue  # 10% chance to drop nothing
+
+		var collider = drop.get_node("CollisionShape2D")
 		collider.disabled = true
 
-		coin.global_position = base_pos + Vector2(0, -32)
-		get_tree().get_current_scene().add_child(coin)
+		drop.global_position = base_pos + Vector2(0, -32)
+		get_tree().get_current_scene().add_child(drop)
 
-		var angle = TAU * float(i) / float(num_coins)
+		var angle = TAU * float(i) / float(num_attempts)
 		var direction = Vector2(cos(angle), sin(angle))
 		var target_offset = direction * radius
-		var target_pos = coin.position + target_offset
+		var target_pos = drop.position + target_offset
 
-		var tween = coin.create_tween()
+		var tween = drop.create_tween()
 		tween.set_parallel(true)
-		tween.tween_property(coin, "position", target_pos, 0.4) \
+		tween.tween_property(drop, "position", target_pos, 0.4) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 		var arc_height := 20.0
-		tween.tween_property(coin, "position:y", coin.position.y - arc_height, 0.3) \
+		tween.tween_property(drop, "position:y", drop.position.y - arc_height, 0.3) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		tween.tween_property(coin, "position:y", coin.position.y, 0.3) \
+		tween.tween_property(drop, "position:y", drop.position.y, 0.3) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN).set_delay(0.3)
 
 		tween.tween_callback(func():
@@ -600,7 +610,7 @@ func _spawn_coin_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 				collider.disabled = false
 		)
 
-	await get_tree().create_timer(0.1).timeout  # ensure they’re placed visually before moving on
+	await get_tree().create_timer(0.1).timeout
 
 @rpc("reliable")
 func remote_unit_died(remote_id: int) -> void:
