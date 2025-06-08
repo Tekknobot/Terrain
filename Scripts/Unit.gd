@@ -231,6 +231,9 @@ func take_damage(amount: int) -> bool:
 		
 	if not is_player:
 		TurnManager.record_damage(amount)
+	
+	
+	spawn_floating_text(amount)
 		
 	health = max(health - amount, 0)
 	update_health_bar()
@@ -1973,3 +1976,12 @@ func play_heal_sound():
 	player.stream = sfx
 	add_child(player)
 	player.play()
+
+func spawn_floating_text(amount: int):
+	var floating_text_scene = preload("res://Scenes/VFX/floating_text.tscn")
+	var text_instance = floating_text_scene.instantiate()
+	
+	text_instance.position = global_position
+	text_instance.set_damage(amount)
+
+	get_tree().get_current_scene().add_child(text_instance)

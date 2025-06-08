@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://cb2de1hmdbplx"]
+
+[ext_resource type="Script" path="res://Scripts/floating_text.gd" id="1_138y3"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="2_xrt7w"]
+
+[node name="FloatingText" type="Node2D"]
+script = ExtResource("1_138y3")
+
+[node name="Label" type="Label" parent="."]
+z_index = 4096
+offset_right = 40.0
+offset_bottom = 23.0
+theme_override_fonts/font = ExtResource("2_xrt7w")
+theme_override_font_sizes/font_size = 16
+text = "99"
