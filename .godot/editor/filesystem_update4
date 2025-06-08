@@ -18,3 +18,5 @@ res://Scripts/Explosion.gd
 res://Scripts/floating_text.gd
 res://Scenes/VFX/floating_text.tscn
 res://Scripts/Unit.gd
+res://Scripts/popup_text.gd
+res://Scenes/VFX/popup_text.tscn

@@ -77,6 +77,17 @@ var attack_sfx := preload("res://Audio/SFX/attack_default.wav")
 @export var fortify_effect_scene := preload("res://Scenes/VFX/FortifyAura.tscn")
 var _fortify_aura: Node = null
 
+var death_messages := [
+	"Enemy down!",
+	"Gotta hurt!",
+	"Boom!",
+	"Gone!",
+	"Taken out!",
+	"Out of action!",
+	"Eliminated!",
+	"Shut down!"
+]
+
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
@@ -502,6 +513,10 @@ func die():
 	await get_tree().process_frame
 	if is_multiplayer_authority():
 		rpc("remote_unit_died", unit_id)
+
+	# Random death popup
+	var msg_index = randi() % death_messages.size()
+	spawn_text_popup(death_messages[msg_index], Color(1, 0.3, 0.3))
 
 	queue_free()
 
@@ -1985,3 +2000,10 @@ func spawn_floating_text(amount: int):
 	text_instance.set_damage(amount)
 
 	get_tree().get_current_scene().add_child(text_instance)
+
+func spawn_text_popup(message: String, color: Color = Color.WHITE):
+	var popup_scene = preload("res://Scenes/VFX/popup_text.tscn")
+	var popup = popup_scene.instantiate()
+	popup.position = global_position + Vector2(0, -32)  # Slightly above the unit
+	popup.set_text(message, color)
+	get_tree().get_current_scene().add_child(popup)
