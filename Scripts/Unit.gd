@@ -567,7 +567,7 @@ func _spawn_coin_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 		collider.disabled = true
 
 		coin.global_position = base_pos + Vector2(0, -32)
-		tilemap.get_tree().get_root().add_child(coin)
+		get_tree().get_current_scene().add_child(coin)
 
 		var angle = TAU * float(i) / float(num_coins)
 		var direction = Vector2(cos(angle), sin(angle))
