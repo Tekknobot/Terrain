@@ -566,7 +566,7 @@ func _spawn_coin_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 		var collider = coin.get_node("CollisionShape2D")
 		collider.disabled = true
 
-		coin.global_position = base_pos + Vector2(0, -26)
+		coin.global_position = base_pos + Vector2(0, -32)
 		tilemap.get_tree().get_root().add_child(coin)
 
 		var angle = TAU * float(i) / float(num_coins)
