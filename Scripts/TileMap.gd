@@ -420,7 +420,7 @@ func _spawn_teams():
 
 func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]) -> void:
 	# 1) Decide how many to spawn: 4 at level 1, +1 per extra level.
-	var base := 8
+	var base := 3
 	var raw_spawn = base + max(GameData.current_level - 1, 0)
 
 	# Cap player spawns at 8 without using a ternary
@@ -621,7 +621,8 @@ func spawn_new_enemy_units():
 		# If that tile is invalid (off‐map / water / occupied), find nearest valid land
 		if not is_within_bounds(spawn_tile) \
 		   or is_tile_occupied(spawn_tile) \
-		   or is_water_tile(spawn_tile):
+		   or is_water_tile(spawn_tile) \
+		   or used_tiles.has(spawn_tile):
 		   
 			spawn_tile = _find_nearest_land(spawn_tile, used_tiles)
 			if spawn_tile == Vector2i(-1, -1):

@@ -26,7 +26,7 @@ func advance():
 		6:
 			_set_text("Tip: Destroy unit with collision.")	
 		7:
-			_set_text("Tip: Tip: Destroy unit by pushing it off grid.")	
+			_set_text("Tip: Destroy unit by pushing it off grid.")	
 		8:	
 			_set_text("Tip: Level up with direct hits.")										
 		_:

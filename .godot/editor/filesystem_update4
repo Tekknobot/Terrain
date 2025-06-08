@@ -11,3 +11,4 @@ res://Prefabs/Missile.tscn
 res://Scripts/TutorialManager.gd
 res://Scripts/TurnManager.gd
 res://Scripts/TileMap.gd
+res://Scripts/GameData.gd
