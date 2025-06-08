@@ -14,5 +14,9 @@ func _ready():
 	# This ensures objects are layered correctly.
 	z_index = tile_pos.y + 1000
 
+	var camera = get_viewport().get_camera_2d()
+	if camera and camera.has_method("shake"):
+		camera.shake(5.0)  # Adjust intensity	
+
 func _on_explosion_finished(anim_name):
 	queue_free()

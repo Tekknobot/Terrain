@@ -17,22 +17,34 @@ var active_touches := {}
 var pinch_initial_distance := 0.0
 var pinch_initial_zoom_index := 0
 
+# Camera shake variables
+var shake_amount := 0.0
+var shake_decay := 5.0
+var original_position := Vector2.ZERO
+
+
 func _ready():
 	# Load the saved zoom index from GameData.
-	GameData.load_settings()  # Make sure this function prints a debug message if needed.
+	GameData.load_settings()
 	current_zoom_index = GameData.current_zoom_index
+
 	# Set the camera's initial zoom.
 	zoom = zoom_levels[current_zoom_index]
 	
 	set_process_unhandled_input(true)
-	
+	set_process(true)
+
 	# Center the camera over the TileMap.
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var grid_width = 8
 	var grid_height = 8
 	var center_tile = Vector2(grid_width / 2, grid_height / 2)
 	global_position = tilemap.to_global(tilemap.map_to_local(center_tile))
-	
+
+	# Store original position for shake
+	original_position = global_position
+
+
 func _unhandled_input(event):
 	# Desktop zooming via mouse wheel.
 	if event is InputEventMouseButton:
@@ -85,21 +97,39 @@ func _unhandled_input(event):
 				current_zoom_index = new_index
 				_zoom_camera()
 
+
 func _zoom_camera():
 	# Tween the camera's zoom from its current value to the target value.
 	var target_zoom = zoom_levels[current_zoom_index]
 	var tween = create_tween()
 	tween.tween_property(self, "zoom", target_zoom, 0.2).set_trans(Tween.TRANS_CUBIC)
 	
-	# Debug‐print the index and actual zoom vector:
-	print("→ Camera zoom changed: index=", current_zoom_index,", zoom=", target_zoom)
-			
+	print("→ Camera zoom changed: index=", current_zoom_index, ", zoom=", target_zoom)
+	
 	# Save the new zoom index in GameData.
 	GameData.current_zoom_index = current_zoom_index
 	GameData.save_settings()
 
+
 func is_click_on_empty_tile() -> bool:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var mouse_pos = tilemap.get_global_mouse_position()
-	var clicked_tile = tilemap.local_to_map(tilemap.map_to_local(mouse_pos))
+	var clicked_tile = tilemap.local_to_map(tilemap.to_local(mouse_pos))
 	return tilemap.get_unit_at_tile(clicked_tile) == null
+
+
+func _process(delta):
+	# Camera shake effect
+	if shake_amount > 0:
+		var shake_offset = Vector2(
+			randf_range(-1.0, 1.0),
+			randf_range(-1.0, 1.0)
+		) * shake_amount
+		global_position = original_position + shake_offset
+		shake_amount = max(shake_amount - shake_decay * delta, 0.0)
+	else:
+		global_position = original_position
+
+
+func shake(amount: float) -> void:
+	shake_amount = amount
