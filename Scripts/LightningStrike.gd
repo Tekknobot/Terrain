@@ -23,6 +23,7 @@ func _ready() -> void:
 	_line = Line2D.new()
 	_line.width = line_width
 	_line.default_color = line_color
+	_line.z_index = 9999
 	add_child(_line)
 
 	# 2) Prepare the SFX player (but don't play until fire())

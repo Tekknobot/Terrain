@@ -80,16 +80,15 @@ var step_sfx := preload("res://Audio/SFX/step_tile.wav")  # Replace with your ac
 var _fortify_aura: Node = null
 
 var death_messages := [
-	"Enemy down!",
-	"Gotta hurt!",
+	"Downed!",
+	"Shattered!",
 	"Boom!",
-	"Gone!",
-	"Taken out!",
-	"Out of action!",
+	"Deleted!",
+	"Neutralized!",
 	"Eliminated!",
-	"Shut down!"
+	"Shutdown!",
+	"Erased!"
 ]
-
 
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
@@ -573,7 +572,7 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 	var health_scene = preload("res://Prefabs/health_pickup.tscn")
 	var lightning_scene = preload("res://Prefabs/lightning_pickup.tscn")
 	
-	var num_attempts := 2
+	var num_attempts := 1
 	var tilemap_node = tilemap.get_node("TileMap")
 	var base_pos = tilemap_node.to_global(tilemap_node.map_to_local(tile_pos))
 	base_pos.y -= 24
@@ -582,15 +581,15 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 	for i in range(num_attempts):
 		var roll := randi() % 100
 		var drop = null
-
-		if roll < 60:
-			drop = lightning_scene.instantiate()         # 60%
+		
+		if roll < 40:
+			drop = coin_scene.instantiate()          # 0–39 → 40%
+		elif roll < 70:
+			drop = health_scene.instantiate()        # 40–69 → 30%
 		elif roll < 90:
-			drop = health_scene.instantiate()        # 30%
-		elif roll < 98:
-			drop = lightning_scene.instantiate()     # 8%
+			drop = lightning_scene.instantiate()     # 70–89 → 20%
 		else:
-			continue                                 # 2% chance to drop nothing
+			continue                                 # 90–99 → 10% chance to drop nothing
 
 		var collider = drop.get_node("CollisionShape2D")
 		collider.disabled = true

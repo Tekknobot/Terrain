@@ -47,3 +47,4 @@ res://Scripts/LightningStrike.gd
 res://Scripts/LightningController.gd
 res://Scripts/lightning_pickup.gd
 res://Prefabs/LightningController.tscn
+res://Textures/Popup.gdshader
