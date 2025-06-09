@@ -902,6 +902,10 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	tilemap.input_locked = true
 
 	var sprite = $AnimatedSprite2D
+	
+	# Flip sprite if target is to the right
+	sprite.flip_h = target.global_position.x > global_position.x
+		
 	if sprite:
 		sprite.play("attack")
 		await sprite.animation_finished
@@ -926,7 +930,6 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	# After performing the attack
 	TutorialManager.on_action("enemy_attacked")		
 
-
 func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
@@ -937,6 +940,10 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 
 	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, unit.Y_OFFSET)
 	var sprite = $AnimatedSprite2D
+
+	# Flip sprite if target is to the right
+	sprite.flip_h = target_pos.x > global_position.x
+
 	if sprite:
 		sprite.play("attack")
 		await sprite.animation_finished
