@@ -165,6 +165,9 @@ func compute_path(from: Vector2i, to: Vector2i) -> Array:
 
 
 func _move_one(dest: Vector2i) -> void:
+	if !is_inside_tree():
+		return
+
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var world_target = tilemap.to_global(tilemap.map_to_local(dest)) + Vector2(0, Y_OFFSET)
 
@@ -174,8 +177,7 @@ func _move_one(dest: Vector2i) -> void:
 		sprite.flip_h = global_position.x < world_target.x
 
 	var speed := 100.0
-	
-	# Play the step SFX as we begin moving toward the tile
+
 	if step_player:
 		step_player.pitch_scale = randf_range(0.9, 1.1)
 		step_player.play()
@@ -184,11 +186,15 @@ func _move_one(dest: Vector2i) -> void:
 		var delta = get_process_delta_time()
 		global_position = global_position.move_toward(world_target, speed * delta)
 		await get_tree().process_frame
+		if !is_inside_tree():
+			return
 
 	global_position = world_target
 	tile_pos = dest
+
 	if sprite:
 		sprite.play("default")
+
 
 func move_to(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")   
@@ -302,24 +308,22 @@ func auto_attack_adjacent():
 					sprite.play("attack")
 					await sprite.animation_finished
 					sprite.play("default")
-				
+
 				gain_xp(25)
-				
+
 				if died:
 					gain_xp(25)
 					continue
 
-				# Mark as “being pushed” before any movement/awaits
 				unit.being_pushed = true
-				
-				TutorialManager.on_action("push_mechanic")	
-				
-				# ─── Push logic branch 1: into water ──────────────────
+				TutorialManager.on_action("push_mechanic")
+
 				var tile_id = tilemap.get_cell_source_id(0, push_pos)
+
+				# ─── Water push ───
 				if tile_id == water_tile_id:
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0
-					# Move unit step‐by‐step into the water
 					while unit.global_position.distance_to(target_pos) > 1.0:
 						var delta = get_process_delta_time()
 						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
@@ -331,39 +335,35 @@ func auto_attack_adjacent():
 
 					if tilemap.is_tile_occupied(push_pos):
 						var occupants = get_occupants_at(push_pos, unit)
-						if occupants.size() > 0:
-							for occ in occupants:
-								if occ.is_in_group("Structures"):
-									var occ_sprite = occ.get_node("AnimatedSprite2D")
-									if occ_sprite:
-										occ_sprite.play("demolished")
-										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-								elif occ.is_in_group("Units"):
-									await get_tree().create_timer(0.2).timeout
-									occ.take_damage(damage)
-									occ.shake()
-							gain_xp(25)
-							# Push is “done” even if unit died
-							unit.being_pushed = false							
-							unit.die()
-							tilemap.update_astar_grid()
-							continue  # go to next direction
+						for occ in occupants:
+							if occ.is_in_group("Structures"):
+								var occ_sprite = occ.get_node("AnimatedSprite2D")
+								if occ_sprite:
+									occ_sprite.play("demolished")
+									occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+							elif occ.is_in_group("Units"):
+								await get_tree().create_timer(0.2).timeout
+								occ.take_damage(damage)
+								occ.shake()
+						gain_xp(25)
+						unit.die()
+						tilemap.update_astar_grid()
+						continue
 
 					var water_damage = 25
 					died = unit.take_damage(water_damage)
 					if not died:
 						unit.shake()
+					else:
+						tilemap.update_astar_grid()
+						continue
 
-					# **At this point, water‐push and splash‐damage have finished.**
 					await get_tree().create_timer(0.2).timeout
 					tilemap.update_astar_grid()
-					
-					# Turn off “being_pushed” now that all movement/awaits are done
 					unit.being_pushed = false
 					continue
-				# ────────────────────────────────────────────────────────
 
-				# ─── Push logic branch 2: off-grid (unit falls out of bounds) ──────────────────
+				# ─── Off-grid fall ───
 				elif not tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0
@@ -371,18 +371,14 @@ func auto_attack_adjacent():
 						var delta = get_process_delta_time()
 						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
 						await get_tree().process_frame
-					# Brief delay so death animation can play, etc.
 					await get_tree().create_timer(0.2).timeout
 					gain_xp(25)
-					# Push is done (unit died off-grid)
-					unit.being_pushed = false	
-					TutorialManager.on_action("offgrid_mechanic")				
+					TutorialManager.on_action("offgrid_mechanic")
 					unit.die()
 					tilemap.update_astar_grid()
 					continue
-				# ────────────────────────────────────────────────────────
 
-				# ─── Push logic branch 3: normal on‐grid push ──────────────────
+				# ─── On-grid push ───
 				elif tilemap.is_within_bounds(push_pos):
 					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed = 150.0
@@ -395,39 +391,35 @@ func auto_attack_adjacent():
 
 					if tilemap.is_tile_occupied(push_pos):
 						var occupants = get_occupants_at(push_pos, unit)
-						if occupants.size() > 0:
-							for occ in occupants:
-								if occ.is_in_group("Structures"):
-									var occ_sprite = occ.get_node("AnimatedSprite2D")
-									if occ_sprite:
-										occ_sprite.play("demolished")
-										occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-								elif occ.is_in_group("Units"):
-									await get_tree().create_timer(0.2).timeout
-									occ.take_damage(damage)
-									occ.shake()
-							gain_xp(25)
-							unit.being_pushed = false
-							TutorialManager.on_action("collide_mechanic")
-							unit.die()
-					tilemap.update_astar_grid()
+						for occ in occupants:
+							if occ.is_in_group("Structures"):
+								var occ_sprite = occ.get_node("AnimatedSprite2D")
+								if occ_sprite:
+									occ_sprite.play("demolished")
+									occ_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+							elif occ.is_in_group("Units"):
+								await get_tree().create_timer(0.2).timeout
+								occ.take_damage(damage)
+								occ.shake()
+						gain_xp(25)
+						TutorialManager.on_action("collide_mechanic")
+						unit.die()
+						tilemap.update_astar_grid()
+						continue
 
-					# **At this point, the on‐grid push has finished.**
+					tilemap.update_astar_grid()
 					unit.being_pushed = false
 					continue
-				# ────────────────────────────────────────────────────────
-				
-			# end of “if unit to push” block
-		# end of “for unit in units” block
-	# end of “for dir in directions” block
+			# End of attack on this unit
+	# End of all directions
+
 	has_moved = true
 	has_attacked = true
-	
+
 	if is_player:
 		$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
-	
-	# After performing the attack
-	TutorialManager.on_action("enemy_attacked")	
+
+	TutorialManager.on_action("enemy_attacked")
 
 
 # Helper to retrieve occupant nodes (unit or structure) at a tile.
