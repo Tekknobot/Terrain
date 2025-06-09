@@ -42,3 +42,8 @@ res://Scenes/Meks_Scenes/PLAYER/S2.scn
 res://Prefabs/health_pickup.tscn
 res://Scripts/health_pickup.gd
 res://Scripts/MusicManager.gd
+res://Prefabs/lightning_pickup.tscn
+res://Scripts/LightningStrike.gd
+res://Scripts/LightningController.gd
+res://Scripts/lightning_pickup.gd
+res://Prefabs/LightningController.tscn

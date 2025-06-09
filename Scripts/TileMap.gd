@@ -1164,7 +1164,7 @@ func _input(event):
 					return
 					
 				# 3) movement logic – only if we are in “movement‐range shown” mode
-				if not showing_attack and not selected_unit.has_moved and can_act:
+				if not_tinted and not showing_attack and not selected_unit.has_moved and can_act:
 					if highlighted_tiles.size() > 0 \
 					and highlighted_tiles.has(mouse_tile) \
 					and dist <= selected_unit.movement_range:

@@ -139,14 +139,6 @@ func _process(delta):
 	_update_tile_pos()
 	check_water_status()
 
-	# Player tint based on moves left
-	if is_player:
-		if has_attacked:
-			get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dim gray for used unit
-		elif has_moved:
-			get_child(0).self_modulate = Color(1, 0.6, 0.6, 1)    # Light red for moved
-
-
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -429,6 +421,11 @@ func auto_attack_adjacent():
 			# end of “if unit to push” block
 		# end of “for unit in units” block
 	# end of “for dir in directions” block
+	has_moved = true
+	has_attacked = true
+	
+	if is_player:
+		$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 	
 	# After performing the attack
 	TutorialManager.on_action("enemy_attacked")	
@@ -574,6 +571,8 @@ func die():
 func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 	var coin_scene = preload("res://Prefabs/coin_pickup.tscn")
 	var health_scene = preload("res://Prefabs/health_pickup.tscn")
+	var lightning_scene = preload("res://Prefabs/lightning_pickup.tscn")
+	
 	var num_attempts := 2
 	var tilemap_node = tilemap.get_node("TileMap")
 	var base_pos = tilemap_node.to_global(tilemap_node.map_to_local(tile_pos))
@@ -585,11 +584,13 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 		var drop = null
 
 		if roll < 60:
-			drop = coin_scene.instantiate()
+			drop = lightning_scene.instantiate()         # 60%
 		elif roll < 90:
-			drop = health_scene.instantiate()
+			drop = health_scene.instantiate()        # 30%
+		elif roll < 98:
+			drop = lightning_scene.instantiate()     # 8%
 		else:
-			continue  # 10% chance to drop nothing
+			continue                                 # 2% chance to drop nothing
 
 		var collider = drop.get_node("CollisionShape2D")
 		collider.disabled = true

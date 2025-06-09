@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://c4vm2wccq7df5"]
+
+[node name="LightningJoint" type="CPUParticles2D"]
+emitting = false
+amount = 4
+lifetime = 3.0
+one_shot = true
+speed_scale = 4.0
+emission_shape = 1
+emission_sphere_radius = 8.0
+spread = 32.0
+gravity = Vector2(0, 2)
