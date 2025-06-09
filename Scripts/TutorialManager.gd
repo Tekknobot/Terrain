@@ -18,7 +18,7 @@ func advance():
 		2:
 			_set_text("1. Click empty tile to clear selection.\n2. Right-click an enemy to show attack range.")
 		3:
-			_set_text("1. Click player 'Tempest' unit.\n2. Right click to arm attack.\n3. Click red tile with or without an enemy to attack.")
+			_set_text("1. Click player 'Tempest' unit.\n2. Right click to arm attack.\n3. Click red tile to attack.")
 		4:
 			_set_text("1. Repeat for all units.\n3. Click 'End Turn' to finish your turn.")
 		5:	

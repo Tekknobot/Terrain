@@ -1,3 +1,4 @@
+Line2D
 Label
 AudioStreamPlayer2D
 CollisionShape2D
@@ -7,7 +8,6 @@ Area2D
 Node2D
 CPUParticles2D
 TextureRect
-Line2D
 Button
 VBoxContainer
 CanvasLayer

@@ -23,7 +23,7 @@ func _process(delta):
 func _on_area_entered(area):
 	if area.is_in_group("Units"):
 		print("⚡ Lightning pickup collected!")
-		_trigger_lightning_storm()
+		_trigger_lightning_storm(area.is_player)  # ← pass the team info
 
 		if $AudioStreamPlayer2D:
 			$AudioStreamPlayer2D.play()
@@ -31,11 +31,12 @@ func _on_area_entered(area):
 
 		queue_free()
 
-func _trigger_lightning_storm():
+func _trigger_lightning_storm(is_player_team: bool):
 	if not lightning_scene:
 		push_error("❗ LightningController scene not found!")
 		return
 
 	var lightning = lightning_scene.instantiate()
 	get_tree().get_current_scene().add_child(lightning)
-	lightning.start(3.0, 1.0, 1, 15)
+	lightning.start(3.0, 1.0, 1, 15, is_player_team)
+	lightning.z_index = 9999

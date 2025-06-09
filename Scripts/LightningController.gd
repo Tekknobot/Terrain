@@ -11,11 +11,14 @@ var _damage := 0
 
 const LightningStrike = preload("res://Scripts/LightningStrike.gd")
 
-func start(duration: float, interval: float, strikes_per_interval: int, damage: int) -> void:
+var _is_player_team := true
+
+func start(duration: float, interval: float, strikes_per_interval: int, damage: int, is_player_team: bool) -> void:
 	_duration = duration
 	_interval = interval
 	_strikes_per = strikes_per_interval
 	_damage = damage
+	_is_player_team = is_player_team  # 🔥 store which team triggered the lightning
 
 	_timer.wait_time = _interval
 	_timer.one_shot = false
@@ -24,7 +27,10 @@ func start(duration: float, interval: float, strikes_per_interval: int, damage: 
 	_timer.start()
 
 	set_process(true)
-	print("⚡ LightningController STARTED")
+	if _is_player_team:
+		print("⚡ LightningController STARTED by Player Team")
+	else:
+		print("⚡ LightningController STARTED by Enemy Team")
 
 func _process(delta: float) -> void:
 	_elapsed += delta
@@ -35,7 +41,7 @@ func _process(delta: float) -> void:
 func _on_timer_timeout() -> void:
 	# Get all Area2D units in "Units" group that are NOT players
 	var all_units = get_tree().get_nodes_in_group("Units").filter(func(u):
-		return u is Area2D and u.has_meta("is_player") and not u.is_player
+		return u is Area2D and u.has_meta("is_player") and u.is_player != _is_player_team
 	)
 
 	if all_units.is_empty():
@@ -57,6 +63,6 @@ func _on_timer_timeout() -> void:
 func _strike(unit: Area2D) -> void:
 	var strike = LightningStrike.new()
 	get_tree().get_current_scene().add_child(strike)
-	strike.fire(unit.global_position, _damage)
+	strike.fire(unit, _damage, _is_player_team)
 
 	print("⚡ Striking:", unit.name, "at", unit.global_position)
