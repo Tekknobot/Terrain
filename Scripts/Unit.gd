@@ -197,28 +197,48 @@ func _move_one(dest: Vector2i) -> void:
 
 
 func move_to(dest: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")   
+	if get_tree() == null:
+		return
+
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap == null:
+		return
+
 	var path = tilemap.get_weighted_path(tile_pos, dest)
 	if path.is_empty():
 		emit_signal("movement_finished")
 		return
 
 	print("DEBUG: Path computed for unit ", unit_id, " with length: ", path.size())
+
 	for step in path:
 		await _move_one(step)
-	
+		if !is_inside_tree():
+			return  # stop if this unit was freed during movement
+
+	if !is_inside_tree():
+		return
+
 	tilemap.update_astar_grid()
-	await get_tree().process_frame
+
+	# ✅ Guard this await too
+	if get_tree() != null:
+		await get_tree().process_frame
+
+	if !is_inside_tree():
+		return
+
 	emit_signal("movement_finished")
 	has_moved = true
-	
+
 	print("DEBUG: Finished moving unit ", unit_id, ". Tile pos: ", tile_pos, ", Global pos: ", global_position)
-	
+
 	if is_multiplayer_authority():
 		print("DEBUG: Authority moving unit:", unit_id, ", new tile:", tile_pos, ", new global pos:", global_position)
 		rpc("remote_update_unit_position", unit_id, tile_pos, global_position)
 	else:
 		print("DEBUG: Not the authority for unit:", unit_id)
+
 
 @rpc("reliable")
 func remote_update_unit_position(remote_id: int, new_tile: Vector2i, new_position: Vector2) -> void:

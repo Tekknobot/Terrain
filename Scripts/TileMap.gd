@@ -2001,8 +2001,10 @@ func _execute_all_player_units():
 func _on_end_turn_button_pressed() -> void:
 	if GameData.multiplayer_mode:
 		rpc("request_end_turn")
+		menu_button.visible = false
 	else:
 		_do_end_turn()
+		menu_button.visible = false
 
 func _do_end_turn() -> void:
 	print("🛑 Ending turn locally")
@@ -2059,8 +2061,11 @@ func is_tile_occupied(tile: Vector2i) -> bool:
 	return get_unit_at_tile(tile) != null or get_structure_at_tile(tile) != null
 
 func get_structure_at_tile(tile: Vector2i) -> Node:
+	if get_tree() == null:
+		return null
+
 	for structure in get_tree().get_nodes_in_group("Structures"):
-		if structure.tile_pos == tile:
+		if is_instance_valid(structure) and structure.tile_pos == tile:
 			return structure
 	return null
 
@@ -2071,8 +2076,12 @@ func get_structure_by_id(target_id: int) -> Node:
 	return null
 
 func get_unit_at_tile(tile: Vector2i) -> Node:
-	for unit in get_tree().get_nodes_in_group("Units"):
-		if unit.tile_pos == tile:  # ✅ Instead of comparing global_position
+	if get_tree() == null:
+		return null
+
+	var units = get_tree().get_nodes_in_group("Units")
+	for unit in units:
+		if is_instance_valid(unit) and unit.tile_pos == tile:
 			return unit
 	return null
 
@@ -2440,6 +2449,9 @@ func _on_ability_pressed() -> void:
 func _on_reset_pressed() -> void:
 	TurnManager.reset_match_stats()
 	TurnManager.transition_to_next_level()
+	endturn_button.visible = false
+	menu_button.visible = false
+	reset_button.visible = false
 
 func _on_continue_pressed() -> void:
 	TurnManager.reset_match_stats()
