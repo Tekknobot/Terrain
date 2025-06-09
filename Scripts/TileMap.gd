@@ -1754,7 +1754,7 @@ func _select_unit_at_mouse():
 
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	hud.visible = true
-
+				
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 16
 	var tile = local_to_map(to_local(mouse_pos))
@@ -1774,7 +1774,7 @@ func _select_unit_at_mouse():
 	_show_range_for_selected_unit()
 	
 	if TutorialManager.tutorial_active:
-		TutorialManager.on_action("unit_selected")	
+		TutorialManager.on_action("unit_selected")		
 
 # ———————————————————————————————————————————————————————————————
 # Turn off every “mode” flag before selecting a new ability or a new unit.

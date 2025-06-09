@@ -261,7 +261,7 @@ func find_next_reachable_enemy(unit, exclude := []):
 	return null
 
 func end_turn(game_over: bool = false):
-   # Calculate or gather stats for display.
+	# 🧾 Gather battle stats
 	var stats = {
 		"units_lost": calculate_units_lost(),
 		"damage_dealt": calculate_damage_dealt()
@@ -270,59 +270,65 @@ func end_turn(game_over: bool = false):
 		"xp": calculate_xp_reward(),
 		"coins": calculate_coins_reward()
 	}
-	
-	# Check game over conditions.
-	var player_units_exist = false
-	var enemy_units_exist = false
+
+	# 🧠 Check victory conditions
+	var player_units_exist := false
+	var enemy_units_exist := false
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.is_player:
 			player_units_exist = true
 		else:
 			enemy_units_exist = true
-	
+
 	if not player_units_exist:
-		print("Game Over - You Lost!")
+		print("❌ Game Over - You Lost!")
 		_show_game_over_screen("lose", stats, rewards)
 		hide_end_turn_button()
 		return
 	elif not enemy_units_exist:
-		print("Game Over - You Won!")
+		print("✅ Game Over - You Won!")
 		_show_game_over_screen("win", stats, rewards)
 		hide_end_turn_button()
-		_launch_reward_phase(rewards)
+		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
 		return
-		
-	emit_signal("turn_ended", turn_order[current_turn_index])
 
+	# 🔁 Emit turn-end signals
+	emit_signal("turn_ended", turn_order[current_turn_index])
 	if turn_order[current_turn_index] == Team.ENEMY:
 		emit_signal("round_ended")
-		
+
 	if game_over:
-		print("🏁 Game Over detected in end_turn, aborting spawn.")
+		print("🏁 Game Over flag set — skipping next turn.")
 		return
-	
+
+	# 🔁 Recheck for unit existence to prevent edge cases
+	player_units_exist = false
+	enemy_units_exist = false
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u.is_player:
 			player_units_exist = true
 		else:
 			enemy_units_exist = true
-	
-	if not player_units_exist or not enemy_units_exist:
-		print("🏁 Game Over — no units remain for one team.")
-		return  # ← Prevent further spawning and turns if game over
 
+	if not player_units_exist or not enemy_units_exist:
+		print("🏁 No units left — skipping further turns.")
+		return
+
+	# 🧠 Enemy turn: spawn new units
 	if turn_order[current_turn_index] == Team.ENEMY:
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		tilemap.spawn_new_enemy_units()
 		_populate_units()
 
+	# 🔁 Cycle to next team
 	current_turn_index = (current_turn_index + 1) % turn_order.size()
 	active_unit_index = 0
-	
+
 	call_deferred("start_turn")
-	
+
+	# 💡 Reset any highlights
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	tilemap._clear_highlights()	
+	tilemap._clear_highlights()
 
 func hide_end_turn_button() -> void:
 	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
@@ -457,10 +463,11 @@ func reset_match_stats() -> void:
 	).size()
 	print("Match stats reset!")
 
-func _launch_reward_phase(rewards: Dictionary) -> void:
-	var reward_scene = preload("res://Scenes/RewardUpgrade.tscn").instantiate()
-	get_tree().get_current_scene().add_child(reward_scene)
-	reward_scene.set_rewards(rewards["coins"], rewards["xp"])
+func _launch_reward_phase(rewards: Dictionary):
+	var reward_scene = preload("res://Prefabs/UpgradeWindow.tscn")
+	var reward_ui = reward_scene.instantiate()
+	get_tree().get_current_scene().add_child(reward_ui)
+	reward_ui.set_rewards()
 
 func _test_launch_reward_phase() -> void:
 	var fake_rewards: Dictionary = {

@@ -1,128 +1,78 @@
-[gd_scene load_steps=19 format=3 uid="uid://dpko8iiayblbf"]
+[gd_scene load_steps=5 format=3 uid="uid://dpko8iiayblbf"]
 
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="1_gj83i"]
-[ext_resource type="Texture2D" uid="uid://cxdwqbw0o5l6c" path="res://Sprites/Thumbnails/Mek_hover/m2idle_1-export-hover.png" id="1_j26fy"]
-[ext_resource type="Texture2D" uid="uid://bcdh8euhnd362" path="res://Sprites/Thumbnails/Mek_hover/r1idle_1-export-hover.png" id="2_cyrv7"]
-[ext_resource type="Texture2D" uid="uid://dfu0gu2c88u85" path="res://Sprites/Thumbnails/Mek_hover/r3idle_1-export-hover.png" id="3_62qkf"]
-[ext_resource type="Texture2D" uid="uid://bjlh5b57n43b5" path="res://Sprites/Thumbnails/Mek_hover/s2idle_1-export-hover.png" id="4_25h3x"]
-[ext_resource type="Texture2D" uid="uid://c5kpavfsoj0cd" path="res://Sprites/Thumbnails/Mek_hover/s3idle_1-export-hover.png" id="5_5phhq"]
-[ext_resource type="Texture2D" uid="uid://y8mprachbq3m" path="res://Sprites/Thumbnails/Mek_hover/r2idle_1-export-hover.png" id="6_rn056"]
-[ext_resource type="Texture2D" uid="uid://nerht3miphyh" path="res://Sprites/Thumbnails/Mek_hover/r4idle_1-export-hover.png" id="7_eyrgp"]
+[ext_resource type="Script" path="res://Scripts/RewardsUpgrades.gd" id="1_wd14e"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="2_dlfvt"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8jf26"]
-bg_color = Color(0.0748453, 0.0748453, 0.0748452, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_egeuw"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 1)
+expand_margin_top = 15.0
+expand_margin_right = 15.0
+expand_margin_bottom = 15.0
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_juday"]
-load_path = "res://.godot/imported/m1idle_1-export.png-0b7bd10e32c762330b2ce16411122974.ctex"
+[node name="RewardUpgrade" type="CanvasLayer"]
+script = ExtResource("1_wd14e")
+label_font = ExtResource("1_gj83i")
+button_font = ExtResource("1_gj83i")
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_mqse1"]
-load_path = "res://.godot/imported/m1idle_1-export-hover.png-1fd1362e4801f9a3cb07429ebdc827bc.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_rd8mu"]
-load_path = "res://.godot/imported/m2idle_1-export.png-d799f290c7b45b0c28be1b75c906a425.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_2i8no"]
-load_path = "res://.godot/imported/r1idle_1-export.png-ef2302c5811ff7ce3af90299ebe74812.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_0ua85"]
-load_path = "res://.godot/imported/r3idle_1-export.png-23f46993b13dededbcf498df5fc1b0c4.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cjyxf"]
-load_path = "res://.godot/imported/s2idle_1-export.png-ffe5925c0bb962118655b58f7f09c755.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_j3rlr"]
-load_path = "res://.godot/imported/s3idle_1-export.png-8ad94ffa935d61b90cc56353cd515613.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_w0nio"]
-load_path = "res://.godot/imported/r2idle_1-export.png-ceca8fccaa04a83301a44270d4762d39.ctex"
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_eh8gx"]
-load_path = "res://.godot/imported/r4idle_1-export.png-5a878b950c0d50ec663b4728641448ff.ctex"
-
-[node name="Node2D" type="Node2D"]
-
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="Control" type="Control" parent="CanvasLayer"]
+[node name="Control" type="Control" parent="."]
 layout_mode = 3
-anchors_preset = 5
+anchors_preset = 8
 anchor_left = 0.5
+anchor_top = 0.5
 anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -549.0
+offset_top = -159.0
+offset_right = -509.0
+offset_bottom = -119.0
 grow_horizontal = 2
+grow_vertical = 2
 
-[node name="Panel" type="Panel" parent="CanvasLayer/Control"]
-layout_mode = 0
-offset_left = -720.0
-offset_top = 124.0
-offset_right = 732.0
-offset_bottom = 513.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_8jf26")
+[node name="PanelContainer" type="PanelContainer" parent="Control"]
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_egeuw")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Control"]
+[node name="MarginContainer" type="MarginContainer" parent="Control/PanelContainer"]
 layout_mode = 2
-offset_left = -629.0
-offset_top = 173.0
-offset_right = -315.0
-offset_bottom = 239.0
-scale = Vector2(4, 4)
 
-[node name="Header" type="Label" parent="CanvasLayer/Control/VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer/MarginContainer"]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/MarginContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+
+[node name="CoinsLabel" type="Label" parent="Control/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer"]
+visible = false
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_dlfvt")
+text = "Coins: 9"
+
+[node name="XPLabel" type="Label" parent="Control/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer"]
+visible = false
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_dlfvt")
+text = "XP: 9"
+
+[node name="UpgradeContainer" type="HBoxContainer" parent="Control/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="unit_id" type="HBoxContainer" parent="Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer/unit_id"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("1_gj83i")
-theme_override_font_sizes/font_size = 16
-text = "Choose unit to upgrade."
-horizontal_alignment = 1
 
-[node name="Blank" type="Label" parent="CanvasLayer/Control/VBoxContainer"]
+[node name="Portrait" type="TextureRect" parent="Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer/unit_id"]
 layout_mode = 2
-theme_override_fonts/font = ExtResource("1_gj83i")
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 1
 
-[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer/unit_id"]
 layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="M1" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_juday")
-texture_hover = SubResource("CompressedTexture2D_mqse1")
-
-[node name="M2" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_rd8mu")
-texture_hover = ExtResource("1_j26fy")
-
-[node name="R1" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_2i8no")
-texture_hover = ExtResource("2_cyrv7")
-
-[node name="R3" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_0ua85")
-texture_hover = ExtResource("3_62qkf")
-
-[node name="S2" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_cjyxf")
-texture_hover = ExtResource("4_25h3x")
-
-[node name="S3" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_j3rlr")
-texture_hover = ExtResource("5_5phhq")
-
-[node name="R2" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_w0nio")
-texture_hover = ExtResource("6_rn056")
-
-[node name="R4" type="TextureButton" parent="CanvasLayer/Control/VBoxContainer/HBoxContainer"]
-layout_mode = 2
-texture_normal = SubResource("CompressedTexture2D_eh8gx")
-texture_hover = ExtResource("7_eyrgp")

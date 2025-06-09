@@ -49,3 +49,11 @@ res://Scripts/lightning_pickup.gd
 res://Prefabs/LightningController.tscn
 res://Textures/Popup.gdshader
 res://Scripts/LightningSurgeMissile.gd
+res://Scripts/RewardsUpgrades.gd
+res://Prefabs/UpgradeWindow.tscn
+res://Scripts/PanelDimensions.gd
+res://Scripts/HUD_Panel.gd
+res://Scenes/RewardUpgrade.tscn
+res://Scenes/Transition.tscn
+res://Scenes/GameOver.tscn
+res://Scripts/Conclusion.gd

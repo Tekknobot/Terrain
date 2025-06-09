@@ -2095,3 +2095,18 @@ func spawn_text_popup(message: String, color: Color = Color.WHITE):
 	popup.position = global_position + Vector2(0, -32)  # Slightly above the unit
 	popup.set_text(message, color)
 	get_tree().get_current_scene().add_child(popup)
+
+func apply_upgrade(upgrade: String) -> void:
+	match upgrade:
+		"hp_boost":
+			max_health += 20
+			health = max_health
+			update_health_bar()
+		"damage_boost":
+			damage += 10
+		"range_boost":
+			attack_range += 1
+		"move_boost":
+			movement_range += 1
+		_:
+			print("⚠️ Unknown upgrade:", upgrade)

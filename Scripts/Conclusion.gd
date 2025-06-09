@@ -1,3 +1,4 @@
+# File: res://Scenes/GameOver.gd
 extends Node2D
 
 # These nodes are assumed to exist in the scene.
@@ -62,4 +63,8 @@ func _on_RetryButton_pressed():
 
 func _on_MainMenuButton_pressed():
 	# Change to the main menu scene.
-	get_tree().change_scene("res://Scenes/MainMenu.tscn")
+	get_tree().change_scene_to_file("res://Scenes/MainMenu.tscn")
+
+func _on_ContinueButton_pressed():
+	# Change to the main game scene (battle) instead of resetting entire game
+	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
