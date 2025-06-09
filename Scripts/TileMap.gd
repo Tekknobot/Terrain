@@ -428,43 +428,33 @@ func _spawn_teams():
 	_spawn_side(enemy_units, 0, false, used_tiles)
 
 func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]) -> void:
-	# 1) Decide how many to spawn: 4 at level 1, +1 per extra level.
 	var base := 3
 	var raw_spawn = base + max(GameData.current_level - 1, 0)
-
-	# Cap player spawns at 8 without using a ternary
 	var total_to_spawn = raw_spawn
 	if is_player:
 		total_to_spawn = min(raw_spawn, 8)
-		
-	var count := units.size()
-	if count == 0:
-		return  # nothing to spawn
 
-	# 2) Build chosen_scenes[] by cycling through `units[]` in order:
+	if units.size() == 0:
+		return
+
 	var chosen_scenes := []
 	for i in range(total_to_spawn):
-		var idx := (next_spawn_index + i) % count
+		var idx := (next_spawn_index + i) % units.size()
 		chosen_scenes.append(units[idx])
-	# After picking them, advance next_spawn_index by total_to_spawn (wrapped):
-	next_spawn_index = (next_spawn_index + total_to_spawn) % count
+	next_spawn_index = (next_spawn_index + total_to_spawn) % units.size()
 
-	# 3) Compute horizontal offsets so they’re centered in a block:
-	var spawn_count := chosen_scenes.size()
-	var start_x := int((grid_width - spawn_count) / 2)
+	# Define spawn region
+	var zone := Rect2i()
+	if is_player:
+		zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+	else:
+		zone = Rect2i(0, 0, grid_width, int(grid_height / 3))
 
-	for i in range(spawn_count):
-		var scene_to_spawn = chosen_scenes[i]
-		var x = clamp(start_x + i, 0, grid_width - 1)
-		var spawn_tile := Vector2i(x, row)
-
-		# 4) If that tile is invalid (out of bounds / water / occupied), find nearest land:
-		spawn_tile = _find_nearest_land(spawn_tile, used_tiles)
+	for scene_to_spawn in chosen_scenes:
+		var spawn_tile = get_random_valid_tile_in_zone(zone, used_tiles)
 		if spawn_tile == Vector2i(-1, -1):
-			# Could not find a valid spot → skip.
 			continue
 
-		# 5) Instantiate and configure the unit:
 		var unit_instance = scene_to_spawn.instantiate()
 		unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
 		unit_instance.set_team(is_player)
@@ -480,16 +470,36 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
 		add_child(unit_instance)
+
 		if is_player:
 			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true
 
 		used_tiles.append(spawn_tile)
-		print("Spawned unit ", unit_instance.name,
-			  " at tile: ", spawn_tile,
-			  " (team=", is_player, "), unit_id=", unit_instance.unit_id)
-	# end for
+		print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile)
+
+func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:
+	var tries := 100
+	while tries > 0:
+		var x = randi_range(zone.position.x, zone.position.x + zone.size.x - 1)
+		var y = randi_range(zone.position.y, zone.position.y + zone.size.y - 1)
+		var tile = Vector2i(x, y)
+
+		if not is_within_bounds(tile):
+			continue
+		if is_water_tile(tile):
+			continue
+		if is_tile_occupied(tile):
+			continue
+		if used_tiles.has(tile):
+			continue
+
+		return tile
+		tries -= 1
+
+	push_warning("⚠ Could not find valid spawn in zone.")
+	return Vector2i(-1, -1)
 	
 func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]) -> void:
 	var spawn_tile = _find_nearest_land(tile, used_tiles)
@@ -2198,6 +2208,7 @@ func import_unit_data(unit_data: Array) -> void:
 			if sp:
 				sp.flip_h = true
 		else:
+			#Enemy tint
 			unit_instance.get_child(0).modulate = Color8(255, 110, 255)
 
 		print("Imported unit", unit_instance.name, "with unit_id =", uid)

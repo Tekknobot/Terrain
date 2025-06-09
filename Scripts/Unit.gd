@@ -136,8 +136,16 @@ func debug_print_units():
 
 func _process(delta):
 	update_z_index()
-	_update_tile_pos()  # Ensure tile_pos is current
+	_update_tile_pos()
 	check_water_status()
+
+	# Player tint based on moves left
+	if is_player:
+		if has_attacked:
+			get_child(0).self_modulate = Color(0.4, 0.4, 0.4, 1)  # Dim gray for used unit
+		elif has_moved:
+			get_child(0).self_modulate = Color(1, 0.6, 0.6, 1)    # Light red for moved
+
 
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -967,12 +975,9 @@ func apply_level_up_material() -> void:
 		if sprite.has_meta("saved_material"):
 			sprite.material = sprite.get_meta("saved_material")
 			sprite.remove_meta("saved_material")
-
-		has_moved = true
-		has_attacked = true
 		
-		# 6) Restore the previously grabbed modulate:
-		sprite.modulate = Color(0.4, 0.4, 0.4, 1)
+		# 6) Set modulation tint:
+		sprite.modulate = prior_modulate
 		
 		
 
