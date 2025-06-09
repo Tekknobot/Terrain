@@ -233,7 +233,7 @@ func remote_update_unit_position(remote_id: int, new_tile: Vector2i, new_positio
 func take_damage(amount: int) -> bool:
 	# 0) Panther “mark” bonus
 	if has_meta("is_marked") and get_meta("is_marked"):
-		amount = int(amount * 1.25)
+		amount = int(amount * 1.5)
 		remove_meta("is_marked")
 		
 	if is_fortified:

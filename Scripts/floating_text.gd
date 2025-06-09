@@ -1,7 +1,7 @@
 extends Node2D
 
 @export var duration := 1.0
-@export var rise_distance := 40
+@export var rise_distance := 48
 @export var float_speed := 50
 @export var start_scale := 2.0
 @export var wiggle_amplitude := 6.0 # degrees

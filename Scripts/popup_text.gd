@@ -1,7 +1,7 @@
 extends Node2D
 
 @export var duration := 1.2
-@export var rise_distance := 24
+@export var rise_distance := 32
 @export var wiggle_amplitude := 6.0 # Degrees
 @export var wiggle_speed := 6.0
 @export var start_scale := 2
@@ -16,7 +16,7 @@ func _ready():
 	var tween = create_tween()
 
 	# Scale pop: shrink to normal size
-	tween.tween_property(self, "scale", Vector2.ONE, 0.6)\
+	tween.tween_property(self, "scale", Vector2.ONE, 0.8)\
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 	# Rise the popup text

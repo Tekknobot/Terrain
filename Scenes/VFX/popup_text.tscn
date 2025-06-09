@@ -1,8 +1,8 @@
 [gd_scene load_steps=5 format=3 uid="uid://c0sg264chhua2"]
 
 [ext_resource type="Script" path="res://Scripts/popup_text.gd" id="1_is2pw"]
-[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="2_2j15e"]
 [ext_resource type="Shader" path="res://Textures/Popup.gdshader" id="2_8lqjv"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="2_quiwx"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_jjawm"]
 shader = ExtResource("2_8lqjv")
@@ -19,6 +19,6 @@ z_index = 4096
 material = SubResource("ShaderMaterial_jjawm")
 offset_right = 40.0
 offset_bottom = 23.0
-theme_override_fonts/font = ExtResource("2_2j15e")
+theme_override_fonts/font = ExtResource("2_quiwx")
 theme_override_font_sizes/font_size = 16
 text = "Test"
