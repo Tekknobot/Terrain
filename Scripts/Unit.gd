@@ -968,8 +968,13 @@ func apply_level_up_material() -> void:
 			sprite.material = sprite.get_meta("saved_material")
 			sprite.remove_meta("saved_material")
 
+		has_moved = true
+		has_attacked = true
+		
 		# 6) Restore the previously grabbed modulate:
-		sprite.modulate = prior_modulate
+		sprite.modulate = Color(0.4, 0.4, 0.4, 1)
+		
+		
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1) Hulk – Ground Slam

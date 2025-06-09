@@ -27,6 +27,7 @@ NetworkManager="*res://Scripts/NetworkManager.gd"
 GameState="*res://Scripts/GameState.gd"
 NetworkTester="*res://Scripts/NetworkTester.gd"
 TutorialManager="*res://Scripts/TutorialManager.gd"
+MusicManager="*res://Scripts/MusicManager.gd"
 
 [display]
 
