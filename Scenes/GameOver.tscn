@@ -1,11 +1,9 @@
-[gd_scene load_steps=11 format=3 uid="uid://d1nrabrws4fy2"]
+[gd_scene load_steps=6 format=3 uid="uid://d1nrabrws4fy2"]
 
 [ext_resource type="Script" path="res://Scripts/Conclusion.gd" id="1_twcm3"]
 [ext_resource type="AudioStream" uid="uid://deqv1i3mx4h3b" path="res://Audio/SFX/victorymale-version-230553.mp3" id="2_owpg0"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="2_ww6bq"]
-[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="3_0063a"]
 [ext_resource type="AudioStream" uid="uid://c5nuhu5prbrn1" path="res://Audio/SFX/8-bit-logo-291104.mp3" id="3_lt44g"]
-[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="6_u7xwd"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4pobx"]
 bg_color = Color(0, 0, 0, 1)
@@ -14,24 +12,6 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 1)
-
-[sub_resource type="Theme" id="Theme_t4xgv"]
-default_font = ExtResource("3_0063a")
-default_font_size = 48
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5dogr"]
-bg_color = Color(0.190762, 0.190762, 0.190762, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f6pml"]
-bg_color = Color(0.0745098, 0.0745098, 0.0745098, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
 
 [node name="GameOver" type="Node2D"]
 script = ExtResource("1_twcm3")
@@ -46,50 +26,17 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Control"]
-layout_mode = 0
-offset_left = 27.0
-offset_top = 76.0
-offset_right = 539.0
-offset_bottom = 129.0
-theme_override_constants/separation = 16
-
-[node name="ResultLabel" type="Label" parent="CanvasLayer/Control/VBoxContainer"]
-custom_minimum_size = Vector2(512, 0)
+[node name="ResultLabel" type="Label" parent="CanvasLayer/Control"]
 layout_mode = 2
+offset_left = 27.0
+offset_top = 102.0
+offset_right = 288.0
+offset_bottom = 140.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("2_ww6bq")
-theme_override_font_sizes/font_size = 64
+theme_override_font_sizes/font_size = 32
 theme_override_styles/normal = SubResource("StyleBoxFlat_4pobx")
 text = "Result"
 horizontal_alignment = 1
 
-[node name="StatsContainer" type="VBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-visible = false
-custom_minimum_size = Vector2(0, 100)
-layout_mode = 2
-theme = SubResource("Theme_t4xgv")
-theme_override_constants/separation = 16
-alignment = 1
-
-[node name="RewardsContainer" type="VBoxContainer" parent="CanvasLayer/Control/VBoxContainer"]
-visible = false
-custom_minimum_size = Vector2(0, 100)
-layout_mode = 2
-theme = SubResource("Theme_t4xgv")
-theme_override_constants/separation = 16
-alignment = 1
-
-[node name="ContinueButton" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
-visible = false
-custom_minimum_size = Vector2(50, 0)
-layout_mode = 2
-theme_override_fonts/font = ExtResource("6_u7xwd")
-theme_override_font_sizes/font_size = 32
-theme_override_styles/hover = SubResource("StyleBoxFlat_5dogr")
-theme_override_styles/normal = SubResource("StyleBoxFlat_f6pml")
-text = "Continue"
-
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
-
-[connection signal="pressed" from="CanvasLayer/Control/VBoxContainer/ContinueButton" to="." method="_on_continue_button_pressed"]

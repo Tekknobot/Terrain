@@ -2,9 +2,7 @@
 extends Node2D
 
 # These nodes are assumed to exist in the scene.
-@onready var result_label = $CanvasLayer/Control/VBoxContainer/ResultLabel
-@onready var stats_container = $CanvasLayer/Control/VBoxContainer/StatsContainer
-@onready var rewards_container = $CanvasLayer/Control/VBoxContainer/RewardsContainer
+@onready var result_label = $CanvasLayer/Control/ResultLabel
 @onready var audio_player = $AudioStreamPlayer2D
 
 # Preload your audio streams.
@@ -26,7 +24,7 @@ func _ready():
 func set_result(result: String, stats: Dictionary, rewards: Dictionary) -> void:
 	# Update the result label without using a ternary.
 	if result == "win":
-		result_label.text = "Upgrades!"
+		result_label.text = "Victory Upgrades!"
 		# Play the victory sound.
 		if victory_sound:
 			audio_player.stream = victory_sound
@@ -41,18 +39,6 @@ func set_result(result: String, stats: Dictionary, rewards: Dictionary) -> void:
 			audio_player.play()
 		else:
 			push_warning("Defeat sound not assigned!")
-	
-	# Iterate through the stats dictionary and create labels.
-	for key in stats.keys():
-		var stat_label = Label.new()
-		stat_label.text = "%s: %s" % [key.capitalize(), str(stats[key])]
-		stats_container.add_child(stat_label)
-	
-	# Iterate through the rewards dictionary and create labels.
-	for key in rewards.keys():
-		var reward_label = Label.new()
-		reward_label.text = "%s Earned: %s" % [key.capitalize(), str(rewards[key])]
-		rewards_container.add_child(reward_label)
 	
 	# Optionally, play an animation or sound here.
 	show()  # Ensure the screen is visible.

@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://dpko8iiayblbf"]
+[gd_scene load_steps=6 format=3 uid="uid://dpko8iiayblbf"]
 
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="1_gj83i"]
 [ext_resource type="Script" path="res://Scripts/RewardsUpgrades.gd" id="1_wd14e"]
@@ -13,6 +13,20 @@ border_color = Color(1, 1, 1, 1)
 expand_margin_top = 15.0
 expand_margin_right = 15.0
 expand_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nqpfk"]
+bg_color = Color(0.190762, 0.190762, 0.190762, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ohvv2"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
 
 [node name="RewardUpgrade" type="CanvasLayer"]
 script = ExtResource("1_wd14e")
@@ -59,3 +73,16 @@ layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer/unit_id"]
 layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="Control"]
+custom_minimum_size = Vector2(100, 0)
+offset_top = 188.0
+offset_right = 74.0
+offset_bottom = 216.0
+theme_override_fonts/font = ExtResource("1_gj83i")
+theme_override_font_sizes/font_size = 32
+theme_override_styles/hover = SubResource("StyleBoxFlat_nqpfk")
+theme_override_styles/normal = SubResource("StyleBoxFlat_ohvv2")
+text = "Continue"
+
+[connection signal="pressed" from="Control/ContinueButton" to="." method="_on_continue_button_pressed"]

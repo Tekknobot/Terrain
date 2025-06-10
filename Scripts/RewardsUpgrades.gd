@@ -100,9 +100,6 @@ func _on_upgrade_chosen(unit_id: int, upgrade: String):
 		GameData.current_level += 1
 		GameData.max_enemy_units += 1
 		GameData.map_difficulty += 1
-		
-		await get_tree().create_timer(1).timeout
-		get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _apply_upgrade_to_unit(unit_id: int, upgrade: String):
 	for unit in get_tree().get_nodes_in_group("Units"):
@@ -115,3 +112,7 @@ func _apply_upgrade_to_unit(unit_id: int, upgrade: String):
 
 			GameData.unit_upgrades[unit_id].append(upgrade)
 			return
+
+
+func _on_continue_button_pressed() -> void:
+	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
