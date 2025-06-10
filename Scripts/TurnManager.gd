@@ -18,6 +18,7 @@ var total_damage_dealt: int = 0
 var current_transition: Node = null  # Member variable to store the active transition.
 
 var next_unit_id: int = 1
+var match_done: bool = false
 
 func _ready():
 	# Record the initial number of player units.
@@ -277,12 +278,14 @@ func end_turn(game_over: bool = false):
 		print("❌ Game Over - You Lost!")
 		_show_game_over_screen("lose", stats, rewards)
 		hide_end_turn_button()
+		match_done = true
 		return
 	elif not enemy_units_exist:
 		print("✅ Game Over - You Won!")
 		_show_game_over_screen("win", stats, rewards)
 		hide_end_turn_button()
 		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
+		match_done = true
 		return
 
 	# 🔁 Emit turn-end signals

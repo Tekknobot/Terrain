@@ -163,6 +163,9 @@ func _on_unit_selected(unit):
 		#return
 		pass
 
+	if TurnManager.match_done:
+		return
+		
 	# 3) If it does have an entry in GameData.unit_upgrades _and_ that entry is non‐empty,
 	#    show it. Otherwise leave it hidden.
 	if GameData.unit_upgrades.has(id):
