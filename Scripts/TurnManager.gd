@@ -20,6 +20,8 @@ var current_transition: Node = null  # Member variable to store the active trans
 var next_unit_id: int = 1
 var match_done: bool = false
 
+@export var reset_button: Button
+
 func _ready():
 	# Record the initial number of player units.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()
@@ -255,6 +257,11 @@ func find_next_reachable_enemy(unit, exclude := []):
 	return null
 
 func end_turn(game_over: bool = false):
+	# Hide the HUD whenever the enemy turn starts
+	if turn_order[current_turn_index] == Team.PLAYER:
+		var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+		hud.visible = false
+			
 	# 🧾 Gather battle stats
 	var stats = {
 		"units_lost": calculate_units_lost(),

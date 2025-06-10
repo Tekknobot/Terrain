@@ -152,28 +152,22 @@ func type_quote(quote: String, id: int) -> void:
 		await get_tree().create_timer(0.05).timeout
 
 func _on_unit_selected(unit):
-	var id = unit.unit_id
-	print("[HUD] Selected unit ‘%s’ (id=%d)  is_player=%s" % [unit.unit_name, id, unit.is_player])
+	# Show/hide the *entire* HUD panel
+	if unit == null:
+		visible = false
+		return
+	else:
+		visible = true
 
-	# 1) Always hide the button to start
+	# Hide the ability button by default
 	ability_button.visible = false
 
-	# 2) If it’s not a player‐team unit, bail immediately
-	if not unit.is_player:
-		#return
-		pass
-
-	if TurnManager.match_done:
-		return
-		
-	# 3) If it does have an entry in GameData.unit_upgrades _and_ that entry is non‐empty,
-	#    show it. Otherwise leave it hidden.
-	if GameData.unit_upgrades.has(id):
-		var ability = GameData.unit_upgrades[id]
-		if ability != "":
-			ability_button.text = ability
+	# Only show for player units with a special assigned
+	if unit.is_player and not TurnManager.match_done:
+		var special = GameData.get_unit_special(unit.unit_id)
+		if special != "":
+			ability_button.text    = special
 			ability_button.visible = true
-
 
 func _on_ability_toggled(toggled_on: bool) -> void:
 	# Immediately ask the server to turn this ability on/off,

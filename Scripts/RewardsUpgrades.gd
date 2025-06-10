@@ -17,6 +17,9 @@ var _units_to_choose: int = 0
 
 func _ready():
 	_center_panel_with_offset()
+	# Prevent any clicks on this CanvasLayer from propagating to the TileMap:
+	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
+	$Control/PanelContainer.mouse_filter = Control.MOUSE_FILTER_STOP	
 
 func _center_panel_with_offset():
 	await get_tree().process_frame
@@ -34,6 +37,14 @@ func set_rewards():
 	var panel = $Control/PanelContainer
 	panel.visible = false
 	await get_tree().create_timer(1).timeout 
+	
+	GameData.in_upgrade_phase = true
+	
+	# ─── LOCK MAP INPUT WHILE UI IS OPEN ─────────────────────────────────
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap.input_locked = true
+	# ─────────────────────────────────────────────────────────────────────
+		
 	panel.visible = true
 	# Populate fresh choices
 	_display_unit_choices()
@@ -115,4 +126,11 @@ func _apply_upgrade_to_unit(unit_id: int, upgrade: String):
 
 
 func _on_continue_button_pressed() -> void:
+	GameData.in_upgrade_phase = false
+	
+	# ─── UNLOCK MAP INPUT BEFORE LEAVING ──────────────────────────────────
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap.input_locked = false
+	# ─────────────────────────────────────────────────────────────────────
+	
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")

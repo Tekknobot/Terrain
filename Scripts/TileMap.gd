@@ -81,7 +81,6 @@ var hold_time: float = 0.0
 var borders_visible := false
 
 var next_structure_id: int = 1
-var next_unit_id: int = 1
 
 var critical_strike_mode: bool = false
 var rapid_fire_mode: bool = false
@@ -362,32 +361,47 @@ func update_astar_grid() -> void:
 # TEAM & UNIT SPAWNING
 # ———————————————————————————————————————————————————————————————
 func _post_map_generation():
+	TurnManager.match_done = false
+
+	GameData.next_unit_id = 1
+
 	_spawn_teams()
 	spawn_structures()
 	_setup_camera()
 	update_astar_grid()
 
-	# ─── PRINT EVERY UNIT’S ID & ASSIGN LOOPED ABILITIES ───────────────────
-	var num_abilities = GameData.available_abilities.size()
-	var all_units = get_tree().get_nodes_in_group("Units")
-	for i in range(all_units.size()):
-		var that_unit = all_units[i]
-		var id = that_unit.unit_id
-		# wrap i around 0…num_abilities-1
-		var ability_index = i % num_abilities
-		var ability = GameData.available_abilities[ability_index]
-		GameData.unit_upgrades[id] = ability
-		print("[Server]  mapping ability:", ability, "→ unit_id:", id)
-	# ────────────────────────────────────────────────────────
+	# ─── REASSIGN ALL SPECIALS STARTING AT unit_id=1 ────────────────────────
+	GameData.unit_special.clear()
+
+	var abilities      = GameData.available_abilities
+	var num_abilities  = abilities.size()
+	var uids: Array    = []
+
+	# collect & sort all the unit IDs (now starting at 1)
+	for unit in get_tree().get_nodes_in_group("Units"):
+		uids.append(unit.unit_id)
+	uids.sort()
+
+	# map uid=1→abilities[0], uid=2→abilities[1], etc.
+	for i in range(uids.size()):
+		var uid     = uids[i]
+		var special = abilities[i % num_abilities]
+		GameData.set_unit_special(uid, special)
+		print("[Server] mapping special:%s → unit_id:%d" % [special, uid])
+	# ────────────────────────────────────────────────────────────────────────
 
 	TurnManager.start_turn()
 	TurnManager.transition_to_level()
 
 	if is_multiplayer_authority():
-		GameState.stored_map_data = export_map_data()
-		GameState.stored_unit_data = export_unit_data()
+		GameState.stored_map_data       = export_map_data()
+		GameState.stored_unit_data      = export_unit_data()
 		GameState.stored_structure_data = export_structure_data()
 		broadcast_game_state()
+	
+# Helper comparator:
+func _compare_by_unit_id(a, b) -> bool:
+	return a.unit_id < b.unit_id
 
 @rpc
 func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
@@ -434,13 +448,14 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 	if units.size() == 0:
 		return
 
+	# Pick which scenes to spawn this turn
 	var chosen_scenes := []
 	for i in range(total_to_spawn):
 		var idx := (next_spawn_index + i) % units.size()
 		chosen_scenes.append(units[idx])
 	next_spawn_index = (next_spawn_index + total_to_spawn) % units.size()
 
-	# Define spawn region
+	# Define the rectangular spawn zone
 	var zone := Rect2i()
 	if is_player:
 		zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
@@ -452,36 +467,41 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		if spawn_tile == Vector2i(-1, -1):
 			continue
 
+		# ← grab & advance the global ID counter
+		var id = GameData.next_unit_id
+		GameData.next_unit_id += 1
+
+		# Instantiate and assign the ID
 		var unit_instance = scene_to_spawn.instantiate()
+		unit_instance.unit_id = id
+		unit_instance.set_meta("unit_id", id)
+
+		# Position & team setup
 		unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
 		unit_instance.set_team(is_player)
 		unit_instance.add_to_group("Units")
 		unit_instance.tile_pos = spawn_tile
 
-		unit_instance.unit_id = next_unit_id
-		unit_instance.set_meta("unit_id", next_unit_id)
-		next_unit_id += 1
-
+		# Networking metadata
 		unit_instance.peer_id = get_tree().get_multiplayer().get_unique_id()
 		unit_instance.set_meta("peer_id", unit_instance.peer_id)
-
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
-		
-		# APPLY SAVED UPGRADES:
-		var upgrades = GameData.unit_upgrades.get(unit_instance.unit_id, [])
-		for upg in upgrades:
+
+		# Re-apply any saved upgrades
+		for upg in GameData.get_upgrades(id):
 			if unit_instance.has_method("apply_upgrade"):
-				unit_instance.apply_upgrade(upg)	
-					
+				unit_instance.apply_upgrade(upg)
+
 		add_child(unit_instance)
 
+		# Flip the sprite for player units
 		if is_player:
 			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true
 
 		used_tiles.append(spawn_tile)
-		print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile)
+		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
 
 func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var tries := 100
@@ -517,9 +537,9 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 	unit_instance.add_to_group("Units")
 	unit_instance.tile_pos = spawn_tile
 
-	unit_instance.unit_id = next_unit_id
-	unit_instance.set_meta("unit_id", next_unit_id)
-	next_unit_id += 1
+	var id = GameData.next_unit_id
+	unit_instance.unit_id = id
+	GameData.next_unit_id = id + 1
 
 	unit_instance.peer_id = get_tree().get_multiplayer().get_unique_id()
 	unit_instance.set_meta("peer_id", unit_instance.peer_id)
@@ -667,9 +687,9 @@ func spawn_new_enemy_units():
 		enemy_unit.add_to_group("Units")
 
 		# 🔧 Add these lines:
-		enemy_unit.unit_id = next_unit_id
-		enemy_unit.set_meta("unit_id", next_unit_id)
-		next_unit_id += 1
+		var id = GameData.next_unit_id
+		enemy_unit.unit_id = id
+		GameData.next_unit_id = id + 1
 
 		enemy_unit.peer_id = 1  # authority/server usually has peer_id 1
 		enemy_unit.set_meta("peer_id", 1)
@@ -738,6 +758,9 @@ func _peek_show_attack_range_for(unit: Node2D):
 
 
 func _input(event):
+	if GameData.in_upgrade_phase:
+		return
+			
 	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 	if turn_team != TurnManager.Team.PLAYER or input_locked:
 		print("Not Player Team or INPUT LOCKED")
@@ -1679,37 +1702,89 @@ func play_splash_sound(pos: Vector2):
 
 # ———————————————————————————————————————————————————————————————
 # SELECTION & HIGHLIGHTING
-# ———————————————————————————————————————————————————————————————
+# ───────────────────────────────────────────────────────────────
 func _select_unit_at_mouse():
 	_clear_highlights()
 	_clear_ability_modes()
-	if ability_button:
-		ability_button.button_pressed = false
 
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
-	hud.visible = true
-				
+
+	# — Debug: HUD state
+	print("[DBG] HUD node:", hud.get_path(), " visible:", hud.visible)
+
+	# Force the HUD on (we’ll hide it again if no unit)
+	#hud.visible = true
+
+	# — Debug: ability_button before anything
+	print("[DBG] ability_button:", ability_button.get_path(),
+		  " visible:", ability_button.visible,
+		  " disabled:", ability_button.disabled,
+		  " text:'", ability_button.text, "'",
+		  " global_pos:", ability_button.get_global_position(),
+		  " size:", ability_button.get_size())
+
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 16
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
 
 	if unit == null:
+		# No unit under cursor → hide HUD & button
 		selected_unit = null
 		showing_attack = false
-		hud.visible = false
+		#hud.visible = false
+
+		ability_button.visible = false
+		ability_button.disabled = true
+		ability_button.text    = ""
+		print("[DBG] → no unit, hid ability_button; now visible:", ability_button.visible)
 		return
 
+	# We have a unit!
+	print("[DBG] selecting unit_id =", unit.unit_id, "(", unit.unit_name, ")")
+
 	_update_hud_with(unit)
+
+	# Show & populate the ability button
+	ability_button.visible  = true
+	ability_button.disabled = false
+	ability_button.text     = GameData.get_unit_special(unit.unit_id)
+
+	# — Debug: after setting
+	print("[DBG] ability_button AFTER select:",
+		  " visible:", ability_button.visible,
+		  " disabled:", ability_button.disabled,
+		  " text:'", ability_button.text, "'",
+		  " global_pos:", ability_button.get_global_position(),
+		  " size:", ability_button.get_size())
+
 	play_beep_sound(tile)
 	emit_signal("unit_selected", unit)
 	selected_unit = unit
 	showing_attack = false
 	_show_range_for_selected_unit()
-	
-	if TutorialManager.tutorial_active:
-		TutorialManager.on_action("unit_selected")		
 
+# Update all the HUD fields for a given unit
+func _update_hud_with(unit):
+	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
+	var hud_data = {
+		"name":           unit.unit_name,
+		"portrait":       unit.portrait,
+		"current_hp":     unit.health,
+		"max_hp":         unit.max_health,
+		"current_xp":     unit.xp,
+		"max_xp":         unit.max_xp,
+		"level":          unit.level,
+		"movement_range": unit.movement_range,
+		"attack_range":   unit.attack_range,
+		"damage":         unit.damage
+	}
+	hud.update_hud(hud_data)
+	hud.visible = true
+
+	# Make sure the ability button always reflects the unit's assigned special
+	ability_button.text = GameData.get_unit_special(unit.unit_id)
+		
 # ———————————————————————————————————————————————————————————————
 # Turn off every “mode” flag before selecting a new ability or a new unit.
 # Call this whenever you switch out of any special‐ability mode.
@@ -1735,23 +1810,6 @@ func _clear_ability_modes() -> void:
 	# Also clear any “in‐flight” helper state:
 	chosen_airlift_unit = null
 	GameData.selected_special_ability = ""
-
-func _update_hud_with(unit):
-	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
-	var hud_data = {
-		"name":           unit.unit_name,
-		"portrait":       unit.portrait,
-		"current_hp":     unit.health,
-		"max_hp":         unit.max_health,
-		"current_xp":     unit.xp,
-		"max_xp":         unit.max_xp,
-		"level":          unit.level,
-		"movement_range": unit.movement_range,
-		"attack_range":   unit.attack_range,
-		"damage":         unit.damage
-	}
-	hud.update_hud(hud_data)
-	hud.visible = true
 
 func _show_only_hud(unit, tile):
 	selected_unit = null
@@ -2377,16 +2435,18 @@ func _on_ability_pressed() -> void:
 # HELPER FUNCTIONS FOR TURN FLOW
 # ———————————————————————————————————————————————————————————————
 func _on_reset_pressed() -> void:
+	# Wipe *all* progress and start over
+	GameData.full_reset()
 	TurnManager.reset_match_stats()
 	TurnManager.transition_to_next_level()
 	endturn_button.visible = false
-	menu_button.visible = false
-	reset_button.visible = false
+	menu_button.visible   = false
+	reset_button.visible  = false
 
 func _on_continue_pressed() -> void:
+	# Keep your picked specials/upgrades, just bump the level
+	GameData.advance_level()
 	TurnManager.reset_match_stats()
-	GameData.current_level += 1
-	GameData.max_enemy_units += 1
 	self.visible = false
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 

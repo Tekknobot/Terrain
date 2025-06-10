@@ -257,8 +257,9 @@ script = ExtResource("8_51jtd")
 tilemap = NodePath("../TileMap")
 highlight_texture = ExtResource("1_2cdww")
 
-[node name="TurnManager" type="Node2D" parent="."]
+[node name="TurnManager" type="Node2D" parent="." node_paths=PackedStringArray("reset_button")]
 script = ExtResource("30_njjnf")
+reset_button = NodePath("../CanvasLayer/Control/HBoxContainer/Reset")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
