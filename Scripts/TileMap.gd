@@ -1710,18 +1710,18 @@ func _select_unit_at_mouse():
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 
 	# — Debug: HUD state
-	print("[DBG] HUD node:", hud.get_path(), " visible:", hud.visible)
+	#print("[DBG] HUD node:", hud.get_path(), " visible:", hud.visible)
 
 	# Force the HUD on (we’ll hide it again if no unit)
 	#hud.visible = true
 
 	# — Debug: ability_button before anything
-	print("[DBG] ability_button:", ability_button.get_path(),
-		  " visible:", ability_button.visible,
-		  " disabled:", ability_button.disabled,
-		  " text:'", ability_button.text, "'",
-		  " global_pos:", ability_button.get_global_position(),
-		  " size:", ability_button.get_size())
+	#print("[DBG] ability_button:", ability_button.get_path(),
+	#	  " visible:", ability_button.visible,
+	#	  " disabled:", ability_button.disabled,
+	#	  " text:'", ability_button.text, "'",
+	#	  " global_pos:", ability_button.get_global_position(),
+	#	  " size:", ability_button.get_size())
 
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 16
@@ -1737,11 +1737,11 @@ func _select_unit_at_mouse():
 		ability_button.visible = false
 		ability_button.disabled = true
 		ability_button.text    = ""
-		print("[DBG] → no unit, hid ability_button; now visible:", ability_button.visible)
+		#print("[DBG] → no unit, hid ability_button; now visible:", ability_button.visible)
 		return
 
 	# We have a unit!
-	print("[DBG] selecting unit_id =", unit.unit_id, "(", unit.unit_name, ")")
+	#print("[DBG] selecting unit_id =", unit.unit_id, "(", unit.unit_name, ")")
 
 	_update_hud_with(unit)
 
@@ -1751,12 +1751,12 @@ func _select_unit_at_mouse():
 	ability_button.text     = GameData.get_unit_special(unit.unit_id)
 
 	# — Debug: after setting
-	print("[DBG] ability_button AFTER select:",
-		  " visible:", ability_button.visible,
-		  " disabled:", ability_button.disabled,
-		  " text:'", ability_button.text, "'",
-		  " global_pos:", ability_button.get_global_position(),
-		  " size:", ability_button.get_size())
+	#print("[DBG] ability_button AFTER select:",
+	#	  " visible:", ability_button.visible,
+	#	  " disabled:", ability_button.disabled,
+	#	  " text:'", ability_button.text, "'",
+	#	  " global_pos:", ability_button.get_global_position(),
+	#	  " size:", ability_button.get_size())
 
 	play_beep_sound(tile)
 	emit_signal("unit_selected", unit)
