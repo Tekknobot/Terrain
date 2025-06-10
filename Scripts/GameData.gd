@@ -1,90 +1,71 @@
-# GameData.gd
 extends Node
 
+# Global currency and progression
 var coins: int = 0
 var xp: int = 0
 var current_level: int = 1
-var selected_upgrade: String = ""
-var selected_special_ability: String = ""
 var max_enemy_units: int = 1
 
+# Map settings
 var map_difficulty: int = 1
 
-# Track unit upgrades by unit name.
+# Track which upgrades each unit (by ID) has received
+# Key: unit_id (int) → Value: Array of upgrade names (String)
 var unit_upgrades: Dictionary = {}
 
-# Flag to mark if the first enemy spawn for this level has been performed.
-var first_enemy_spawn_done: bool = false
+# Persist currently-selected special ability
+var selected_special_ability: String = ""
 
-var current_zoom_index: int = 0
+# Available special abilities (for UI and ability cycling)
 var available_abilities: Array[String] = [
-	"Ground Slam",       # Hulk
-	"Mark & Pounce",     # Panther
-	"Guardian Halo",     # Angel
-	"High Arcing Shot",  # Cannon
-	"Suppressive Fire",  # Multi Turret
-	"Fortify",           # Brute
-	"Heavy Rain",    # Helicopter
-	"Web Field"          # Spider
+	"Ground Slam",
+	"Mark & Pounce",
+	"Guardian Halo",
+	"High Arcing Shot",
+	"Suppressive Fire",
+	"Fortify",
+	"Heavy Rain",
+	"Web Field"
 ]
 
-var multiplayer_mode = false
+# Persistent UI/settings
+var current_zoom_index: int
+var first_enemy_spawn_done: bool
 
-# Reset all persistent data to the defaults.
+# Reset all memory between matches
 func reset_data() -> void:
 	coins = 0
 	xp = 0
 	current_level = 1
-	selected_upgrade = ""
-	selected_special_ability = ""
 	unit_upgrades.clear()
-	available_abilities.clear()
-	first_enemy_spawn_done = false
+	selected_special_ability = ""
 
-func add_coins(amount: int) -> void:
-	coins += amount
-
-func add_xp(amount: int) -> void:
-	xp += amount
-
-func advance_level() -> void:
-	current_level += 1
-	# Reset the first enemy spawn flag for the new level.
-	first_enemy_spawn_done = false
-
+# Configuration persistence
 func save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("Camera", "zoom_index", current_zoom_index)
 	var err = cfg.save("user://settings.cfg")
 	if err != OK:
 		push_error("Failed to save settings: %s" % str(err))
-	else:
-		print("Settings saved successfully.")
 
 func load_settings() -> void:
-	print("Loading settings from user://settings.cfg...")
-	var cfg = ConfigFile.new()
-	var err = cfg.load("user://settings.cfg")
-	if err == OK:
+	var cfg := ConfigFile.new()
+	if cfg.load("user://settings.cfg") == OK:
 		if cfg.has_section_key("Camera", "zoom_index"):
 			current_zoom_index = cfg.get_value("Camera", "zoom_index")
-			print("Loaded zoom index:", current_zoom_index)
-		else:
-			print("Camera zoom_index not found in settings. Using default.")
-			current_zoom_index = 0
-	else:
-		print("Failed to load settings; using default values.")
-		current_zoom_index = 0
 
-# -------------------------------------------------
-# This RPC will be called on **every** peer (server + clients).
-# Its job is to replicate “unit_to_upgrade = upgrade_name” onto local GameData.
-# -------------------------------------------------
-@rpc
-func client_set_upgrade(unit_name: String, upgrade_name: String) -> void:
-	GameData.unit_upgrades[unit_name] = upgrade_name
+# Manage unit upgrades
+func add_upgrade(unit_id: int, upgrade_name: String) -> void:
+	# Ensure an array exists for this unit_id
+	if not unit_upgrades.has(unit_id) or typeof(unit_upgrades[unit_id]) != TYPE_ARRAY:
+		unit_upgrades[unit_id] = []
+	unit_upgrades[unit_id].append(upgrade_name)
 
-@rpc
-func client_receive_all_upgrades(upgrades: Dictionary) -> void:
-	print("[Client] ▶ client_receive_all_upgrades() called with: ", upgrades)
-	unit_upgrades = upgrades.duplicate()
+func get_upgrades(unit_id: int) -> Array:
+	return unit_upgrades.get(unit_id, [])
+
+func clear_unit_upgrades(unit_id: int) -> void:
+	unit_upgrades.erase(unit_id)
+
+func clear_all_upgrades() -> void:
+	unit_upgrades.clear()

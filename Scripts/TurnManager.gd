@@ -77,13 +77,6 @@ func start_turn():
 	print("🔁 Starting turn for:", team_name)
 	
 	emit_signal("turn_started", team)
-
-	# ────────────────────────────────────────────────────────
-	# Multiplayer: skip any AI (enemy) moves entirely
-	if GameData.multiplayer_mode:
-		print("🔇 Multiplayer mode → skipping enemy turn")
-		return
-	# ────────────────────────────────────────────────────────
 	
 	await _start_unit_action(team)
 

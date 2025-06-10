@@ -208,9 +208,6 @@ func _process(delta):
 	else:
 		hold_time = 0.0
 
-	if GameData.multiplayer_mode:
-		map_details.text = "Multiplayer Mode"
-
 func _physics_process(delta):
 	if moving and selected_unit:
 		var next_tile = current_path[0]
@@ -469,6 +466,13 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.set_meta("peer_id", unit_instance.peer_id)
 
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
+		
+		# APPLY SAVED UPGRADES:
+		var upgrades = GameData.unit_upgrades.get(unit_instance.unit_id, [])
+		for upg in upgrades:
+			if unit_instance.has_method("apply_upgrade"):
+				unit_instance.apply_upgrade(upg)	
+					
 		add_child(unit_instance)
 
 		if is_player:
@@ -746,7 +750,7 @@ func _input(event):
 	# If multiplayer, immediately ignore any client‐side clicks
 	# when it’s not this peer’s turn. Only allow “peeking” (right‐click) below.
 	# ──────────────────────────────────────────────────────────────────────────
-	if GameData.multiplayer_mode and event is InputEventMouseButton:
+	if event is InputEventMouseButton:
 		if is_multiplayer_authority():
 			# server only acts on PLAYER’s turn
 			if turn_team != TurnManager.Team.PLAYER:
@@ -894,14 +898,7 @@ func _input(event):
 		if ground_slam_mode:
 			if selected_unit and is_my_turn and not selected_unit.has_attacked:
 				_clear_highlights()
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_ground_slam(selected_unit.unit_id, mouse_tile)
-					else:
-						rpc_id(authority_id, "request_ground_slam", selected_unit.unit_id, mouse_tile)
-				else:
-					selected_unit.ground_slam(mouse_tile)
+				selected_unit.ground_slam(mouse_tile)
 				ground_slam_mode = false
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
@@ -918,14 +915,7 @@ func _input(event):
 				var target_unit = get_unit_at_tile(mouse_tile)
 				if target_unit and not target_unit.is_player:
 					_clear_highlights()
-					if GameData.multiplayer_mode:
-						var authority_id = get_multiplayer_authority()
-						if get_tree().get_multiplayer().get_unique_id() == authority_id:
-							request_mark_and_pounce(selected_unit.unit_id, target_unit.unit_id)
-						else:
-							rpc_id(authority_id, "request_mark_and_pounce", selected_unit.unit_id, target_unit.unit_id)
-					else:
-						selected_unit.mark_and_pounce(target_unit)
+					selected_unit.mark_and_pounce(target_unit)
 					print("Mark & Pounce activated by unit:", selected_unit.name, "on target:", target_unit.name)
 					mark_and_pounce_mode = false
 					ability_button.button_pressed = false
@@ -945,14 +935,7 @@ func _input(event):
 			and not selected_unit.has_attacked \
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_guardian_halo(selected_unit.unit_id, mouse_tile)
-					else:
-						rpc_id(authority_id, "request_guardian_halo", selected_unit.unit_id, mouse_tile)
-				else:
-					selected_unit.guardian_halo(mouse_tile)
+				selected_unit.guardian_halo(mouse_tile)
 				print("Guardian Halo activated by unit:", selected_unit.name)
 				guardian_halo_mode = false
 				ability_button.button_pressed = false
@@ -968,14 +951,7 @@ func _input(event):
 			and not selected_unit.has_attacked \
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_high_arcing_shot(selected_unit.unit_id, mouse_tile)
-					else:
-						rpc_id(authority_id, "request_high_arcing_shot", selected_unit.unit_id, mouse_tile)
-				else:
-					selected_unit.high_arcing_shot(mouse_tile)
+				selected_unit.high_arcing_shot(mouse_tile)
 				print("High Arcing Shot activated by unit:", selected_unit.name)
 				high_arcing_shot_mode = false
 				ability_button.button_pressed = false
@@ -994,14 +970,7 @@ func _input(event):
 				var dir = mouse_tile - selected_unit.tile_pos
 				dir.x = sign(dir.x)
 				dir.y = sign(dir.y)
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_suppressive_fire(selected_unit.unit_id, dir)
-					else:
-						rpc_id(authority_id, "request_suppressive_fire", selected_unit.unit_id, dir)
-				else:
-					selected_unit.suppressive_fire(dir)
+				selected_unit.suppressive_fire(dir)
 				print("Suppressive Fire activated by unit:", selected_unit.name, "dir:", dir)
 				suppressive_fire_mode = false
 				ability_button.button_pressed = false
@@ -1017,14 +986,7 @@ func _input(event):
 			and not selected_unit.has_attacked \
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_fortify(selected_unit.unit_id)
-					else:
-						rpc_id(authority_id, "request_fortify", selected_unit.unit_id)
-				else:
-					selected_unit.fortify(mouse_tile)
+				selected_unit.fortify(mouse_tile)
 				print("Fortify activated by unit:", selected_unit.name)
 				fortify_mode = false
 				ability_button.button_pressed = false
@@ -1040,14 +1002,7 @@ func _input(event):
 			and not selected_unit.has_attacked \
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_heavy_rain(selected_unit.unit_id, mouse_tile)
-					else:
-						rpc_id(authority_id, "request_heavy_rain", selected_unit.unit_id, mouse_tile)
-				else:
-					selected_unit.spider_blast(mouse_tile)
+				selected_unit.spider_blast(mouse_tile)
 				print("Spider Blast (formerly Web Field) activated by unit:", selected_unit.name)
 				heavy_rain_mode = false
 				ability_button.button_pressed = false
@@ -1063,14 +1018,7 @@ func _input(event):
 			and not selected_unit.has_attacked \
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
-				if GameData.multiplayer_mode:
-					var authority_id = get_multiplayer_authority()
-					if get_tree().get_multiplayer().get_unique_id() == authority_id:
-						request_thread_attack(selected_unit.unit_id, mouse_tile)
-					else:
-						rpc_id(authority_id, "request_thread_attack", selected_unit.unit_id, mouse_tile)
-				else:
-					selected_unit.thread_attack(mouse_tile)
+				selected_unit.thread_attack(mouse_tile)
 				print("Web Field (Thread Attack) activated by unit:", selected_unit.name)
 				web_field_mode = false
 				ability_button.button_pressed = false
@@ -1136,27 +1084,13 @@ func _input(event):
 					else:
 						if enemy and enemy.is_player != selected_unit.is_player \
 						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
-							if GameData.multiplayer_mode:
-								var server_id = get_multiplayer_authority()
-								rpc_id(server_id, "request_auto_attack_adjacent", selected_unit.unit_id, enemy.unit_id)
-								if is_multiplayer_authority():
-									request_auto_attack_adjacent(selected_unit.unit_id, enemy.unit_id)
-								else:
-									# client‐side prediction
-									selected_unit.has_moved = true
-									showing_attack = false
-									_clear_highlights()
-									var anim = selected_unit.get_node("AnimatedSprite2D")
-									anim.play("attack")
-									play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-							else:
-								selected_unit.auto_attack_adjacent()
-								var anim = selected_unit.get_node("AnimatedSprite2D")
-								anim.play("attack")
-								selected_unit.has_moved = true
-								showing_attack = false
-								_clear_highlights()
-								play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+							selected_unit.auto_attack_adjacent()
+							var anim = selected_unit.get_node("AnimatedSprite2D")
+							anim.play("attack")
+							selected_unit.has_moved = true
+							showing_attack = false
+							_clear_highlights()
+							play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
 							return
 					# end melee
 
@@ -1999,12 +1933,8 @@ func _execute_all_player_units():
 		turn_manager.end_turn()
 
 func _on_end_turn_button_pressed() -> void:
-	if GameData.multiplayer_mode:
-		rpc("request_end_turn")
-		menu_button.visible = false
-	else:
-		_do_end_turn()
-		menu_button.visible = false
+	_do_end_turn()
+	menu_button.visible = false
 
 func _do_end_turn() -> void:
 	print("🛑 Ending turn locally")
@@ -2461,7 +2391,6 @@ func _on_continue_pressed() -> void:
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _on_back_pressed() -> void:
-	GameData.multiplayer_mode = false
 	GameData.save_settings()
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
 

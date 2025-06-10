@@ -13,6 +13,7 @@ extends CanvasLayer
 @export var panel_offset: Vector2 = Vector2.ZERO  # Manual offset from screen center
 
 var chosen_upgrades: Dictionary = {}  # unit_id: selected_upgrade
+var _units_to_choose: int = 0
 
 func _ready():
 	_center_panel_with_offset()
@@ -28,11 +29,21 @@ func _center_panel_with_offset():
 		panel.pivot_offset = panel.size / 2
 		panel.position = panel_offset
 
+# Call this with coins and xp after victory
 func set_rewards():
+	var panel = $Control/PanelContainer
+	panel.visible = false
+	await get_tree().create_timer(1).timeout 
+	panel.visible = true
+	# Populate fresh choices
 	_display_unit_choices()
 
 func _display_unit_choices():
-	var units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player and is_instance_valid(u))
+	var units = get_tree().get_nodes_in_group("Units").filter(func(u):
+		return u.is_player and is_instance_valid(u)
+	)
+
+	_units_to_choose = units.size()
 
 	for unit in units:
 		var unit_id = unit.unit_id
@@ -40,7 +51,7 @@ func _display_unit_choices():
 		var vbox = VBoxContainer.new()
 		vbox.name = str(unit_id)
 
-		# Portrait (new TextureRect per unit)
+		# Portrait
 		if unit.portrait:
 			var portrait = TextureRect.new()
 			portrait.texture = unit.portrait
@@ -49,34 +60,33 @@ func _display_unit_choices():
 			portrait.size = Vector2(64, 64)
 			vbox.add_child(portrait)
 
-		# Unit label
-		var label = Label.new()
-		label.text = "%s (Lv. %d)" % [name, unit.level]
-		if label_font:
-			label.add_theme_font_override("font", label_font)
-		vbox.add_child(label)
-
-		# Show 3 random upgrade buttons
+		# Build your upgrade list, but drop range_boost on melee-only units
 		var options = upgrade_options.duplicate()
+		if unit.unit_type == "Melee":
+			options.erase("range_boost")
+		if unit.unit_type == "Ranged" or unit.unit_type == "Support":
+			options.erase("damage_boost")			
+			
 		options.shuffle()
+
+		# Now pick the first three (you’ll always have at least 3 left,
+		# since the full list starts at 4)
 		for i in range(3):
 			var upgrade = options[i]
 			var btn = Button.new()
 			btn.text = upgrade
 			if button_font:
 				btn.add_theme_font_override("font", button_font)
-			btn.pressed.connect(func(): _on_upgrade_chosen(unit_id, upgrade))
+			btn.pressed.connect(Callable(self, "_on_upgrade_chosen").bind(unit_id, upgrade))
 			vbox.add_child(btn)
 
 		$Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer.add_child(vbox)
 
 func _on_upgrade_chosen(unit_id: int, upgrade: String):
 	if chosen_upgrades.has(unit_id):
-		print("Upgrade already chosen for unit", unit_id)
 		return
 
 	chosen_upgrades[unit_id] = upgrade
-	print("Unit", unit_id, "selected upgrade:", upgrade)
 	_apply_upgrade_to_unit(unit_id, upgrade)
 
 	# Gray out buttons
@@ -85,15 +95,23 @@ func _on_upgrade_chosen(unit_id: int, upgrade: String):
 		if child is Button:
 			child.disabled = true
 
+	# Once all chosen, close UI and return
+	if chosen_upgrades.size() >= _units_to_choose:
+		GameData.current_level += 1
+		GameData.max_enemy_units += 1
+		GameData.map_difficulty += 1
+		
+		await get_tree().create_timer(1).timeout
+		get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+
 func _apply_upgrade_to_unit(unit_id: int, upgrade: String):
-	var units = get_tree().get_nodes_in_group("Units")
-	for unit in units:
+	for unit in get_tree().get_nodes_in_group("Units"):
 		if unit.unit_id == unit_id:
 			unit.apply_upgrade(upgrade)
 
-			# Fix: ensure it's a list
+			# Ensure list
 			if not GameData.unit_upgrades.has(unit_id) or typeof(GameData.unit_upgrades[unit_id]) != TYPE_ARRAY:
 				GameData.unit_upgrades[unit_id] = []
 
 			GameData.unit_upgrades[unit_id].append(upgrade)
-			break
+			return

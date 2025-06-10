@@ -359,7 +359,8 @@ func auto_attack_adjacent():
 					tilemap.update_astar_grid()
 					
 					# Turn off “being_pushed” now that all movement/awaits are done
-					unit.being_pushed = false
+					if is_instance_valid(unit):
+						unit.being_pushed = false
 					continue
 				# ────────────────────────────────────────────────────────
 
