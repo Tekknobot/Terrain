@@ -250,6 +250,10 @@ func clear_map() -> void:
 	print("Map cleared – waiting for host data.")
 
 func _generate_map():
+	if GameData.map_difficulty >= 6:
+		grid_width = 10
+		grid_height = 10
+		
 	for x in range(grid_width):
 		for y in range(grid_height):
 			var n = noise.get_noise_2d(x, y)
