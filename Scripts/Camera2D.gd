@@ -3,7 +3,7 @@ extends Camera2D
 # List of available zoom levels.
 var zoom_levels = [
 	Vector2(1, 1),
-	Vector2(2, 2),
+	Vector2(2, 2),	
 ]
 
 var current_zoom_index := 0
