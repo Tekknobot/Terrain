@@ -59,3 +59,4 @@ res://Scenes/GameOver.tscn
 res://Scripts/Conclusion.gd
 res://Scripts/TitleScreen.gd
 res://Textures/tile_fade.gdshader
+res://Scripts/HoverTile.gd

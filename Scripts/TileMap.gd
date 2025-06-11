@@ -325,7 +325,7 @@ func _drop_tile(x: int, y: int, tile_id: int) -> void:
 func fade_in_tilemap():
 	# 1) tween the alpha up to 1 over 2 seconds
 	var fade_tween = create_tween()
-	fade_tween.tween_property(tilemap, "modulate:a", 1.0, 0.1)
+	fade_tween.tween_property(tilemap, "modulate:a", 1.0, 1)
 
 	# 2) wait for it to finish before doing anything else
 	fade_tween.finished			

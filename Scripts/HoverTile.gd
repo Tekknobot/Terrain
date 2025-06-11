@@ -7,6 +7,7 @@ extends Sprite2D
 var current_tile: Vector2i = Vector2i(-1, -1)
 
 func _ready():
+	visible = false
 	# If we have a texture assigned, set it.
 	if highlight_texture:
 		texture = highlight_texture
@@ -14,6 +15,8 @@ func _ready():
 	z_index = 0
 	# Ensure _process runs every frame.
 	set_process(true)
+	await get_tree().create_timer(4).timeout
+	visible = true
 
 func _process(delta):
 	# If the tilemap hasn't been assigned, there's nothing to do.
