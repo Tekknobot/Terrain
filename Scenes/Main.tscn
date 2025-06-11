@@ -461,7 +461,6 @@ theme_override_styles/normal = SubResource("StyleBoxEmpty_vgpqy")
 text = "ATK: 1"
 
 [node name="Damage" type="RichTextLabel" parent="HUDLayer/Control/VBoxContainer2"]
-visible = false
 modulate = Color(1, 0, 0, 1)
 custom_minimum_size = Vector2(196, 28)
 layout_mode = 2

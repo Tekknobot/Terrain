@@ -12,7 +12,7 @@ var max_health := 100
 var xp := 0
 var max_xp := 100
 var level = 1
-var damage = 25
+@export var damage = 25
 @export var movement_range := 2  
 @export var attack_range := 3 
 
@@ -916,7 +916,8 @@ func auto_attack_ranged(target: Node, unit: Area2D) -> void:
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	missile.set_target(global_position, target.global_position)
-
+	missile.damage = self.damage
+	
 	gain_xp(25)
 	
 	# Wait until the missile emits “finished”
@@ -954,6 +955,7 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var missile = missile_scene.instantiate()
 	get_tree().get_current_scene().add_child(missile)
 	missile.set_target(global_position, target_pos)
+	missile.damage = self.damage
 
 	await missile.finished
 
