@@ -16,6 +16,8 @@ const MOVE_SPEED := 100.0  # pixels/sec
 @export var grid_width: int = 10
 @export var grid_height: int = 20
 
+@export var tilemap : TileMap
+
 @export var water_threshold := -0.65
 @export var sandstone_threshold := -0.2
 @export var dirt_threshold := 0.1
@@ -43,6 +45,15 @@ const MOVE_SPEED := 100.0  # pixels/sec
 @export var menu_button: Button
 @export var endturn_button: Button
 @export var ability_button: Button
+
+var tile_textures = {
+	6: preload("res://Sprites/Terrain/water-single.png"),
+	10: preload("res://Sprites/Terrain/sandstone.png"),
+	7: preload("res://Sprites/Terrain/dirt.png"),
+	8: preload("res://Sprites/Terrain/grass_default.png"),
+	9: preload("res://Sprites/Terrain/grass_snow.png"),		
+	11: preload("res://Sprites/Terrain/ice-single.png"),
+}
 
 # ———————————————————————————————————————————————————————————————
 # SIGNALS
@@ -144,6 +155,7 @@ var ability_ranges: Dictionary = {
 
 var next_spawn_index := 0   # Tracks which index of `units[]` to take next.
 var input_locked: bool = false
+const DROP_OFFSET := 100.0  # how far above the target to start
 
 
 # ———————————————————————————————————————————————————————————————
@@ -165,7 +177,7 @@ func _ready():
 	
 
 	if is_multiplayer_authority():
-		_generate_map()
+		await _generate_map()
 		call_deferred("_post_map_generation")
 	else:
 		clear_map()
@@ -250,17 +262,74 @@ func clear_map() -> void:
 	print("Map cleared – waiting for host data.")
 
 func _generate_map():
+	_setup_camera()
+
 	if GameData.map_difficulty >= 6:
 		grid_width = 10
 		grid_height = 10
-		
-	for x in range(grid_width):
-		for y in range(grid_height):
-			var n = noise.get_noise_2d(x, y)
-			var tile_id = _get_tile_id_from_noise(n)
-			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
+
+	var max_wave = grid_width + grid_height - 2
+	for wave in range(max_wave + 1):
+		for x in range(grid_width):
+			var y = wave - x
+			if y >= 0 and y < grid_height:
+				var n = noise.get_noise_2d(x, y)
+				var tile_id = _get_tile_id_from_noise(n)
+				_drop_tile(x, y, tile_id)
+		await get_tree().create_timer(0).timeout
+
 	_generate_roads()
 	map_details.text = difficulty_tiers[GameData.map_difficulty]
+	
+	tilemap.modulate = Color(1, 1, 1, 0)
+
+func _drop_tile(x: int, y: int, tile_id: int) -> void:
+	# 1) Get the world‐space center of this cell
+	var world_center = tilemap.map_to_local(Vector2i(x, y)) + Vector2(32, 32) * 0.5
+	# 2) Convert to this Node2D’s local space
+	var local_center = to_local(world_center)
+	
+	local_center.x -= 16
+	local_center.y -= 16
+
+	# 3) Spawn a Sprite2D three tiles above its final spot
+	var sprite = Sprite2D.new()
+	sprite.texture = tile_textures[tile_id]
+	sprite.position = local_center + Vector2(0, -Vector2(32, 32).y * 8)
+	get_tree().get_root().add_child(sprite)
+
+	# 4) Tween it down with a bounce‐out ease over 2 seconds
+	var tween = create_tween()
+	tween.tween_property(sprite, "position", local_center, 2) \
+		 .set_trans(Tween.TRANS_BOUNCE) \
+		 .set_ease(Tween.EASE_OUT)
+
+	# 5) When done, write the cell and free the sprite
+	var cb = Callable(self, "_on_drop_complete").bind(x, y, tile_id, sprite)
+	tween.finished.connect(cb)
+
+	# **Here’s the crucial bit**—actually write the cell into the TileMap:
+	# 5) Actually write the cell
+	tilemap.set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
+
+	# 6) Fade the sprite’s alpha out before freeing
+	var fade_tween = create_tween()
+	fade_tween.tween_property(sprite, "modulate:a", 0.0, 4.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+	# 7) When fade completes, free the sprite
+	await fade_tween.finished
+	sprite.queue_free()
+	
+func fade_in_tilemap():
+	# 1) tween the alpha up to 1 over 2 seconds
+	var fade_tween = create_tween()
+	fade_tween.tween_property(tilemap, "modulate:a", 1.0, 0.8)
+
+	# 2) wait for it to finish before doing anything else
+	fade_tween.finished			
+	
+func _on_drop_complete(x: int, y: int, tile_id: int, sprite: Sprite2D) -> void:
+	pass
 
 func _get_tile_id_from_noise(n: float) -> int:
 	if n < water_threshold:
@@ -371,7 +440,6 @@ func _post_map_generation():
 
 	_spawn_teams()
 	spawn_structures()
-	_setup_camera()
 	update_astar_grid()
 
 	# ─── REASSIGN ALL SPECIALS STARTING AT unit_id=1 ────────────────────────
@@ -402,6 +470,9 @@ func _post_map_generation():
 		GameState.stored_unit_data      = export_unit_data()
 		GameState.stored_structure_data = export_structure_data()
 		broadcast_game_state()
+	
+	await get_tree().create_timer(2).timeout
+	fade_in_tilemap()	
 	
 # Helper comparator:
 func _compare_by_unit_id(a, b) -> bool:
