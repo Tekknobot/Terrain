@@ -296,6 +296,7 @@ func _drop_tile(x: int, y: int, tile_id: int) -> void:
 	var sprite = Sprite2D.new()
 	sprite.texture = tile_textures[tile_id]
 	sprite.position = local_center + Vector2(0, -Vector2(32, 32).y * 8)
+	sprite.modulate = Color(0.5, 0.5, 0.5)
 	get_tree().get_root().add_child(sprite)
 
 	# 4) Tween it down with a bounce‐out ease over 2 seconds
@@ -314,16 +315,17 @@ func _drop_tile(x: int, y: int, tile_id: int) -> void:
 
 	# 6) Fade the sprite’s alpha out before freeing
 	var fade_tween = create_tween()
-	fade_tween.tween_property(sprite, "modulate:a", 0.0, 4.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	#fade_tween.tween_property(sprite, "modulate:a", 0.0, 4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 	# 7) When fade completes, free the sprite
-	await fade_tween.finished
+	#await fade_tween.finished
+	await get_tree().create_timer(4).timeout
 	sprite.queue_free()
 	
 func fade_in_tilemap():
 	# 1) tween the alpha up to 1 over 2 seconds
 	var fade_tween = create_tween()
-	fade_tween.tween_property(tilemap, "modulate:a", 1.0, 0.8)
+	fade_tween.tween_property(tilemap, "modulate:a", 1.0, 0.1)
 
 	# 2) wait for it to finish before doing anything else
 	fade_tween.finished			
@@ -440,6 +442,8 @@ func _post_map_generation():
 
 	_spawn_teams()
 	spawn_structures()
+	fade_in_structures()
+	fade_in_units()
 	update_astar_grid()
 
 	# ─── REASSIGN ALL SPECIALS STARTING AT unit_id=1 ────────────────────────
@@ -575,6 +579,8 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 			if sprite:
 				sprite.flip_h = true
 
+		unit_instance.modulate.a = 0
+			
 		used_tiles.append(spawn_tile)
 		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
 
@@ -599,7 +605,8 @@ func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) ->
 
 	push_warning("⚠ Could not find valid spawn in zone.")
 	return Vector2i(-1, -1)
-	
+
+# OLD FUNCTION	
 func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles: Array[Vector2i]) -> void:
 	var spawn_tile = _find_nearest_land(tile, used_tiles)
 	if spawn_tile == Vector2i(-1, -1):
@@ -621,11 +628,12 @@ func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool, used_tiles
 
 	unit_instance.set_meta("scene_path", scene.resource_path)
 	add_child(unit_instance)
+	
 	if is_player:
 		var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
 		if sprite:
 			sprite.flip_h = true
-
+	
 	used_tiles.append(spawn_tile)
 	print("Spawned unit ", unit_instance.name, " at tile: ", spawn_tile, " with unique ID: ", unit_instance.unit_id, " and peer id: ", unit_instance.peer_id)
 
@@ -690,6 +698,8 @@ func spawn_structures():
 		var b_val = randf_range(0.4, 0.8)
 		structure.modulate = Color(r_val, g_val, b_val, 1)
 
+		structure.modulate.a = 0
+
 		structure.add_to_group("Structures")
 		add_child(structure)
 		astar.set_point_solid(pos, true)
@@ -701,6 +711,53 @@ func spawn_structures():
 	else:
 		print("Spawned", count, "structures.")
 
+func fade_in_structures():
+	await get_tree().create_timer(4).timeout
+	
+	# 1) Get all your structures
+	for structure in get_tree().get_nodes_in_group("Structures"):
+		# 2) start fully transparent
+		structure.modulate = Color(1, 1, 1, 0)
+
+	# 3) Create one tween that drives all fades in parallel
+	var tween = create_tween()
+	for structure in get_tree().get_nodes_in_group("Structures"):
+		var fade_tween = create_tween()
+		fade_tween.tween_property(structure, "modulate:a", 1.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				
+		await fade_tween.finished
+		
+		var r_val = randf_range(0.4, 0.8)
+		var g_val = randf_range(0.4, 0.8)
+		var b_val = randf_range(0.4, 0.8)
+		structure.modulate = Color(r_val, g_val, b_val, 1)
+
+func fade_in_units():
+	await get_tree().create_timer(7).timeout
+	
+	# 1) Get all your structures
+	for units in get_tree().get_nodes_in_group("Units"):
+		# 2) start fully transparent
+		units.modulate = Color(1, 1, 1, 0)
+
+	# 3) Create one tween that drives all fades in parallel
+	var tween = create_tween()
+	for units in get_tree().get_nodes_in_group("Units"):
+		var fade_tween = create_tween()
+		fade_tween.tween_property(units, "modulate:a", 1.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				
+		await fade_tween.finished
+		
+		if units.is_player:
+			var sp = units.get_node_or_null("AnimatedSprite2D")
+			if sp:
+				sp.flip_h = true
+				units.modulate.a = 1
+		else:
+			#Enemy tint
+			units.modulate.a = 1
+			units.get_child(0).modulate = Color8(255, 110, 255)
+		
 func spawn_new_enemy_units():
 	# 1) How many enemies are already on the board?
 	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)
