@@ -467,7 +467,7 @@ func _post_map_generation():
 	# ────────────────────────────────────────────────────────────────────────
 
 	TurnManager.start_turn()
-	TurnManager.transition_to_level()
+	#TurnManager.transition_to_level()
 
 	if is_multiplayer_authority():
 		GameState.stored_map_data       = export_map_data()

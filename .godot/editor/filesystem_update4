@@ -60,3 +60,5 @@ res://Scripts/Conclusion.gd
 res://Scripts/TitleScreen.gd
 res://Textures/tile_fade.gdshader
 res://Scripts/HoverTile.gd
+res://Scripts/navagation_layer.gd
+res://Scripts/Transition.gd

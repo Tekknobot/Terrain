@@ -1,4 +1,4 @@
-[gd_scene load_steps=69 format=3 uid="uid://npnv1wvwmhj3"]
+[gd_scene load_steps=70 format=3 uid="uid://npnv1wvwmhj3"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_2cdww"]
 [ext_resource type="Script" path="res://Scripts/TileMap.gd" id="1_juvca"]
@@ -46,6 +46,7 @@
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="39_jffjd"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="39_mfbvt"]
 [ext_resource type="Script" path="res://Scripts/HealthBar.gd" id="40_wrk1i"]
+[ext_resource type="Script" path="res://Scripts/navagation_layer.gd" id="42_cckn7"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_rcb67"]
 texture = ExtResource("1_2cdww")
@@ -264,6 +265,7 @@ script = ExtResource("30_njjnf")
 reset_button = NodePath("../CanvasLayer/Control/HBoxContainer/Reset")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+script = ExtResource("42_cckn7")
 
 [node name="Control" type="Control" parent="CanvasLayer"]
 layout_mode = 3

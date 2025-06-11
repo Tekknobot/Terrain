@@ -139,9 +139,11 @@ func _process(delta):
 			randf_range(-1.0, 1.0)
 		) * shake_amount
 		global_position = base_position + shake_offset
+		global_position.y -= 32
 		shake_amount = max(shake_amount - shake_decay * delta, 0.0)
 	else:
 		global_position = base_position
+		global_position.y -= 32
 
 
 func shake(amount: float) -> void:
