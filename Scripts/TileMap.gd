@@ -585,7 +585,8 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		used_tiles.append(spawn_tile)
 		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
 
-	_apply_enemy_upgrades_by_level(GameData.current_level)
+	if GameData.current_level > 1:
+		_apply_enemy_upgrades_by_level(GameData.current_level)
 	
 func _apply_enemy_upgrades_by_level(level: int) -> void:
 	var possible_upgrades := [
