@@ -1927,6 +1927,7 @@ func _select_unit_at_mouse():
 	play_beep_sound(tile)
 	emit_signal("unit_selected", unit)
 	selected_unit = unit
+	TutorialManager.on_action("unit_selected")
 	showing_attack = false
 	_show_range_for_selected_unit()
 
