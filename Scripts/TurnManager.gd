@@ -66,6 +66,7 @@ func start_turn():
 			"coins": calculate_coins_reward()
 		}
 		
+		reset_button.visible = false
 		_show_game_over_screen(result, stats, rewards)
 		
 		print("🏁 Game Over — no units remain for one team. Turn will not start.")

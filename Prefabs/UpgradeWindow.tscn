@@ -48,6 +48,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="Control"]
+layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_egeuw")
@@ -76,6 +77,7 @@ layout_mode = 2
 
 [node name="ContinueButton" type="Button" parent="Control"]
 custom_minimum_size = Vector2(100, 0)
+layout_mode = 0
 offset_top = 176.0
 offset_right = 100.0
 offset_bottom = 204.0

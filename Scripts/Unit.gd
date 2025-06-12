@@ -572,7 +572,8 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 	var coin_scene = preload("res://Prefabs/coin_pickup.tscn")
 	var health_scene = preload("res://Prefabs/health_pickup.tscn")
 	var lightning_scene = preload("res://Prefabs/lightning_pickup.tscn")
-	
+	var orbital_strike_scene = preload("res://Prefabs/orbital_strike_pickup.tscn")
+		
 	var num_attempts := 1
 	var tilemap_node = tilemap.get_node("TileMap")
 	var base_pos = tilemap_node.to_global(tilemap_node.map_to_local(tile_pos))
@@ -584,13 +585,13 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 		var drop = null
 		
 		if roll < 40:
-			drop = coin_scene.instantiate()          # 0–39 → 40%
-		elif roll < 70:
-			drop = health_scene.instantiate()        # 40–69 → 30%
-		elif roll < 90:
-			drop = lightning_scene.instantiate()     # 70–89 → 20%
+			drop = health_scene.instantiate()         # 0–39 → 40%
+		elif roll < 70:		
+			drop = lightning_scene.instantiate()        # 40–69 → 30%
+		elif roll < 90:			
+			drop = orbital_strike_scene.instantiate()    # 70–89 → 20%		
 		else:
-			continue                                 # 90–99 → 10% chance to drop nothing
+			continue                                 # 96–99 → 5% chance to drop nothing
 
 		var collider = drop.get_node("CollisionShape2D")
 		collider.disabled = true
