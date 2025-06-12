@@ -37,6 +37,9 @@ func _ready() -> void:
 	tw.tween_callback(Callable(layer, "queue_free"))
 
 func _strike_all(is_player_team: bool) -> void:
+	# Bullet time
+	Engine.time_scale = 0.25
+	
 	var vr    = get_viewport().get_visible_rect()
 	var top_y = vr.position.y - laser_height
 
@@ -83,3 +86,5 @@ func _strike_all(is_player_team: bool) -> void:
 
 		# e) wait before next beam
 		await get_tree().create_timer(laser_delay).timeout
+
+	Engine.time_scale = 1

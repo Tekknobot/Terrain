@@ -584,7 +584,7 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 		var roll := randi() % 100
 		var drop = null
 		
-		if roll < 40:
+		if roll < 2:
 			# 40% total chance to drop something…
 			var which = randi() % 3
 			match which:

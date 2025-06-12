@@ -349,7 +349,7 @@ func _get_tile_id_from_noise(n: float) -> int:
 func _generate_roads():
 	var used_h := []
 	var used_v := []
-	for i in range(2):
+	for i in randi_range(0, 2):
 		var hy = _get_unique_random_odd(grid_height, used_h)
 		draw_road(Vector2i(0, hy), Vector2i(1, 0), DOWN_RIGHT_ROAD)
 		var vx = _get_unique_random_odd(grid_width, used_v)
