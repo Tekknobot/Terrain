@@ -59,20 +59,23 @@ var in_upgrade_phase: bool = false
 # ─────────────────────────────────────────────────────────────────────────────
 # Called only once at the start of a new match / new save slot
 func full_reset() -> void:
-	#coins = 0
-	#xp = 0
-	#current_level = 1
-	#max_enemy_units = 1
-	#map_difficulty = 1
-	#selected_special_ability = ""
-	#unit_special.clear()
-	#unit_upgrades.clear()
-	#first_enemy_spawn_done = false
-
-	# **Reset your ID counter here:**
-	#next_unit_id = 1
 	pass
 
+func play_reset() -> void:
+	#coins = 0
+	#xp = 0
+	current_level = 1
+	max_enemy_units = 1
+	map_difficulty = 1
+	#selected_special_ability = ""
+	#unit_special.clear()
+	unit_upgrades.clear()
+	first_enemy_spawn_done = false
+
+	# **Reset your ID counter here:**
+	next_unit_id = 1
+	pass
+	
 # Called at the end of each level to prepare for the next level
 func advance_level() -> void:
 	current_level += 1

@@ -585,13 +585,18 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 		var drop = null
 		
 		if roll < 40:
-			drop = health_scene.instantiate()         # 0–39 → 40%
-		elif roll < 70:		
-			drop = lightning_scene.instantiate()        # 40–69 → 30%
-		elif roll < 90:			
-			drop = orbital_strike_scene.instantiate()    # 70–89 → 20%		
+			# 40% total chance to drop something…
+			var which = randi() % 3
+			match which:
+				0:
+					drop = health_scene.instantiate()         # ~13.3% total
+				1:
+					drop = lightning_scene.instantiate()      # ~13.3% total
+				2:
+					drop = orbital_strike_scene.instantiate() # ~13.3% total
 		else:
-			continue                                 # 96–99 → 5% chance to drop nothing
+			# 60% chance to drop nothing
+			continue 
 
 		var collider = drop.get_node("CollisionShape2D")
 		collider.disabled = true

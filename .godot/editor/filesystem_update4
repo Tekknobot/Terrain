@@ -22,3 +22,7 @@ res://Scripts/RewardsUpgrades.gd
 res://Scripts/TileMap.gd
 res://Scripts/Conclusion.gd
 res://Scenes/GameOver.tscn
+res://Scenes/Meks_Scenes/PLAYER/M2.scn
+res://Scenes/Meks_Scenes/PLAYER/M1.scn
+res://Scripts/TitleScreen.gd
+res://Scripts/GameData.gd
