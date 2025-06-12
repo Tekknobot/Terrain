@@ -295,13 +295,13 @@ func _drop_tile(x: int, y: int, tile_id: int) -> void:
 	# 3) Spawn a Sprite2D three tiles above its final spot
 	var sprite = Sprite2D.new()
 	sprite.texture = tile_textures[tile_id]
-	sprite.position = local_center + Vector2(0, -Vector2(32, 32).y * 8)
+	sprite.position = local_center + Vector2(0, -Vector2(32, 32).y * 16)
 	sprite.modulate = Color(0.5, 0.5, 0.5)
 	get_tree().get_root().add_child(sprite)
 
 	# 4) Tween it down with a bounce‐out ease over 2 seconds
 	var tween = create_tween()
-	tween.tween_property(sprite, "position", local_center, 2) \
+	tween.tween_property(sprite, "position", local_center, 3) \
 		 .set_trans(Tween.TRANS_BOUNCE) \
 		 .set_ease(Tween.EASE_OUT)
 
@@ -475,7 +475,7 @@ func _post_map_generation():
 		GameState.stored_structure_data = export_structure_data()
 		broadcast_game_state()
 	
-	await get_tree().create_timer(2).timeout
+	await get_tree().create_timer(3).timeout
 	fade_in_tilemap()	
 	
 # Helper comparator:
