@@ -56,6 +56,7 @@ func start_turn():
 			result = "lose"
 		elif not enemy_units_exist:
 			result = "win"
+			reset_button.visible = false
 		
 		var stats = {
 			"units_lost": calculate_units_lost(),
@@ -66,7 +67,6 @@ func start_turn():
 			"coins": calculate_coins_reward()
 		}
 		
-		reset_button.visible = false
 		_show_game_over_screen(result, stats, rewards)
 		
 		print("🏁 Game Over — no units remain for one team. Turn will not start.")
@@ -294,6 +294,11 @@ func end_turn(game_over: bool = false):
 		hide_end_turn_button()
 		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
 		match_done = true
+		
+		# Hide reset button
+		var reset_button = get_tree().get_nodes_in_group("Reset_Button")
+		reset_button[0].visible = false
+				
 		return
 
 	# 🔁 Emit turn-end signals

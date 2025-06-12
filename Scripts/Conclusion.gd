@@ -25,6 +25,7 @@ func set_result(result: String, stats: Dictionary, rewards: Dictionary) -> void:
 	# Update the result label without using a ternary.
 	if result == "win":
 		result_label.text = "Victory Upgrades!"
+				
 		# Play the victory sound.
 		if victory_sound:
 			audio_player.stream = victory_sound

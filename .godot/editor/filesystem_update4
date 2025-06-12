@@ -18,3 +18,7 @@ res://Scripts/OrbitalStrikeController.gd
 res://Prefabs/lightning_pickup.tscn
 res://Scripts/orbital_strike_pickup.gd
 res://Scripts/TurnManager.gd
+res://Scripts/RewardsUpgrades.gd
+res://Scripts/TileMap.gd
+res://Scripts/Conclusion.gd
+res://Scenes/GameOver.tscn

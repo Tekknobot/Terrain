@@ -664,7 +664,9 @@ func spawn_structures():
 	var count = 0
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5
-
+	
+	max_structures = randi_range(4, 9)
+	
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
 		var x = randi() % grid_width
@@ -890,8 +892,8 @@ func _peek_show_attack_range_for(unit: Node2D):
 
 
 func _input(event):
-	if GameData.in_upgrade_phase:
-		return
+	#if GameData.in_upgrade_phase:
+		#return
 			
 	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
 	if turn_team != TurnManager.Team.PLAYER or input_locked:

@@ -42,7 +42,7 @@ func set_rewards():
 	
 	# ─── LOCK MAP INPUT WHILE UI IS OPEN ─────────────────────────────────
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	tilemap.input_locked = true
+	#tilemap.input_locked = true
 	# ─────────────────────────────────────────────────────────────────────
 		
 	panel.visible = true
