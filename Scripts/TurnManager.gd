@@ -465,7 +465,6 @@ func calculate_coins_reward() -> int:
 
 func reset_match_stats() -> void:	
 	GameData.first_enemy_spawn_done = false
-	
 	# Optionally, reset initial_player_unit_count here if needed.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(
 		func(u): return u.is_player

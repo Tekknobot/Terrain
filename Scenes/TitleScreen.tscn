@@ -98,6 +98,13 @@ theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 32
 text = "PLAY"
 
+[node name="Reset" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_gujq3")
+theme_override_font_sizes/font_size = 32
+text = "Reset"
+
 [node name="Multiplayer" type="Button" parent="CenterContainer/VBoxContainer"]
 visible = false
 custom_minimum_size = Vector2(200, 40)
@@ -107,8 +114,11 @@ theme_override_font_sizes/font_size = 32
 text = "Multiplayer"
 
 [node name="Quit" type="Button" parent="CenterContainer/VBoxContainer"]
+visible = false
 custom_minimum_size = Vector2(200, 40)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 32
 text = "QUIT"
+
+[connection signal="pressed" from="CenterContainer/VBoxContainer/Reset" to="." method="_on_reset_pressed"]

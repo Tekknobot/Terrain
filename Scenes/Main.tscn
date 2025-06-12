@@ -309,7 +309,7 @@ custom_minimum_size = Vector2(100, 32)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("39_jffjd")
 theme_override_font_sizes/font_size = 32
-text = "RESET"
+text = "MAP"
 
 [node name="Menu" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
 custom_minimum_size = Vector2(100, 32)

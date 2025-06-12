@@ -437,7 +437,6 @@ func update_astar_grid() -> void:
 # ———————————————————————————————————————————————————————————————
 func _post_map_generation():
 	TurnManager.match_done = false
-
 	GameData.next_unit_id = 1
 
 	_spawn_teams()
@@ -476,7 +475,7 @@ func _post_map_generation():
 		broadcast_game_state()
 	
 	await get_tree().create_timer(3).timeout
-	fade_in_tilemap()	
+	fade_in_tilemap()
 	
 # Helper comparator:
 func _compare_by_unit_id(a, b) -> bool:
@@ -585,8 +584,9 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		used_tiles.append(spawn_tile)
 		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
 
-	if GameData.current_level > 1:
+	if GameData.current_level >= GameData.last_enemy_upgrade_level and GameData.current_level > 1:
 		_apply_enemy_upgrades_by_level(GameData.current_level)
+		GameData.last_enemy_upgrade_level = GameData.current_level
 	
 func _apply_enemy_upgrades_by_level(level: int) -> void:
 	var possible_upgrades := [
@@ -595,20 +595,26 @@ func _apply_enemy_upgrades_by_level(level: int) -> void:
 		"range_boost",
 		"move_boost"
 	]
-
+	
 	for unit in get_tree().get_nodes_in_group("Units"):
-		if not unit.is_player and unit.has_method("apply_upgrade") and is_instance_valid(unit):
-			var uid = unit.unit_id
-			# only give one upgrade per unit
-			if GameData.unit_upgrades.has(uid) and typeof(GameData.unit_upgrades[uid]) == TYPE_ARRAY and GameData.unit_upgrades[uid].size() > 0:
-				continue
-			# pick a single upgrade, but exclude range_boost from melee
+		if unit.is_player or not unit.has_method("apply_upgrade") or not is_instance_valid(unit):
+			continue
+
+		var uid = unit.unit_id
+		# ensure we record all upgrades in an array
+		if not GameData.unit_upgrades.has(uid) or typeof(GameData.unit_upgrades[uid]) != TYPE_ARRAY:
+			GameData.unit_upgrades[uid] = []
+
+		# give exactly `level` upgrades to each enemy
+		for i in range(level - 1):
 			var pool = possible_upgrades.duplicate()
+			# melee units shouldn't get range_boost
 			if unit.unit_type == "Melee":
 				pool.erase("range_boost")
+
 			var upg = pool[randi() % pool.size()]
-			
 			unit.apply_upgrade(upg)
+			GameData.unit_upgrades[uid].append(upg)	
 
 func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var tries := 100
@@ -2596,9 +2602,11 @@ func _on_ability_pressed() -> void:
 # ———————————————————————————————————————————————————————————————
 func _on_reset_pressed() -> void:
 	# Wipe *all* progress and start over
-	GameData.full_reset()
 	TurnManager.reset_match_stats()
 	TurnManager.transition_to_next_level()
+	
+	GameData.last_enemy_upgrade_level = 0
+	
 	endturn_button.visible = false
 	menu_button.visible   = false
 	reset_button.visible  = false

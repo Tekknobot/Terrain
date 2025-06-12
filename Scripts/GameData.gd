@@ -9,6 +9,8 @@ var xp: int = 0
 var current_level: int = 1
 var max_enemy_units: int = 1
 
+var last_enemy_upgrade_level: int = 0
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Map settings
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,12 +49,11 @@ var available_abilities: Array[String] = [
 var current_zoom_index: int = 0
 var first_enemy_spawn_done: bool = false
 
-
 # reset your ID counter
 var	next_unit_id = 1
 
 var in_upgrade_phase: bool = false
-
+var enemy_upgraded : bool = false
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Reset all memory between matches
@@ -82,8 +83,7 @@ func advance_level() -> void:
 	max_enemy_units += 1
 	first_enemy_spawn_done = false
 	# ✂–– don’t clear unit_special or unit_upgrades here ––✂
-
-
+	
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration persistence
 # ─────────────────────────────────────────────────────────────────────────────

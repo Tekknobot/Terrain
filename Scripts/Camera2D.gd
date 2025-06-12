@@ -24,6 +24,7 @@ var shake_amount := 0.0
 var shake_decay := 5.0
 
 var valid_drag := false
+var camera_offset
 
 func _ready():
 	GameData.load_settings()
@@ -133,17 +134,22 @@ func is_click_on_empty_tile() -> bool:
 
 
 func _process(delta):
+	if GameData.current_level >= 6:
+		camera_offset = 0
+	else:
+		camera_offset = 16
+				
 	if shake_amount > 0:
 		var shake_offset = Vector2(
 			randf_range(-1.0, 1.0),
 			randf_range(-1.0, 1.0)
 		) * shake_amount
 		global_position = base_position + shake_offset
-		global_position.y -= 32
+		global_position.y -= camera_offset
 		shake_amount = max(shake_amount - shake_decay * delta, 0.0)
 	else:
 		global_position = base_position
-		global_position.y -= 32
+		global_position.y -= camera_offset
 
 
 func shake(amount: float) -> void:
