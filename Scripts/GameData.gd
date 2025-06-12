@@ -133,3 +133,10 @@ func clear_unit_upgrades(unit_id: int) -> void:
 
 func clear_all_upgrades() -> void:
 	unit_upgrades.clear()
+
+func clear_enemy_upgrades() -> void:
+	# look at every Unit in the scene
+	for u in get_tree().get_nodes_in_group("Units"):
+		# if it’s an enemy, erase its entry
+		if not u.is_player and u.has_meta("unit_id"):
+			clear_unit_upgrades(u.get_meta("unit_id"))

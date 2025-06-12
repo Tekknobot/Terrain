@@ -2606,7 +2606,7 @@ func _on_reset_pressed() -> void:
 	TurnManager.transition_to_next_level()
 	
 	GameData.last_enemy_upgrade_level = 0
-	
+	GameData.clear_enemy_upgrades()
 	endturn_button.visible = false
 	menu_button.visible   = false
 	reset_button.visible  = false
