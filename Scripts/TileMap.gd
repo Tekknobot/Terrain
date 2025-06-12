@@ -567,12 +567,13 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
 
 		# Re-apply any saved upgrades
+		add_child(unit_instance)
+		
+		# 🔄 Re-apply any saved upgrades for player
 		for upg in GameData.get_upgrades(id):
 			if unit_instance.has_method("apply_upgrade"):
 				unit_instance.apply_upgrade(upg)
-
-		add_child(unit_instance)
-
+			
 		# Flip the sprite for player units
 		if is_player:
 			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
@@ -583,6 +584,30 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 			
 		used_tiles.append(spawn_tile)
 		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
+
+	_apply_enemy_upgrades_by_level(GameData.current_level)
+	
+func _apply_enemy_upgrades_by_level(level: int) -> void:
+	var possible_upgrades := [
+		"hp_boost",
+		"damage_boost",
+		"range_boost",
+		"move_boost"
+	]
+
+	for unit in get_tree().get_nodes_in_group("Units"):
+		if not unit.is_player and unit.has_method("apply_upgrade") and is_instance_valid(unit):
+			var uid = unit.unit_id
+			# only give one upgrade per unit
+			if GameData.unit_upgrades.has(uid) and typeof(GameData.unit_upgrades[uid]) == TYPE_ARRAY and GameData.unit_upgrades[uid].size() > 0:
+				continue
+			# pick a single upgrade, but exclude range_boost from melee
+			var pool = possible_upgrades.duplicate()
+			if unit.unit_type == "Melee":
+				pool.erase("range_boost")
+			var upg = pool[randi() % pool.size()]
+			
+			unit.apply_upgrade(upg)
 
 func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var tries := 100

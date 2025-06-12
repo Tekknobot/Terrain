@@ -74,9 +74,7 @@ func _display_unit_choices():
 		# Build your upgrade list, but drop range_boost on melee-only units
 		var options = upgrade_options.duplicate()
 		if unit.unit_type == "Melee":
-			options.erase("range_boost")
-		if unit.unit_type == "Ranged" or unit.unit_type == "Support":
-			options.erase("damage_boost")			
+			options.erase("range_boost")		
 			
 		options.shuffle()
 
@@ -112,18 +110,15 @@ func _on_upgrade_chosen(unit_id: int, upgrade: String):
 		GameData.max_enemy_units += 1
 		GameData.map_difficulty += 1
 
-func _apply_upgrade_to_unit(unit_id: int, upgrade: String):
+func _apply_upgrade_to_unit(unit_id: int, upgrade: String) -> void:
+	# 1) Apply the specified upgrade to the matching unit
 	for unit in get_tree().get_nodes_in_group("Units"):
 		if unit.unit_id == unit_id:
 			unit.apply_upgrade(upgrade)
-
-			# Ensure list
 			if not GameData.unit_upgrades.has(unit_id) or typeof(GameData.unit_upgrades[unit_id]) != TYPE_ARRAY:
 				GameData.unit_upgrades[unit_id] = []
-
 			GameData.unit_upgrades[unit_id].append(upgrade)
-			return
-
+			break
 
 func _on_continue_button_pressed() -> void:
 	GameData.in_upgrade_phase = false
