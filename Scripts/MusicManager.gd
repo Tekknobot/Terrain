@@ -14,7 +14,8 @@ func _ready():
 
 	# Example playlist setup (replace with your own audio files)
 	playlist = [
-		preload("res://Audio/Music/Track 1.wav")
+		preload("res://Audio/Music/Track 1.wav"),
+		preload("res://Audio/Music/Track 2.wav")		
 	]
 
 	play_current_track()

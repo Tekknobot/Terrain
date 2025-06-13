@@ -28,3 +28,4 @@ res://Scripts/TitleScreen.gd
 res://Scripts/GameData.gd
 res://Scripts/Camera2D.gd
 res://Scripts/HUD_Panel.gd
+res://Scripts/MusicManager.gd
