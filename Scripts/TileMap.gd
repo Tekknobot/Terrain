@@ -1932,15 +1932,20 @@ func _select_unit_at_mouse():
 	_show_range_for_selected_unit()
 
 # Update all the HUD fields for a given unit
+# ----------------------------------------------------
+# Replace your existing _update_hud_with(...) with this:
 func _update_hud_with(unit):
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	var hud_data = {
+		# pass the unit_id so update_hud can look up #upgrades
+		"unit_id":        unit.unit_id,
 		"name":           unit.unit_name,
 		"portrait":       unit.portrait,
 		"current_hp":     unit.health,
 		"max_hp":         unit.max_health,
 		"current_xp":     unit.xp,
 		"max_xp":         unit.max_xp,
+		# still include level as a fallback
 		"level":          unit.level,
 		"movement_range": unit.movement_range,
 		"attack_range":   unit.attack_range,
@@ -1949,9 +1954,9 @@ func _update_hud_with(unit):
 	hud.update_hud(hud_data)
 	hud.visible = true
 
-	# Make sure the ability button always reflects the unit's assigned special
+	# Keep ability button in sync
 	ability_button.text = GameData.get_unit_special(unit.unit_id)
-		
+	
 # ———————————————————————————————————————————————————————————————
 # Turn off every “mode” flag before selecting a new ability or a new unit.
 # Call this whenever you switch out of any special‐ability mode.

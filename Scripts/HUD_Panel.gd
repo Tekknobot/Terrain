@@ -110,34 +110,37 @@ func _on_units_spawned():
 	rpc("update_hud", player_data)
 
 
+# ----------------------------------------------------
+# Replace your existing @rpc func update_hud(player) with this:
 @rpc
 func update_hud(player):
-	# --- Update all HUD fields for the “player” dictionary ---
+	# basic fields
 	name_label.text = player.name
-
-	if player.portrait:
-		portrait.texture = player.portrait
-	else:
-		portrait.texture = null
+	portrait.texture = player.portrait if player.portrait else null
 
 	hp_bar.max_value = player.max_hp
-	hp_bar.value = player.current_hp
+	hp_bar.value     = player.current_hp
 
 	xp_bar.max_value = player.max_xp
-	xp_bar.value = player.current_xp
+	xp_bar.value     = player.current_xp
 
-	level_label.text = "LEVEL: %d" % player.level
-	hp_label.text    = "HP: %d of %d" % [player.current_hp, player.max_hp]
-	xp_label.text    = "XP: %d of %d" % [player.current_xp, player.max_xp]
+	# compute display‐level = (#upgrades) + 1
+	var display_level = player.level  # fallback
+	if player.has("unit_id"):
+		display_level = GameData.get_upgrades(player.unit_id).size() + 1
+	level_label.text = "LEVEL: %d" % display_level
 
-	movement_label.text = "MOVE: %d" % player.movement_range
-	attack_label.text   = "ATK: %d" % player.attack_range
-	damage_label.text   = "DMG: %d" % player.damage
+	# rest of your labels
+	hp_label.text       = "HP: %d of %d" % [player.current_hp, player.max_hp]
+	xp_label.text       = "XP: %d of %d" % [player.current_xp, player.max_xp]
+	movement_label.text = "MOVE: %d"      % player.movement_range
+	attack_label.text   = "ATK: %d"       % player.attack_range
+	damage_label.text   = "DMG: %d"       % player.damage
 
-	# Hide the ability button by default (we’ll show it when a unit is selected)
+	# hide ability button before selection
 	ability_button.visible = false
 
-	# Start a fresh typewriter‐style quote
+	# fresh typewriter quote
 	_current_typing_id += 1
 	var current_id = _current_typing_id
 	var selected_quote = quotes[randi() % quotes.size()]
