@@ -1,12 +1,13 @@
 fc8a56933c4b1c8d796fdb8f7a9f9475
-::res://::1749776419
+::res://::1749790382
 export_presets.cfg::TextFile::-1::1749631368::0::1::::<><>::
 icon.svg::CompressedTexture2D::5386714213251779679::1742446131::1742446134::1::::<><>::
 README.md::TextFile::-1::1742505458::0::1::::<><>::
 ::res://Audio/::1749428222
-::res://Audio/Music/::1749784437
+::res://Audio/Music/::1749794667
 Track 1.wav::AudioStreamWAV::6300824833731997340::1749784241::1749784444::1::::<><>::
 Track 2.wav::AudioStreamWAV::112423293045775286::1749784437::1749784444::1::::<><>::
+Track 3.wav::AudioStreamWAV::678157751382926242::1749794667::1749794676::1::::<><>::
 ::res://Audio/SFX/::1749439866
 8-bit-logo-291104.mp3::AudioStreamMP3::6906571525258058128::1743705947::1743705967::1::::<><>::
 attack_default.wav::AudioStreamWAV::4557845464649724187::1734075766::1742593197::1::::<><>::
@@ -36,26 +37,26 @@ mago3.ttf::FontFile::7622047366825172978::1508706156::1743645219::1::::<><>::
 icon-256.png::CompressedTexture2D::5301213952199069265::1709153676::1743370980::1::::<><>::
 mek.png::CompressedTexture2D::4321451077634072386::1743832585::1743832588::1::::<><>::
 pizzza-logo.png::CompressedTexture2D::8098872743606230542::1743832756::1743832760::1::::<><>::
-::res://Prefabs/::1749783940
+::res://Prefabs/::1749793204
 coin_pickup.tscn::PackedScene::1312224230061421413::1749442644::0::1::::<><>::res://Scripts/coin_pickup.gd<>uid://dyrj6sn1b2njm::::res://Sprites/Drops/money_drop.png<>uid://c6s11jra8nh3m::::res://Audio/SFX/pickupCoin.wav
 CriticalStrikeMissile.tscn::PackedScene::1591067240609311121::1744074764::0::1::::<><>::res://Scripts/CriticalStrikeMissile.gd<>uid://180q5qojg8k8::::res://Textures/missile.png<>uid://cw6p7njt8awwy::::res://Prefabs/missile_launch.wav
 health_pickup.tscn::PackedScene::245956354308572254::1749604040::0::1::::<><>::res://Scripts/health_pickup.gd<>uid://dlbicachyet3k::::res://Sprites/Drops/health_drop.png<>uid://c6s11jra8nh3m::::res://Audio/SFX/pickupCoin.wav
 LightningController.tscn::PackedScene::5286181087302647054::1749455251::0::1::::<><>::res://Scripts/LightningController.gd
 LightningSurgeMissile.tscn::PackedScene::154645285381856886::1744404820::0::1::::<><>::res://Scripts/LightningSurgeMissile.gd
 lightning_pickup.tscn::PackedScene::6978725970907392251::1749701601::0::1::::<><>::res://Scripts/lightning_pickup.gd<>uid://cfwgg1ejs0o6y::::res://Sprites/Drops/lightning_drop.png<>uid://c6s11jra8nh3m::::res://Audio/SFX/pickupCoin.wav
-Missile.tscn::PackedScene::6379788369360577189::1749783940::0::1::::<><>::res://Scripts/Missile.gd<>uid://180q5qojg8k8::::res://Textures/missile.png<>uid://cw6p7njt8awwy::::res://Prefabs/missile_launch.wav
+Missile.tscn::PackedScene::6379788369360577189::1749793204::0::1::::<><>::res://Scripts/Missile.gd<>uid://180q5qojg8k8::::res://Textures/missile.png<>uid://cw6p7njt8awwy::::res://Prefabs/missile_launch.wav
 missile_launch.wav::AudioStreamWAV::6381960235709411212::1742623170::1742623170::1::::<><>::
 orbital_strike_pickup.tscn::PackedScene::3976306413356659680::1749701601::0::1::::<><>::res://Scripts/orbital_strike_pickup.gd<>uid://dg1tao3x22ih2::::res://Sprites/Drops/orbital_drop.png<>uid://c6s11jra8nh3m::::res://Audio/SFX/pickupCoin.wav
 SpiderBlastMissile.tscn::PackedScene::5053242725791225545::1744074764::0::1::::<><>::res://Scripts/SpiderBlastMissile.gd<>uid://180q5qojg8k8::::res://Textures/missile.png<>uid://cw6p7njt8awwy::::res://Prefabs/missile_launch.wav
 ThreadAttackMissile.tscn::PackedScene::5700571669594552268::1749150382::0::1::::<><>::res://Scripts/ThreadAttackMissile.gd
-UpgradeWindow.tscn::PackedScene::8233647884865339355::1749783940::0::1::::<><>::uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf<>res://Scripts/RewardsUpgrades.gd
-::res://Scenes/::1749784130
+UpgradeWindow.tscn::PackedScene::8233647884865339355::1749793204::0::1::::<><>::uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf<>res://Scripts/RewardsUpgrades.gd
+::res://Scenes/::1749793204
 GameData.tscn::PackedScene::6057036989612838621::1743726555::0::1::::<><>::res://Scripts/GameData.gd
-GameOver.tscn::PackedScene::9012041165157757159::1749783940::0::1::::<><>::res://Scripts/Conclusion.gd<>uid://deqv1i3mx4h3b::::res://Audio/SFX/victorymale-version-230553.mp3<>uid://dgugahs6bc7so::::res://Fonts/magofonts/mago3.ttf<>uid://c5nuhu5prbrn1::::res://Audio/SFX/8-bit-logo-291104.mp3
-Main.tscn::PackedScene::944248856760108746::1749784130::0::1::::<><>::uid://b3fmige5evt8r::::res://Sprites/Tiles_UI/tile_hover.png<>res://Scripts/TileMap.gd<>uid://56t0bjdw3rny::::res://Sprites/Tiles_UI/tile_hover_black.png<>uid://bvs7gpxakq282::::res://Sprites/Terrain/sandstone.png<>uid://dyigrwo5qmh4a::::res://Sprites/Tiles_UI/tile_hover_blue.png<>uid://6xil7xbbe3vx::::res://Sprites/Tiles_UI/tile_hover_red.png<>uid://bsdcosxsddrot::::res://Sprites/Terrain/ice.png<>uid://c1pruacv3xra5::::res://Sprites/Terrain/roads/16.png<>uid://rktlakqso06f::::res://Sprites/Tiles_UI/tile_hover_white.png<>uid://bp4obyr2a6lhr::::res://Sprites/Terrain/roads/17.png<>uid://d2hi70r47mggn::::res://Sprites/Tiles_UI/tile_walkable.png<>uid://eh6ocjhc4lti::::res://Sprites/Terrain/water.png<>uid://bkcixujm222r0::::res://Sprites/Terrain/roads/18.png<>res://Scripts/HoverTile.gd<>uid://bpsujbhwy03a0::::res://Scenes/Meks_Scenes/PLAYER/M1.scn<>uid://ci0nvbknkouk5::::res://Scenes/Meks_Scenes/CPU/M1.scn<>uid://bnqjqpd5lkacg::::res://Scenes/Meks_Scenes/PLAYER/M2.scn<>uid://isp3h3mc30kr::::res://Scenes/Meks_Scenes/CPU/M2.scn<>uid://by1nnygq8fbib::::res://Sprites/Terrain/dirt.png<>uid://bmuido3r5ktn4::::res://Scenes/Meks_Scenes/PLAYER/R1.scn<>uid://usc687xtdcac::::res://Sprites/Terrain/grass_default.png<>uid://d0nuwcj38jovf::::res://Scenes/Meks_Scenes/CPU/R1.scn<>uid://dqnyvmrsprmvf::::res://Sprites/Terrain/grass_snow.png<>uid://d4kyifny6a844::::res://Scenes/Meks_Scenes/PLAYER/R3.scn<>uid://ljo4wh1814ie::::res://Scenes/Meks_Scenes/CPU/R3.scn<>uid://kjjhlcxrti0l::::res://Scenes/Meks_Scenes/CPU/S2.scn<>uid://dok7nyn6rfklj::::res://Scenes/Meks_Scenes/PLAYER/S2.scn<>uid://bedhvs5lsjiuk::::res://Scenes/Meks_Scenes/CPU/S3.scn<>uid://f0axh6ymw2lc::::res://Scenes/Meks_Scenes/PLAYER/S3.scn<>uid://b5ri7lnc63v8o::::res://Scenes/Meks_Scenes/PLAYER/R2.scn<>uid://ct1ugkg5n215q::::res://Scenes/Meks_Scenes/PLAYER/R4.scn<>uid://c1pp46svxfcqa::::res://Scenes/Meks_Scenes/CPU/R2.scn<>uid://dx4l36fri7lqo::::res://Scenes/Structures_Scenes/building_c3.scn<>res://Scripts/TurnManager.gd<>uid://ta73ff7u5b2i::::res://Scenes/Structures_Scenes/building_d.tscn<>uid://daejm6qutf2ed::::res://Scenes/Meks_Scenes/CPU/R4.scn<>uid://bjego6do1vtmm::::res://Scenes/Structures_Scenes/building_e.tscn<>uid://b6reg1gechlys::::res://Scenes/Structures_Scenes/district.tscn<>uid://bj4tbqwo8ei00::::res://Scenes/Structures_Scenes/stadium.tscn<>uid://dumfkfxnng3od::::res://Scenes/Structures_Scenes/tower.tscn<>uid://bm1g128j70kea::::res://Scenes/VFX/StarNight.tscn<>res://Scripts/HUD_Panel.gd<>uid://lfmluokjn1j6::::res://Sprites/Portraits/pilots/l0_por04.png<>uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf<>uid://csnhk3q4gx0::::res://Fonts/magofonts/mago1.ttf<>res://Scripts/HealthBar.gd<>res://Scripts/navagation_layer.gd
+GameOver.tscn::PackedScene::9012041165157757159::1749793204::0::1::::<><>::res://Scripts/Conclusion.gd<>uid://deqv1i3mx4h3b::::res://Audio/SFX/victorymale-version-230553.mp3<>uid://dgugahs6bc7so::::res://Fonts/magofonts/mago3.ttf<>uid://c5nuhu5prbrn1::::res://Audio/SFX/8-bit-logo-291104.mp3
+Main.tscn::PackedScene::944248856760108746::1749793204::0::1::::<><>::uid://b3fmige5evt8r::::res://Sprites/Tiles_UI/tile_hover.png<>res://Scripts/TileMap.gd<>uid://56t0bjdw3rny::::res://Sprites/Tiles_UI/tile_hover_black.png<>uid://bvs7gpxakq282::::res://Sprites/Terrain/sandstone.png<>uid://dyigrwo5qmh4a::::res://Sprites/Tiles_UI/tile_hover_blue.png<>uid://6xil7xbbe3vx::::res://Sprites/Tiles_UI/tile_hover_red.png<>uid://bsdcosxsddrot::::res://Sprites/Terrain/ice.png<>uid://c1pruacv3xra5::::res://Sprites/Terrain/roads/16.png<>uid://rktlakqso06f::::res://Sprites/Tiles_UI/tile_hover_white.png<>uid://bp4obyr2a6lhr::::res://Sprites/Terrain/roads/17.png<>uid://d2hi70r47mggn::::res://Sprites/Tiles_UI/tile_walkable.png<>uid://eh6ocjhc4lti::::res://Sprites/Terrain/water.png<>uid://bkcixujm222r0::::res://Sprites/Terrain/roads/18.png<>res://Scripts/HoverTile.gd<>uid://bpsujbhwy03a0::::res://Scenes/Meks_Scenes/PLAYER/M1.scn<>uid://ci0nvbknkouk5::::res://Scenes/Meks_Scenes/CPU/M1.scn<>uid://bnqjqpd5lkacg::::res://Scenes/Meks_Scenes/PLAYER/M2.scn<>uid://isp3h3mc30kr::::res://Scenes/Meks_Scenes/CPU/M2.scn<>uid://by1nnygq8fbib::::res://Sprites/Terrain/dirt.png<>uid://bmuido3r5ktn4::::res://Scenes/Meks_Scenes/PLAYER/R1.scn<>uid://usc687xtdcac::::res://Sprites/Terrain/grass_default.png<>uid://d0nuwcj38jovf::::res://Scenes/Meks_Scenes/CPU/R1.scn<>uid://dqnyvmrsprmvf::::res://Sprites/Terrain/grass_snow.png<>uid://d4kyifny6a844::::res://Scenes/Meks_Scenes/PLAYER/R3.scn<>uid://ljo4wh1814ie::::res://Scenes/Meks_Scenes/CPU/R3.scn<>uid://kjjhlcxrti0l::::res://Scenes/Meks_Scenes/CPU/S2.scn<>uid://dok7nyn6rfklj::::res://Scenes/Meks_Scenes/PLAYER/S2.scn<>uid://bedhvs5lsjiuk::::res://Scenes/Meks_Scenes/CPU/S3.scn<>uid://f0axh6ymw2lc::::res://Scenes/Meks_Scenes/PLAYER/S3.scn<>uid://b5ri7lnc63v8o::::res://Scenes/Meks_Scenes/PLAYER/R2.scn<>uid://ct1ugkg5n215q::::res://Scenes/Meks_Scenes/PLAYER/R4.scn<>uid://c1pp46svxfcqa::::res://Scenes/Meks_Scenes/CPU/R2.scn<>uid://dx4l36fri7lqo::::res://Scenes/Structures_Scenes/building_c3.scn<>res://Scripts/TurnManager.gd<>uid://ta73ff7u5b2i::::res://Scenes/Structures_Scenes/building_d.tscn<>uid://daejm6qutf2ed::::res://Scenes/Meks_Scenes/CPU/R4.scn<>uid://bjego6do1vtmm::::res://Scenes/Structures_Scenes/building_e.tscn<>uid://b6reg1gechlys::::res://Scenes/Structures_Scenes/district.tscn<>uid://bj4tbqwo8ei00::::res://Scenes/Structures_Scenes/stadium.tscn<>uid://dumfkfxnng3od::::res://Scenes/Structures_Scenes/tower.tscn<>uid://bm1g128j70kea::::res://Scenes/VFX/StarNight.tscn<>res://Scripts/HUD_Panel.gd<>uid://lfmluokjn1j6::::res://Sprites/Portraits/pilots/l0_por04.png<>uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf<>uid://csnhk3q4gx0::::res://Fonts/magofonts/mago1.ttf<>res://Scripts/HealthBar.gd<>res://Scripts/navagation_layer.gd
 MultiplayerLobby.tscn::PackedScene::5853240953465201015::1748830907::0::1::::<><>::res://Scripts/MultiplayerLobby.gd<>uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf
 RewardUpgrade.tscn::PackedScene::2004053244526286037::1749509973::0::1::::<><>::uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf
-TitleScreen.tscn::PackedScene::2426690042442143779::1749783940::0::1::::<><>::res://Scripts/TitleScreen.gd<>uid://bkjpto3qrq0pj::::res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer3.png<>uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf<>uid://d1vnyhhkriimy::::res://Sprites/TitleScreen/Mek_Logotype1.png<>res://Scripts/Parallax.gd<>uid://dj4fnoch5vla4::::res://Sprites/TitleScreen/Mek_Logotype2.png<>uid://sh0qp53v5skq::::res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer2.png<>uid://bkumpbg4gebvj::::res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer1.png<>uid://gxe16nmoq2wg::::res://Sprites/TitleScreen/Mek_Logotype3.png<>uid://bkgl5fav4fvd4::::res://Textures/pixel_effect.tres
+TitleScreen.tscn::PackedScene::2426690042442143779::1749793204::0::1::::<><>::res://Scripts/TitleScreen.gd<>uid://bkjpto3qrq0pj::::res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer3.png<>uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf<>uid://d1vnyhhkriimy::::res://Sprites/TitleScreen/Mek_Logotype1.png<>res://Scripts/Parallax.gd<>uid://dj4fnoch5vla4::::res://Sprites/TitleScreen/Mek_Logotype2.png<>uid://sh0qp53v5skq::::res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer2.png<>uid://bkumpbg4gebvj::::res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer1.png<>uid://gxe16nmoq2wg::::res://Sprites/TitleScreen/Mek_Logotype3.png<>uid://bkgl5fav4fvd4::::res://Textures/pixel_effect.tres
 Transition.tscn::PackedScene::5203069232037457950::1749633590::0::1::::<><>::res://Scripts/Transition.gd
 ::res://Scenes/Meks_Scenes/::1742464755
 ::res://Scenes/Meks_Scenes/CPU/::1749604031
@@ -96,7 +97,7 @@ Lightning_Joint.tscn::PackedScene::-1::1747113551::0::1::::<><>::
 popup_text.tscn::PackedScene::6565135449425824659::1749604040::0::1::::<><>::res://Scripts/popup_text.gd<>res://Textures/Popup.gdshader<>uid://buw362wjb8o8d::::res://Fonts/magofonts/mago2.ttf
 orbital_strike_controller.tscn::PackedScene::1460573142263152586::1749693509::0::1::::<><>::res://Scripts/OrbitalStrikeController.gd
 StarNight.tscn::PackedScene::3282772831114845400::1743218036::0::1::::<><>::
-::res://Scripts/::1749784130
+::res://Scripts/::1749792993
 Camera2D.gd::GDScript::-1::1749745365::0::1::::<>Camera2D<>::
 coin_pickup.gd::GDScript::-1::1749440752::0::1::::<>Area2D<>::
 Conclusion.gd::GDScript::-1::1749697089::0::1::::<>Node2D<>::
@@ -117,7 +118,7 @@ LightningSurgeMissile.gd::GDScript::-1::1749494015::0::1::::<>Node2D<>::
 lightning_pickup.gd::GDScript::-1::1749693524::0::1::::<>Area2D<>::
 Missile.gd::GDScript::-1::1749602041::0::1::::<>Node2D<>::
 MultiplayerLobby.gd::GDScript::-1::1749261585::0::1::::<>Control<>::
-MusicManager.gd::GDScript::-1::1749784130::0::1::::<>Node<>::
+MusicManager.gd::GDScript::-1::1749792993::0::1::::<>Node<>::
 navagation_layer.gd::GDScript::-1::1749627279::0::1::::<>CanvasLayer<>::
 NetworkManager.gd::GDScript::-1::1749261585::0::1::::<>Node<>::
 NetworkTester.gd::GDScript::-1::1749261585::0::1::::<>Node<>::
@@ -524,16 +525,16 @@ tile_walkable.png::CompressedTexture2D::9069355695637981873::1743180806::1743180
 Mek_Logotype1.png::CompressedTexture2D::9028356477417559968::1743836915::1743836923::1::::<><>::
 Mek_Logotype2.png::CompressedTexture2D::7851156137749411121::1743836915::1743836923::1::::<><>::
 Mek_Logotype3.png::CompressedTexture2D::468904697655068798::1743836915::1743836923::1::::<><>::
-::res://Textures/::1749784130
+::res://Textures/::1749793204
 bw_gradient.png::CompressedTexture2D::5575509747242803941::1748841161::1748841168::1::::<><>::
-flash.gdshader::Shader::-1::1749784130::0::1::::<><>::
-in_water.gdshader::Shader::-1::1749784130::0::1::::<><>::
+flash.gdshader::Shader::-1::1749793204::0::1::::<><>::
+in_water.gdshader::Shader::-1::1749793204::0::1::::<><>::
 in_water.tres::ShaderMaterial::5338165265235833849::1749634745::0::1::::<><>::res://Textures/in_water.gdshader
-level_up.gdshader::Shader::-1::1749784130::0::1::::<><>::
+level_up.gdshader::Shader::-1::1749793204::0::1::::<><>::
 level_up.tres::ShaderMaterial::2379192113250027130::1749634745::0::1::::<><>::res://Textures/level_up.gdshader
 missile.png::CompressedTexture2D::1894582499060226809::1742622754::1742622758::1::::<><>::
-pixel_effect.gdshader::Shader::-1::1749784130::0::1::::<><>::
+pixel_effect.gdshader::Shader::-1::1749793204::0::1::::<><>::
 pixel_effect.tres::ShaderMaterial::3101417110945230831::1749634745::0::1::::<><>::res://Textures/pixel_effect.gdshader<>uid://yg5yj5h5dn2l::::res://Sprites/Clouds/Dissolve_Noise_Texture.png
-Popup.gdshader::Shader::-1::1749784130::0::1::::<><>::
-tile_fade.gdshader::Shader::-1::1749784130::0::1::::<><>::
+Popup.gdshader::Shader::-1::1749793204::0::1::::<><>::
+tile_fade.gdshader::Shader::-1::1749793204::0::1::::<><>::
 w_gradient.png::CompressedTexture2D::4874744260708818387::1748855761::1748855779::1::::<><>::
