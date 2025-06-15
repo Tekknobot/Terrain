@@ -36,7 +36,7 @@ var available_abilities: Array[String] = [
 	"Ground Slam",
 	"Mark & Pounce",
 	"Guardian Halo",
-	"High Arcing Shot",
+	"High Arching Shot",
 	"Suppressive Fire",
 	"Fortify",
 	"Heavy Rain",

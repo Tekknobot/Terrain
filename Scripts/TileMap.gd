@@ -146,7 +146,7 @@ var ability_ranges: Dictionary = {
 	"Ground Slam":         1,
 	"Mark & Pounce":       3,
 	"Guardian Halo":       5,
-	"High Arcing Shot":    5,
+	"High Arching Shot":    5,
 	"Suppressive Fire":    0,
 	"Fortify":             0,  # “Fortify” might not highlight anything; adjust as needed
 	"Heavy Rain":          5,
@@ -1141,12 +1141,12 @@ func _input(event):
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
 				selected_unit.high_arcing_shot(mouse_tile)
-				print("High Arcing Shot activated by unit:", selected_unit.name)
+				print("High Arching Shot activated by unit:", selected_unit.name)
 				high_arcing_shot_mode = false
 				ability_button.button_pressed = false
 				GameData.selected_special_ability = ""
 			else:
-				print("Cannot perform High Arcing Shot now.")
+				print("Cannot perform High Arching Shot now.")
 				high_arcing_shot_mode = false
 				ability_button.button_pressed = false
 			return
@@ -1319,7 +1319,7 @@ func _input(event):
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# If we have a selected_unit, behave as before (show its attack range)
-			if selected_unit:
+			if selected_unit and selected_unit.is_player:
 				showing_attack = true
 				_clear_highlights()
 				_show_range_for_selected_unit()
@@ -1550,7 +1550,7 @@ func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
 		atk.guardian_halo(target_tile)
 
-# 4) High Arcing Shot
+# 4) High Arching Shot
 @rpc("any_peer", "reliable")
 func request_high_arcing_shot(attacker_id: int, target_tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
@@ -2034,13 +2034,13 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 	if showing_attack and selected_unit and selected_unit.has_attacked:
 		tile_id = 16
 
-	var allow_occupied = (tile_id == attack_tile_id)
-	var frontier = [start]
-	var distances = { start: 0 }
-
 	# movement-only tint after moving
 	if selected_unit.has_moved and not showing_attack:
 		tile_id = 15
+		
+	var allow_occupied = (tile_id == attack_tile_id)
+	var frontier = [start]
+	var distances = { start: 0 }
 
 	while frontier.size() > 0:
 		var current = frontier.pop_front()
@@ -2508,8 +2508,8 @@ func _on_GuardianHaloButton_pressed() -> void:
 func _on_HighArcingShotButton_pressed() -> void:
 	_clear_ability_modes()
 	high_arcing_shot_mode = true
-	GameData.selected_special_ability = "High Arcing Shot"
-	print("Mode set → High Arcing Shot.")
+	GameData.selected_special_ability = "High Arching Shot"
+	print("Mode set → High Arching Shot.")
 
 func _on_SuppressiveFireButton_pressed() -> void:
 	_clear_ability_modes()
@@ -2549,7 +2549,7 @@ func _on_ability_pressed() -> void:
 			same_as_current = mark_and_pounce_mode
 		"Guardian Halo":
 			same_as_current = guardian_halo_mode
-		"High Arcing Shot":
+		"High Arching Shot":
 			same_as_current = high_arcing_shot_mode
 		"Suppressive Fire":
 			same_as_current = suppressive_fire_mode
@@ -2584,7 +2584,7 @@ func _on_ability_pressed() -> void:
 			mark_and_pounce_mode = true
 		"Guardian Halo":
 			guardian_halo_mode = true
-		"High Arcing Shot":
+		"High Arching Shot":
 			high_arcing_shot_mode = true
 		"Suppressive Fire":
 			suppressive_fire_mode = true

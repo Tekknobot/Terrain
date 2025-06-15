@@ -90,6 +90,13 @@ var death_messages := [
 	"Erased!"
 ]
 
+const COIN_SCENE           = preload("res://Prefabs/coin_pickup.tscn")
+const HEALTH_SCENE         = preload("res://Prefabs/health_pickup.tscn")
+const LIGHTNING_SCENE      = preload("res://Prefabs/lightning_pickup.tscn")
+const ORBITAL_STRIKE_SCENE = preload("res://Prefabs/orbital_strike_pickup.tscn")
+const EMPTY_CELL_ID        = -1   # Godot’s “no tile” value
+var _open_tiles: Array[Vector2i] = []
+
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
@@ -568,65 +575,71 @@ func die():
 		if tm:
 			tm.end_turn(true)
 
+#–– Returns a random cell within the used rect that has no tile (i.e. open)
+func cache_open_tiles() -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	_open_tiles.clear()
+	for x in range(tilemap.grid_width):
+		for y in range(tilemap.grid_height):
+			var cell = Vector2i(x, y)
+			if tilemap._is_tile_walkable(cell) and not tilemap.is_tile_occupied(cell):
+				_open_tiles.append(cell)
+	if _open_tiles.is_empty():
+		push_warning("No open tiles found!")
+
+func _get_random_open_tile() -> Vector2i:
+	if _open_tiles.is_empty():
+		cache_open_tiles()
+	return _open_tiles[randi() % _open_tiles.size()]
+	
+#–– Your burst spawner, but now landing on a random open tile
 func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
-	var coin_scene = preload("res://Prefabs/coin_pickup.tscn")
-	var health_scene = preload("res://Prefabs/health_pickup.tscn")
-	var lightning_scene = preload("res://Prefabs/lightning_pickup.tscn")
-	var orbital_strike_scene = preload("res://Prefabs/orbital_strike_pickup.tscn")
-		
-	var num_attempts := 1
-	var tilemap_node = tilemap.get_node("TileMap")
-	var base_pos = tilemap_node.to_global(tilemap_node.map_to_local(tile_pos))
-	base_pos.y -= 24
-	var radius := 64.0
+	var tm = tilemap.get_node("TileMap") if tilemap.has_node("TileMap") else tilemap
+	var num_attempts  := 1
+	var spawn_height  := 200.0
+	var fall_time     := 5.0
+	var fade_in_time  := 1
 
 	for i in range(num_attempts):
-		var roll := randi() % 100
-		var drop = null
-		
-		if roll < 2:
-			# 40% total chance to drop something…
-			var which = randi() % 3
-			match which:
-				0:
-					drop = health_scene.instantiate()         # ~13.3% total
-				1:
-					drop = lightning_scene.instantiate()      # ~13.3% total
-				2:
-					drop = orbital_strike_scene.instantiate() # ~13.3% total
-		else:
-			# 60% chance to drop nothing
-			continue 
+		var drop_scene = _choose_drop_scene()
+		if drop_scene == null:
+			continue
 
-		var collider = drop.get_node("CollisionShape2D")
+		# pick a random open cell & get its world position
+		var cell       = _get_random_open_tile()
+		var target_pos = tm.to_global(tm.map_to_local(cell))
+
+		# instantiate it right at the landing spot
+		var drop = drop_scene.instantiate() as Node2D
+		drop.global_position = target_pos
+		drop.global_position.y -= 32
+		# start fully transparent
+		drop.modulate = Color(1,1,1,0)
+		# disable its collision until after fade
+		var collider = drop.get_node("CollisionShape2D") as CollisionShape2D
 		collider.disabled = true
-
-		drop.global_position = base_pos + Vector2(0, -32)
 		get_tree().get_current_scene().add_child(drop)
 
-		var angle = TAU * float(i) / float(num_attempts)
-		var direction = Vector2(cos(angle), sin(angle))
-		var target_offset = direction * radius
-		var target_pos = drop.position + target_offset
-
+		# make a tween for fading in → then enable collider
 		var tween = drop.create_tween()
-		tween.set_parallel(true)
-		tween.tween_property(drop, "position", target_pos, 0.4) \
-			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-
-		var arc_height := 20.0
-		tween.tween_property(drop, "position:y", drop.position.y - arc_height, 0.3) \
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		tween.tween_property(drop, "position:y", drop.position.y, 0.3) \
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN).set_delay(0.3)
-
+		tween.tween_property(drop, "modulate:a", 1.0, fade_in_time) \
+			 .set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_callback(func():
 			if is_instance_valid(collider):
 				collider.disabled = false
 		)
 
-	await get_tree().create_timer(0.1).timeout
 
+#–– same drop‐choosing logic you had before
+func _choose_drop_scene() -> PackedScene:
+	var roll = randi() % 100
+	if roll < 50:  # 50% chance to drop something
+		match randi() % 4:
+			0: return HEALTH_SCENE
+			1: return LIGHTNING_SCENE
+			2: return ORBITAL_STRIKE_SCENE
+	return null
+	
 @rpc("reliable")
 func remote_unit_died(remote_id: int) -> void:
 	var unit = get_unit_by_id(remote_id)
