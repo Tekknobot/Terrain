@@ -190,7 +190,8 @@ func _move_one(dest: Vector2i) -> void:
 	while global_position.distance_to(world_target) > 1.0:
 		var delta = get_process_delta_time()
 		global_position = global_position.move_toward(world_target, speed * delta)
-		await get_tree().process_frame
+		# ← this will always be valid
+		await Engine.get_main_loop().process_frame
 
 	global_position = world_target
 	tile_pos = dest
