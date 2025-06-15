@@ -121,6 +121,10 @@ func _apply_upgrade_to_unit(unit_id: int, upgrade: String) -> void:
 			break
 
 func _on_continue_button_pressed() -> void:
+	# Prevent advancing until all upgrades are chosen
+	if chosen_upgrades.size() < _units_to_choose:
+		return
+			
 	GameData.in_upgrade_phase = false
 	# ─── UNLOCK MAP INPUT BEFORE LEAVING ──────────────────────────────────
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")

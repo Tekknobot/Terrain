@@ -149,6 +149,7 @@ func _start_unit_action(team):
 		
 		# Enemy branch:
 		if team == Team.ENEMY and not unit.is_player:
+			hide_end_turn_button()
 			# First, plan movement toward the closest enemy.
 			var target = find_closest_enemy(unit)
 			var path = []
@@ -258,6 +259,8 @@ func find_next_reachable_enemy(unit, exclude := []):
 	return null
 
 func end_turn(game_over: bool = false):
+	show_end_turn_button()
+	
 	# Hide the HUD whenever the enemy turn starts
 	if turn_order[current_turn_index] == Team.PLAYER:
 		var hud = get_node("/root/BattleGrid/HUDLayer/Control")
@@ -343,6 +346,14 @@ func hide_end_turn_button() -> void:
 	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
 	if end_turn_button:
 		end_turn_button.visible = false
+		pass
+	else:
+		print("EndTurn button not found!")
+
+func show_end_turn_button() -> void:
+	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
+	if end_turn_button:
+		end_turn_button.visible = true
 		pass
 	else:
 		print("EndTurn button not found!")

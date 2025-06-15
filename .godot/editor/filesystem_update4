@@ -16,3 +16,5 @@ res://Scripts/TileMap.gd
 res://Scripts/Unit.gd
 res://Scripts/TutorialManager.gd
 res://Scripts/GameData.gd
+res://Scripts/RewardsUpgrades.gd
+res://Scripts/TurnManager.gd
