@@ -24,8 +24,8 @@ signal movement_finished
 @onready var xp_bar = $XPUI
 @onready var step_player: AudioStreamPlayer2D = $SFX
 
-var has_moved
-var has_attacked
+var has_moved : = false
+var has_attacked : = false
 var being_pushed: bool = false
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -968,6 +968,9 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	# ── UNLOCK TILEMAP INPUT ──
 	tilemap.input_locked = false
 
+	has_moved = true
+	has_attacked = true
+	
 	# After performing the attack
 	TutorialManager.on_action("enemy_attacked")	
 	

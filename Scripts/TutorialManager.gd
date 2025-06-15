@@ -6,7 +6,7 @@ var instruction_label: Label = null
 
 func start():
 	step = 0
-	tutorial_active = true
+	tutorial_active = false
 	advance()
 
 func advance():

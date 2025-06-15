@@ -1992,6 +1992,7 @@ func _show_only_hud(unit, tile):
 func _show_range_for_selected_unit():
 	if selected_unit == null:
 		return
+		
 	_clear_highlights()
 
 	var range: int
@@ -2003,10 +2004,10 @@ func _show_range_for_selected_unit():
 		range = selected_unit.movement_range
 		tile_id = highlight_tile_id
 
-	_highlight_range(selected_unit.tile_pos, range, tile_id)
-	
 	if showing_attack:
 		TutorialManager.on_action("attack_range_shown")	
+		
+	_highlight_range(selected_unit.tile_pos, range, tile_id)
 
 func _update_highlight_display():
 	for tile in highlighted_tiles:
@@ -2028,9 +2029,18 @@ func _update_highlight_display():
 	_highlight_range(selected_unit.tile_pos, range, tile_id)
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
+	# ── if we're trying to show an attack range, but they've already attacked,
+	#    bail out immediately and paint nothing.
+	if showing_attack and selected_unit and selected_unit.has_attacked:
+		tile_id = 16
+
 	var allow_occupied = (tile_id == attack_tile_id)
 	var frontier = [start]
 	var distances = { start: 0 }
+
+	# movement-only tint after moving
+	if selected_unit.has_moved and not showing_attack:
+		tile_id = 15
 
 	while frontier.size() > 0:
 		var current = frontier.pop_front()
@@ -2041,23 +2051,22 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 				set_cell(1, current, tile_id, Vector2i.ZERO)
 				highlighted_tiles.append(current)
 			else:
-				if not is_water_tile(current) and not is_tile_occupied(current) and get_structure_at_tile(current) == null:
+				if not is_water_tile(current) \
+				   and not is_tile_occupied(current) \
+				   and get_structure_at_tile(current) == null:
 					set_cell(1, current, tile_id, Vector2i.ZERO)
 					highlighted_tiles.append(current)
-
 		if dist == max_dist:
 			continue
 
-		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		for dir in [Vector2i(1,0),Vector2i(-1,0),Vector2i(0,1),Vector2i(0,-1)]:
 			var neighbor = current + dir
 			if is_within_bounds(neighbor) and not distances.has(neighbor):
-				if allow_occupied:
+				if allow_occupied or (_is_tile_walkable(neighbor)
+									 and not is_tile_occupied(neighbor)
+									 and get_structure_at_tile(neighbor) == null):
 					distances[neighbor] = dist + 1
 					frontier.append(neighbor)
-				else:
-					if _is_tile_walkable(neighbor) and not is_tile_occupied(neighbor) and get_structure_at_tile(neighbor) == null:
-						distances[neighbor] = dist + 1
-						frontier.append(neighbor)
 
 func _clear_highlights():
 	for pos in highlighted_tiles:

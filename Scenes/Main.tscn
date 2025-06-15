@@ -1,4 +1,4 @@
-[gd_scene load_steps=70 format=3 uid="uid://npnv1wvwmhj3"]
+[gd_scene load_steps=74 format=3 uid="uid://npnv1wvwmhj3"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_2cdww"]
 [ext_resource type="Script" path="res://Scripts/TileMap.gd" id="1_juvca"]
@@ -14,6 +14,8 @@
 [ext_resource type="Texture2D" uid="uid://eh6ocjhc4lti" path="res://Sprites/Terrain/water.png" id="7_kwlmw"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://Sprites/Terrain/roads/18.png" id="7_yuo6w"]
 [ext_resource type="Script" path="res://Scripts/HoverTile.gd" id="8_51jtd"]
+[ext_resource type="Texture2D" uid="uid://bimwdeewypr15" path="res://Sprites/Tiles_UI/tile_walkable_tinted.png" id="8_j60dx"]
+[ext_resource type="Texture2D" uid="uid://cllvwlr5o126m" path="res://Sprites/Tiles_UI/tile_hover_red_tinted.png" id="9_0ljek"]
 [ext_resource type="PackedScene" uid="uid://bpsujbhwy03a0" path="res://Scenes/Meks_Scenes/PLAYER/M1.scn" id="9_cq62f"]
 [ext_resource type="PackedScene" uid="uid://ci0nvbknkouk5" path="res://Scenes/Meks_Scenes/CPU/M1.scn" id="9_tx01l"]
 [ext_resource type="PackedScene" uid="uid://bnqjqpd5lkacg" path="res://Scenes/Meks_Scenes/PLAYER/M2.scn" id="10_ijfy0"]
@@ -89,6 +91,16 @@ texture_region_size = Vector2i(64, 64)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_x0puf"]
 texture = ExtResource("7_yuo6w")
+texture_region_size = Vector2i(64, 64)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_r4wby"]
+texture = ExtResource("8_j60dx")
+texture_region_size = Vector2i(64, 64)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j4e28"]
+texture = ExtResource("9_0ljek")
 texture_region_size = Vector2i(64, 64)
 0:0/0 = 0
 
@@ -190,6 +202,8 @@ sources/12 = SubResource("TileSetAtlasSource_vxydb")
 sources/13 = SubResource("TileSetAtlasSource_12spb")
 sources/14 = SubResource("TileSetAtlasSource_x0puf")
 sources/5 = SubResource("TileSetAtlasSource_w2t0e")
+sources/15 = SubResource("TileSetAtlasSource_r4wby")
+sources/16 = SubResource("TileSetAtlasSource_j4e28")
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_vgpqy"]
 
@@ -237,6 +251,7 @@ tile_set = SubResource("TileSet_k2046")
 format = 2
 layer_0/modulate = Color(0.491583, 0.491583, 0.491583, 1)
 layer_1/name = "Layer1"
+layer_2/name = "Layer2"
 script = ExtResource("1_juvca")
 grid_width = 8
 grid_height = 8
