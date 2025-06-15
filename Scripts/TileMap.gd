@@ -819,60 +819,49 @@ func spawn_new_enemy_units():
 	print("🆕 Level", level, "→ trying to spawn", base_spawn,
 		  "(capped to", units_to_spawn, "by max_enemy_units).")
 	
-	# 5) Center them along the top row (row = 0) in contiguous X positions
-	var used_tiles: Array[Vector2i] = []
+	# 5) Gather every valid X on row 0
 	var spawn_row = 0
-	var start_x = int((grid_width - units_to_spawn) / 2)
-	
-	for i in range(units_to_spawn):
-		var x = clamp(start_x + i, 0, grid_width - 1)
-		var spawn_tile = Vector2i(x, spawn_row)
-		
-		# If that tile is invalid (off‐map / water / occupied), find nearest valid land
-		if not is_within_bounds(spawn_tile) \
-		   or is_tile_occupied(spawn_tile) \
-		   or is_water_tile(spawn_tile) \
-		   or used_tiles.has(spawn_tile):
-		   
-			spawn_tile = _find_nearest_land(spawn_tile, used_tiles)
-			if spawn_tile == Vector2i(-1, -1):
-				# No valid tile found—skip this spawn slot
-				print("⚠ Couldn’t find valid land for spawn at X =", x)
-				continue
-		used_tiles.append(spawn_tile)
-		
-		# 6) Choose one random PackedScene from your enemy_units array:
+	var valid_tiles := []
+	for x in range(grid_width):
+		var t = Vector2i(x, spawn_row)
+		if is_within_bounds(t) \
+		   and not is_tile_occupied(t) \
+		   and not is_water_tile(t):
+			valid_tiles.append(t)
+
+	# 6) Shuffle them and take exactly as many as we need
+	valid_tiles.shuffle()
+	var chosen_tiles = valid_tiles.slice(0, units_to_spawn)
+
+	# 7) Spawn one enemy per chosen tile
+	for spawn_tile in chosen_tiles:
 		var random_index = randi() % enemy_units.size()
-		var enemy_scene = enemy_units[random_index]
-		var enemy_unit = enemy_scene.instantiate()
-		
-		# 7) Mark it as “enemy,” assign tile, group, etc.
-		add_child(enemy_unit)  # 🔥 first!
+		var enemy_scene   = enemy_units[random_index]
+		var enemy_unit    = enemy_scene.instantiate()
+
+		add_child(enemy_unit)
 		enemy_unit.set_team(false)
 		enemy_unit.tile_pos = spawn_tile
 		enemy_unit.add_to_group("Units")
 
-		# 🔧 Add these lines:
+		# your ID + metadata setup…
 		var id = GameData.next_unit_id
 		enemy_unit.unit_id = id
 		GameData.next_unit_id = id + 1
-
-		enemy_unit.peer_id = 1  # authority/server usually has peer_id 1
+		enemy_unit.peer_id = 1
 		enemy_unit.set_meta("peer_id", 1)
-
 		enemy_unit.set_meta("scene_path", enemy_scene.resource_path)
 
-		# 8) Drop it in from above (same as before)
+		# drop‐in effect
 		var target_pos = to_global(map_to_local(spawn_tile)) + Vector2(0, enemy_unit.Y_OFFSET)
-		var drop_offset = 100.0
-		enemy_unit.global_position = target_pos - Vector2(0, drop_offset)
-
+		enemy_unit.global_position = target_pos - Vector2(0, 100)
 		var tween = enemy_unit.create_tween()
 		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5) \
-			 .set_trans(Tween.TRANS_SINE) \
-			 .set_ease(Tween.EASE_OUT)
+			 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			
+		await get_tree().create_timer(0.3).timeout
 
-	# 9) Rebuild A⋆ so these new enemies act as blockers
+	# 8) Rebuild pathfinding
 	await get_tree().process_frame
 	update_astar_grid()
 
@@ -2582,8 +2571,7 @@ func _on_ability_pressed() -> void:
 			ground_slam_mode = true
 		"Mark & Pounce":
 			mark_and_pounce_mode = true
-		"Guardian Halo
-		":
+		"Guardian Halo":
 			guardian_halo_mode = true
 		"High Arching Shot":
 			high_arcing_shot_mode = true

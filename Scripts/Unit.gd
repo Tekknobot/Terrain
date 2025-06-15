@@ -1242,8 +1242,7 @@ func _on_pounce_finished() -> void:
 # 3) Angel – Guardian Halo
 @rpc("any_peer", "reliable")
 func request_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
+	if not is_multiplayer_authority(): return
 	var atk = get_unit_by_id(attacker_id)
 	if atk:
 		atk.guardian_halo(target_tile)
@@ -1251,52 +1250,67 @@ func request_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
 
 @rpc("any_peer", "reliable")
 func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
+	if is_multiplayer_authority(): return
 	var atk = get_unit_by_id(attacker_id)
-	if atk and not is_multiplayer_authority():
+	if atk:
 		atk.guardian_halo(target_tile)
 
 func guardian_halo(target_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var ally = tilemap.get_unit_at_tile(target_tile)
+	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 
+	# 1) Distance check
 	var du = target_tile - tile_pos
 	var dist = abs(du.x) + abs(du.y)
+	print("Guardian Halo called by ", name, "for tile", target_tile, "— dist:", dist)
 	if dist > 5:
+		print(" → out of range")
 		return
-			
-	gain_xp(25)
-			
+
+	# 2) Try to find the ally
+	var ally = tilemap.get_unit_at_tile(target_tile)
+	if not ally:
+		# fallback: search the Units group manually
+		for u in get_tree().get_nodes_in_group("Units"):
+			if u.is_player == is_player and u.tile_pos == target_tile:
+				ally = u
+				break
+	print(" → found ally:", ally)
+
+	# 3) Grant shield if it really is an ally
 	if ally and ally.is_player == is_player:
-		# — Grant immunity for one round —
-		ally.shield_duration = 1   # we’ll treat any shield_duration > 0 as “immune”
+		ally.shield_duration = 1
 		print("Angel ", name, " granted Guardian Halo to ", ally.name)
-		
-		# Turn on the Halo particle effect:
+
+		# Turn on the Halo particle (or create one if missing)
+		var halo: CPUParticles2D = null
 		if ally.has_node("Halo"):
-			var halo = ally.get_node("Halo") as CPUParticles2D
-			halo.emitting = true
-			$AudioStreamPlayer2D.play()
-		
-		# Play your attack animation
-		var sprite = $AnimatedSprite2D
-		if sprite:
-			sprite.play("attack")
-			await sprite.animation_finished
-			sprite.play("default")
+			halo = ally.get_node("Halo")
+		else:
+			halo = CPUParticles2D.new()
+			halo.name = "Halo"
+			ally.add_child(halo)
+			# configure your particles here…
+
+		halo.emitting = true
+
+		# play effect + sound
+		$AudioStreamPlayer2D.play()
+		$AnimatedSprite2D.play("attack")
+		await $AnimatedSprite2D.animation_finished
+		$AnimatedSprite2D.play("default")
+
 	else:
-		# No ally found → heal self instead
+		# no valid ally → fallback heal
+		print("Angel ", name, " found no ally → healing self")
 		health = min(max_health, health + 20)
 		update_health_bar()
-		print("Angel ", name, " healed self for 20 HP. Now at:", health)
-		
-		var sprite = $AnimatedSprite2D
-		if sprite:
-			sprite.play("attack")
-			await sprite.animation_finished
-			sprite.play("default")
-	
+		$AnimatedSprite2D.play("attack")
+		await $AnimatedSprite2D.animation_finished
+		$AnimatedSprite2D.play("default")
+
+	# 4) mark done
 	has_attacked = true
-	has_moved = true
+	has_moved   = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 func _on_round_ended() -> void:
