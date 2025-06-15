@@ -34,3 +34,6 @@ res://Scenes/Meks_Scenes/PLAYER/R1.scn
 res://Scenes/Meks_Scenes/PLAYER/R2.scn
 res://Scenes/Meks_Scenes/PLAYER/R3.scn
 res://Scenes/Meks_Scenes/PLAYER/R4.scn
+res://Scenes/VFX/FrostOverlay.tscn
+res://Scripts/popup_text.gd
+res://Scenes/VFX/popup_text.tscn

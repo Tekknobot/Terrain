@@ -697,7 +697,7 @@ func spawn_structures():
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5
 	
-	max_structures = randi_range(3, 9)
+	max_structures = randi_range(4, 6)
 	
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
