@@ -53,33 +53,38 @@ func _display_unit_choices():
 	var units = get_tree().get_nodes_in_group("Units").filter(func(u):
 		return u.is_player and is_instance_valid(u)
 	)
-
 	_units_to_choose = units.size()
 
 	for unit in units:
 		var unit_id = unit.unit_id
-		var name = unit.unit_name
-		var vbox = VBoxContainer.new()
-		vbox.name = str(unit_id)
+		var name    = unit.unit_name
+		var vbox    = VBoxContainer.new()
+		vbox.name   = str(unit_id)
 
 		# Portrait
 		if unit.portrait:
 			var portrait = TextureRect.new()
-			portrait.texture = unit.portrait
-			portrait.expand_mode = TextureRect.EXPAND_KEEP_SIZE
+			portrait.texture      = unit.portrait
+			portrait.expand_mode  = TextureRect.EXPAND_KEEP_SIZE
 			portrait.stretch_mode = TextureRect.STRETCH_SCALE
-			portrait.size = Vector2(64, 64)
+			portrait.size         = Vector2(64, 64)
 			vbox.add_child(portrait)
 
-		# Build your upgrade list, but drop range_boost on melee-only units
+			# — now add the mek overlay portrait below it —
+			if unit.mek_portrait:
+				var mek = TextureRect.new()
+				mek.texture          = unit.mek_portrait
+				mek.expand_mode      = TextureRect.EXPAND_KEEP_SIZE
+				mek.stretch_mode     = TextureRect.STRETCH_SCALE
+				mek.size             = Vector2(64, 64)
+				vbox.add_child(mek)
+				
+		# … rest is unchanged …
 		var options = upgrade_options.duplicate()
 		if unit.unit_type == "Melee":
-			options.erase("range_boost")		
-			
+			options.erase("range_boost")
 		options.shuffle()
 
-		# Now pick the first three (you’ll always have at least 3 left,
-		# since the full list starts at 4)
 		for i in range(3):
 			var upgrade = options[i]
 			var btn = Button.new()
@@ -121,10 +126,6 @@ func _apply_upgrade_to_unit(unit_id: int, upgrade: String) -> void:
 			break
 
 func _on_continue_button_pressed() -> void:
-	# Prevent advancing until all upgrades are chosen
-	if chosen_upgrades.size() < _units_to_choose:
-		return
-			
 	GameData.in_upgrade_phase = false
 	# ─── UNLOCK MAP INPUT BEFORE LEAVING ──────────────────────────────────
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")

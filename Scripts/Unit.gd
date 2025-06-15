@@ -7,6 +7,8 @@ var peer_id: int
 @export var unit_type: String = "Soldier"  
 @export var unit_name: String = "Hero"
 @export var portrait: Texture
+@export var mek_portrait: Texture  # drag-in your “mek” overlay texture in the editor
+
 var health := 100
 var max_health := 100
 var xp := 0
@@ -912,46 +914,47 @@ func check_water_status():
 		remove_water_effect(self)
 
 func auto_attack_ranged(target: Node, unit: Area2D) -> void:
+	# 1) Early‐exit & unlock if the target’s already gone
 	if not is_instance_valid(target):
-		# ── UNLOCK TILEMAP INPUT ──
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
-		tilemap.input_locked = false		
+		tilemap.input_locked = false
 		return
 
-	# ── LOCK TILEMAP INPUT ──
+	# 2) Lock input
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap.input_locked = true
 
-	var sprite = $AnimatedSprite2D
-	
-	# Flip sprite if target is to the right
-	sprite.flip_h = target.global_position.x > global_position.x
-		
-	if sprite:
-		sprite.play("attack")
-		await sprite.animation_finished
-		sprite.play("default")
+	# 3) Capture both positions before any await
+	var attacker_pos = unit.global_position
+	var target_pos   = target.global_position
 
-	var missile_scene = preload("res://Prefabs/Missile.tscn")
-	var missile = missile_scene.instantiate()
+	# 4) Flip & play the attack animation on the attacker
+	var sprite = unit.get_node("AnimatedSprite2D") as AnimatedSprite2D
+	sprite.flip_h = target_pos.x > attacker_pos.x
+	sprite.play("attack")
+	await sprite.animation_finished
+	sprite.play("default")
+
+	# 5) Spawn & fire the missile
+	var missile = preload("res://Prefabs/Missile.tscn").instantiate()
 	get_tree().get_current_scene().add_child(missile)
-	missile.set_target(global_position, target.global_position)
-	missile.damage = self.damage
-	
-	gain_xp(25)
-	
-	# Wait until the missile emits “finished”
+	missile.set_target(attacker_pos, target_pos)
+	missile.damage = unit.damage
+
+	# 6) Award XP
+	unit.gain_xp(25)
+
+	# 7) Wait for missile to finish
 	await missile.finished
 
-	# ── UNLOCK TILEMAP INPUT ──
+	# 8) Unlock input & mark the unit
 	tilemap.input_locked = false
-	
-	has_moved = true
-	has_attacked = true
-	
-	# After performing the attack
-	TutorialManager.on_action("enemy_attacked")		
+	unit.has_moved   = true
+	unit.has_attacked = true
 
+	# 9) Notify tutorial
+	TutorialManager.on_action("enemy_attacked")
+	
 func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
@@ -2136,3 +2139,6 @@ func apply_upgrade(upgrade: String) -> void:
 			movement_range += 1
 		_:
 			print("⚠️ Unknown upgrade:", upgrade)
+
+func get_mek_portrait() -> Texture:
+	return mek_portrait

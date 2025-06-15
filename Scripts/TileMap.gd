@@ -2582,7 +2582,8 @@ func _on_ability_pressed() -> void:
 			ground_slam_mode = true
 		"Mark & Pounce":
 			mark_and_pounce_mode = true
-		"Guardian Halo":
+		"Guardian Halo
+		":
 			guardian_halo_mode = true
 		"High Arching Shot":
 			high_arcing_shot_mode = true
