@@ -104,7 +104,12 @@ var base_movement_range := 0
 var base_attack_range   := 0
 var base_defense        := 0
 
+var prev_tile_pos: Vector2i
+
 func _ready():
+	prev_tile_pos = tile_pos
+	connect("movement_finished", Callable(self, "_on_movement_finished"))
+		
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
 		if not has_meta("unit_id"):
@@ -153,13 +158,22 @@ func debug_print_units():
 
 func _process(delta):
 	update_z_index()
-	_update_tile_pos()
+	_update_tile_pos()    # updates tile_pos behind the scenes
 	check_water_status()
+
+	# Did we change cells since last frame?
+	if tile_pos != prev_tile_pos:
+		apply_tile_effect()
+		prev_tile_pos = tile_pos
 
 func _update_tile_pos():
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var old = tile_pos
 	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
-
+	if tile_pos != old:
+		# We’ve stepped onto a different tile—clear out the old effect
+		apply_tile_effect()
+		prev_tile_pos = tile_pos
 
 func update_z_index():
 	z_index = int(position.y)
@@ -168,8 +182,8 @@ func update_z_index():
 ### PLAYER TURN ###
 func start_turn():
 	# Wait for player input; call on_player_done() when action is complete
-	return
-
+	#apply_tile_effect()
+	pass
 
 func on_player_done():
 	TurnManager.unit_finished_action(self)
@@ -285,6 +299,10 @@ func take_damage(amount: int) -> bool:
 
 
 func auto_attack_adjacent():
+	# no melee attacks if you have zero range
+	if attack_range < 1:
+		return
+			
 	var directions = [
 		Vector2i(0, -1), Vector2i(0, 1),
 		Vector2i(-1, 0), Vector2i(1, 0)
@@ -471,6 +489,9 @@ func spawn_explosion_at(pos: Vector2):
 
 
 func has_adjacent_enemy() -> bool:
+	if attack_range < 1:
+		return false
+			
 	var directions = [
 		Vector2i(0, -1), Vector2i(0, 1),
 		Vector2i(-1, 0), Vector2i(1, 0)
@@ -923,6 +944,13 @@ func check_water_status():
 		remove_water_effect(self)
 
 func auto_attack_ranged(target: Node, unit: Area2D) -> void:
+	# no ranged attacks if you have zero range
+	if unit.attack_range < 1:
+		# make sure to unlock input if you’d previously locked it
+		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		tilemap.input_locked = false
+		return
+			
 	# 1) Early‐exit & unlock if the target’s already gone
 	if not is_instance_valid(target):
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -1338,7 +1366,7 @@ func _on_round_ended() -> void:
 			_fortify_aura.queue_free()
 			_fortify_aura = null
 
-	apply_tile_effect()
+	#apply_tile_effect()
 
 func apply_tile_effect():
 	# ─── Reset to base stats first ─────────────────────────
@@ -1375,9 +1403,6 @@ func apply_tile_effect():
 	if effect.has("slow"):
 		attack_range = max(0, attack_range - effect["slow"])
 		spawn_text_popup("-" + str(effect["slow"]) + " ATK")
-	if effect.has("defense_buff"):
-		defense += effect["defense_buff"]
-		spawn_text_popup("+DEF")
 
 	# XP gain:
 	if effect.has("xp_gain"):
@@ -2224,3 +2249,9 @@ func apply_upgrade(upgrade: String) -> void:
 
 func get_mek_portrait() -> Texture:
 	return mek_portrait
+
+func _on_movement_finished():
+	# only re-apply if the tile actually changed
+	if tile_pos != prev_tile_pos:
+		apply_tile_effect()
+		prev_tile_pos = tile_pos

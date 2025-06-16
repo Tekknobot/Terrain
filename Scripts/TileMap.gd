@@ -158,7 +158,7 @@ var tile_effects := {
 	grass_tile_id:      {"heal": 5},                        # +5 HP
 	snow_tile_id:       {"slow": 1},                        # −1 attack_range
 	ice_tile_id:        {"slip": true},                     # forced extra move?
-	INTERSECTION:       {"defense_buff": 2},                # +2 defense
+	INTERSECTION:       {"move_buff": 2},                # +2 defense
 	DOWN_RIGHT_ROAD:    {"move_buff": 1},                   # +1 movement
 	DOWN_LEFT_ROAD:     {"move_buff": 1}                    # +1 movement
 }
