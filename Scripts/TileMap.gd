@@ -1416,7 +1416,7 @@ func _compute_push_direction(attacker, target) -> Vector2i:
 	return delta
 
 @rpc("any_peer", "reliable")
-func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
+func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:	
 	if not is_multiplayer_authority():
 		return
 

@@ -297,10 +297,11 @@ func take_damage(amount: int) -> bool:
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 func auto_attack_adjacent():
 	# no melee attacks if you have zero range
 	if attack_range < 1:
+		# show a little “no attack” popup in red
+		spawn_text_popup("No ATK!", Color(1, 0, 0))
 		return
 			
 	var directions = [
@@ -467,7 +468,6 @@ func auto_attack_adjacent():
 	# After performing the attack
 	TutorialManager.on_action("enemy_attacked")	
 
-
 # Helper to retrieve occupant nodes (unit or structure) at a tile.
 func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:
 	var occupants = []
@@ -490,6 +490,8 @@ func spawn_explosion_at(pos: Vector2):
 
 func has_adjacent_enemy() -> bool:
 	if attack_range < 1:
+		# show a little “no attack” popup in red
+		spawn_text_popup("No ATK!", Color(1, 0, 0))	
 		return false
 			
 	var directions = [
