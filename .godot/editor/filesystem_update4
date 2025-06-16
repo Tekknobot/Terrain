@@ -14,5 +14,4 @@ res://Prefabs/UpgradeWindow.tscn
 res://Scenes/GameOver.tscn
 res://Scenes/VFX/FrostOverlay.tscn
 res://Scenes/VFX/popup_text.tscn
-res://Scripts/Unit.gd
-res://Scripts/TileMap.gd
+res://Prefabs/health_pickup.tscn
