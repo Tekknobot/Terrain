@@ -2215,8 +2215,10 @@ func apply_upgrade(upgrade: String) -> void:
 			damage += 10
 		"range_boost":
 			attack_range += 1
+			base_attack_range += 1   # <— keep the base in sync
 		"move_boost":
 			movement_range += 1
+			base_movement_range += 1 # <— bump the base too
 		_:
 			print("⚠️ Unknown upgrade:", upgrade)
 

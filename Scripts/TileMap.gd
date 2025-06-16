@@ -1338,36 +1338,40 @@ func _input(event):
 # ———————————————————————————————————————————————————————————————
 @rpc("any_peer", "reliable")
 func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
+	# only the server computes damage & tells everyone else what happened
 	if not is_multiplayer_authority():
 		return
+
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if not atk or not tgt:
 		return
 
-	atk.auto_attack_ranged(tgt, atk)
-	var died = tgt.health <= 0
-	atk.gain_xp(25)
-	if died:
-		atk.gain_xp(25)
+	# figure out if this attack will kill the target
+	var died = (tgt.health - atk.damage) <= 0
 
+	# broadcast to all peers (including the host) and run it locally immediately
 	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, died)
-	
-	# After performing the attack
-	TutorialManager.on_action("enemy_attacked")		
+	sync_auto_attack_ranged_unit(attacker_id, target_id, died)
+
+	TutorialManager.on_action("enemy_attacked") 	
 
 @rpc("any_peer", "reliable")
 func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, died: bool) -> void:
+	# every peer—including the server—runs the exact same spawn+damage logic
 	var atk = get_unit_by_id(attacker_id)
 	var tgt = get_unit_by_id(target_id)
 	if not atk or not tgt:
 		return
-	if not is_multiplayer_authority():
-		atk.auto_attack_ranged(tgt, atk)
-		atk.gain_xp(25)
-		if died:
-			atk.gain_xp(25)
 
+	# 1) play attack animation, fire projectile, await it, etc.
+	atk.auto_attack_ranged(tgt, atk)
+
+	# 2) award XP (same on every peer so UI stays in sync)
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
+		
 @rpc("any_peer","reliable")
 func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> void:
 	if not is_multiplayer_authority():
