@@ -549,8 +549,8 @@ func die():
 		rpc("remote_unit_died", unit_id)
 
 	# Random death popup
-	var msg_index = randi() % death_messages.size()
-	spawn_text_popup(death_messages[msg_index], Color(1, 0.3, 0.3))
+	#var msg_index = randi() % death_messages.size()
+	#spawn_text_popup(death_messages[msg_index], Color(1, 0.3, 0.3))
 		
 	# Store tile before anything
 	var death_tile = tile_pos
@@ -1366,10 +1366,10 @@ func apply_tile_effect():
 	# Movement buff / penalty:
 	if effect.has("move_buff"):
 		movement_range += effect["move_buff"]
-		spawn_text_popup("+" + str(effect["move_buff"]) + "MOV")
+		spawn_text_popup("+" + str(effect["move_buff"]) + " MOV")
 	elif effect.has("move_penalty"):
 		movement_range = max(0, movement_range - effect["move_penalty"])
-		spawn_text_popup("-" + str(effect["move_penalty"]) + "MOV")
+		spawn_text_popup("-" + str(effect["move_penalty"]) + " MOV")
 
 	# Attack‐range buff / penalty:
 	if effect.has("slow"):
@@ -1389,8 +1389,12 @@ func apply_tile_effect():
 		if neighbours.size() > 0:
 			var dest = neighbours[randi() % neighbours.size()]
 			plan_move(dest)
-			spawn_text_popup("Slip!")
-
+			spawn_text_popup("Slip!", Color(0.6, 0.8, 1))
+			await get_tree().create_timer(0.5).timeout
+			# ── apply a -2 ATK penalty on slip:
+			attack_range = max(0, attack_range - 2)
+			spawn_text_popup("-2 ATK")
+		return
 					
 # 4) Cannon – High-Arcing Shot (animated trajectory over 2 seconds, no ternary)
 @rpc("any_peer", "reliable")
