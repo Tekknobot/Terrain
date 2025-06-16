@@ -17,6 +17,7 @@ var level = 1
 @export var damage = 25
 @export var movement_range := 2  
 @export var attack_range := 3 
+@export var defense := 0
 
 var tile_pos: Vector2i
 
@@ -99,6 +100,10 @@ const ORBITAL_STRIKE_SCENE = preload("res://Prefabs/orbital_strike_pickup.tscn")
 const EMPTY_CELL_ID        = -1   # Godot’s “no tile” value
 var _open_tiles: Array[Vector2i] = []
 
+var base_movement_range := 0
+var base_attack_range   := 0
+var base_defense        := 0
+
 func _ready():
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
@@ -122,6 +127,10 @@ func _ready():
 	update_health_bar()
 	update_xp_bar()
 	debug_print_units()
+
+	base_movement_range = movement_range
+	base_attack_range   = attack_range
+	base_defense        = defense
 
 	var tm = get_node("/root/TurnManager")
 	if tm:
@@ -1328,6 +1337,59 @@ func _on_round_ended() -> void:
 		if _fortify_aura:
 			_fortify_aura.queue_free()
 			_fortify_aura = null
+
+	apply_tile_effect()
+
+func apply_tile_effect():
+	# ─── Reset to base stats first ─────────────────────────
+	movement_range = base_movement_range
+	attack_range   = base_attack_range
+	defense        = base_defense
+		
+	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+	var id = tilemap.get_cell_source_id(0, tile_pos)
+	var effect = tilemap.tile_effects.get(id, null)
+	if effect == null:
+		return
+
+	# Damage‐over‐time:
+	if effect.has("damage"):
+		take_damage(effect["damage"])
+		spawn_text_popup(str(effect["damage"]))
+
+	# Healing:
+	if effect.has("heal"):
+		health = min(max_health, health + effect["heal"])
+		update_health_bar()
+		spawn_text_popup("+" + str(effect["heal"]), Color(0, 1, 0))  # bright green “+5”
+
+	# Movement buff / penalty:
+	if effect.has("move_buff"):
+		movement_range += effect["move_buff"]
+		spawn_text_popup("+" + str(effect["move_buff"]) + "MOV")
+	elif effect.has("move_penalty"):
+		movement_range = max(0, movement_range - effect["move_penalty"])
+		spawn_text_popup("-" + str(effect["move_penalty"]) + "MOV")
+
+	# Attack‐range buff / penalty:
+	if effect.has("slow"):
+		attack_range = max(0, attack_range - effect["slow"])
+		spawn_text_popup("-" + str(effect["slow"]) + " ATK")
+	if effect.has("defense_buff"):
+		defense += effect["defense_buff"]
+		spawn_text_popup("+DEF")
+
+	# XP gain:
+	if effect.has("xp_gain"):
+		gain_xp(effect["xp_gain"])
+
+	# Special “slip” or custom effects:
+	if effect.has("slip"):
+		var neighbours = tilemap.get_neighbors(tile_pos)
+		if neighbours.size() > 0:
+			var dest = neighbours[randi() % neighbours.size()]
+			plan_move(dest)
+			spawn_text_popup("Slip!")
 
 					
 # 4) Cannon – High-Arcing Shot (animated trajectory over 2 seconds, no ternary)

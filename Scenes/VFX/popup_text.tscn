@@ -1,22 +1,13 @@
-[gd_scene load_steps=5 format=3 uid="uid://c0sg264chhua2"]
+[gd_scene load_steps=3 format=3 uid="uid://c0sg264chhua2"]
 
 [ext_resource type="Script" path="res://Scripts/popup_text.gd" id="1_is2pw"]
-[ext_resource type="Shader" path="res://Textures/Popup.gdshader" id="2_8lqjv"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="2_quiwx"]
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_jjawm"]
-shader = ExtResource("2_8lqjv")
-shader_parameter/base_color = Color(1, 1, 1, 1)
-shader_parameter/pulse_color = Color(1, 0.2, 0.2, 1)
-shader_parameter/pulse_speed = 2.0
-shader_parameter/scan_thickness = 1.0
 
 [node name="PopupText" type="Node2D"]
 script = ExtResource("1_is2pw")
 
 [node name="Label" type="Label" parent="."]
 z_index = 4096
-material = SubResource("ShaderMaterial_jjawm")
 offset_right = 40.0
 offset_bottom = 23.0
 theme_override_fonts/font = ExtResource("2_quiwx")

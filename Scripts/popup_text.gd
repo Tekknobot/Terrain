@@ -41,5 +41,5 @@ func _ready():
 
 func set_text(message: String, color: Color = Color.WHITE):
 	var label = $Label
-	#label.text = message
-	#label.modulate = color
+	label.text = message
+	label.modulate = color

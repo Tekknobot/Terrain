@@ -153,6 +153,16 @@ var ability_ranges: Dictionary = {
 	"Web Field":           0
 }
 
+# In TileMap.gd (or a dedicated TileEffects.gd)
+var tile_effects := {
+	grass_tile_id:      {"heal": 5},                        # +5 HP
+	snow_tile_id:       {"slow": 1},                        # −1 attack_range
+	ice_tile_id:        {"slip": true},                     # forced extra move?
+	INTERSECTION:       {"defense_buff": 2},                # +2 defense
+	DOWN_RIGHT_ROAD:    {"move_buff": 1},                   # +1 movement
+	DOWN_LEFT_ROAD:     {"move_buff": 1}                    # +1 movement
+}
+
 var next_spawn_index := 0   # Tracks which index of `units[]` to take next.
 var input_locked: bool = false
 const DROP_OFFSET := 100.0  # how far above the target to start
