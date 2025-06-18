@@ -1,6 +1,7 @@
+res://Scripts
+res://Scenes
 /Users/machome/Godot/_Builds/Mek VS Mek/WEB
 /Users/machome/Godot/_Builds/Mek VS Mek
-res://Scripts
 res://Scenes/VFX
 res://Sprites/Drops
 res://Prefabs
@@ -14,7 +15,6 @@ res://Sprites/Meks/R4
 res://Sprites/Meks/R2
 res://Sprites/Meks/S3
 res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist.
-res://Scenes
 res://Audio/SFX
 res://Sprites/TitleScreen
 res://Sprites/Portraits/pilots

@@ -12,6 +12,6 @@ res://Scenes/TitleScreen.tscn
 res://Prefabs/Missile.tscn
 res://Prefabs/UpgradeWindow.tscn
 res://Scenes/GameOver.tscn
-res://Scenes/VFX/FrostOverlay.tscn
-res://Scenes/VFX/popup_text.tscn
-res://Prefabs/health_pickup.tscn
+res://Scenes/Overworld.tscn
+res://Scripts/OverworldMap.gd
+res://Scripts/SmoothClickFollow.gd
