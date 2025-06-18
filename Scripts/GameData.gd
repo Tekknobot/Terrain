@@ -11,6 +11,8 @@ var max_enemy_units: int = 1
 
 var last_enemy_upgrade_level: int = 0
 
+var completed_maps: Array[int] = []
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Map settings
 # ─────────────────────────────────────────────────────────────────────────────
@@ -145,3 +147,11 @@ func clear_enemy_upgrades() -> void:
 		# if it’s an enemy, erase its entry
 		if not u.is_player and u.has_meta("unit_id"):
 			clear_unit_upgrades(u.get_meta("unit_id"))
+
+func mark_map_completed(map_id: int) -> void:
+	if map_id in completed_maps:
+		return
+	completed_maps.append(map_id)
+
+func is_map_completed(map_id: int) -> bool:
+	return map_id in completed_maps

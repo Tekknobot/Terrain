@@ -32,13 +32,43 @@ var difficulty_tiers: Dictionary = {
 var regions: Array = []
 var first_novice_pos: Vector2
 
+@export var map_buttons: Array[TextureButton] = []  # drag them in order: map 1, map 2, …
+
 func _ready():
-	randomize()
-	region_names.shuffle()
+	#randomize()              # only needed if you still want random branch‐counts/etc.
+	#region_names.shuffle()   # ← remove this so names stay in fixed order
 	var center = get_viewport_rect().size * 0.5
 	# start with one Novice at the very center
 	_generate_branch(center, 0, -90)
 
+	for i in range(map_buttons.size()):
+		# i goes 0…N-1, so map_id is i+1
+		map_buttons[i].pressed.connect(Callable(self, "_on_map_pressed").bind(i+1))
+	_update_map_highlights()
+	_update_region_labels()
+
+func _update_map_highlights() -> void:
+	for i in range(map_buttons.size()):
+		var btn    = map_buttons[i]
+		var map_id = i + 1
+
+		# only the “active” map is clickable
+		btn.disabled = map_id != GameData.current_level
+
+		if GameData.is_map_completed(map_id):
+			# completed maps get a special tint
+			btn.modulate = Color(1, 0.1, 0.1)
+		elif map_id == GameData.current_level:
+			# the one you can play now is normal
+			btn.modulate = Color(1, 1, 1)
+		else:
+			# future/locked maps get dimmed
+			btn.modulate = Color(0.3, 0.3, 0.3)
+
+func _on_map_pressed(map_id: int) -> void:
+	GameData.current_level = map_id
+	get_tree().change_scene_to_file("res://Scenes/Main.tscn" % map_id)
+				
 # helper: returns the index of an existing region within 2×radius of `p`, or –1
 func _find_region_at(p: Vector2) -> int:
 	for i in range(regions.size()):
@@ -127,18 +157,23 @@ func _create_region_node(index: int, pos: Vector2, depth: int) -> void:
 	btn.connect("mouse_entered", Callable(self, "_on_region_hover").bind(index))
 	btn.connect("mouse_exited",  Callable(self, "_on_region_unhover").bind(index))
 
-
-	# 6) store for hover tinting if you still need it
+	# store for later updates
 	regions.append({
-		"pos":       pos, 
+		"pos":       pos,
 		"button":    btn,
 		"label":     lbl,
-		"base_tint": base_tint
+		"base_tint": base_tint,
+		"tier":      tier,    # <— add this
+		"region_idx": index   # <— and this, so we know which name to print
 	})
 
 func _on_region_pressed(i: int) -> void:
-	emit_signal("region_selected", i, region_names[i % region_names.size()])
-	# immediately switch scenes (or use call_deferred if you hit errors)
+	var tier := i + 1
+	# only allow the region whose tier matches the current_level
+	if tier != GameData.current_level:
+		return
+
+	emit_signal("region_selected", i, region_names[i])
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _on_region_hover(i: int) -> void:
@@ -150,3 +185,17 @@ func _on_region_unhover(i: int) -> void:
 	var entry = regions[i]
 	# restore original tint
 	entry.button.modulate = entry.base_tint
+
+func _update_region_labels() -> void:
+	for entry in regions:
+		var lbl  : Label = entry["label"]
+		var tier : int   = entry["tier"]
+		if tier < GameData.current_level:
+			# any tier *below* the current level is completed
+			lbl.modulate = Color(1, 0, 0)    # red
+		elif tier == GameData.current_level:
+			# the one you’re on now
+			lbl.modulate = Color(1, 1, 1)    # white (or whatever “active” color)
+		else:
+			# future tiers
+			lbl.modulate = Color(0.5, 0.5, 0.5)

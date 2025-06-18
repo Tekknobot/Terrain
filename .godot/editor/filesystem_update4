@@ -20,3 +20,4 @@ res://Scenes/OverworldController.tscn
 res://Scripts/GameData.gd
 res://Scripts/TitleScreen.gd
 res://Scripts/TurnManager.gd
+res://Scripts/RewardsUpgrades.gd

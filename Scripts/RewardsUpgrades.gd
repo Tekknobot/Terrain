@@ -131,5 +131,5 @@ func _on_continue_button_pressed() -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap.input_locked = false
 	# ─────────────────────────────────────────────────────────────────────
-	
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+	GameData.mark_map_completed(GameData.current_level)
+	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
