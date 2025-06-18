@@ -7,14 +7,12 @@
 
 [node name="Overworld" type="Node2D"]
 script = ExtResource("1_hfkso")
-max_depth = 5
-branches_per_node = 2
 region_font = ExtResource("2_xydvu")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(579, 324)
 script = ExtResource("3_rqdjr")
 
-[node name="StarryNight" parent="." instance=ExtResource("4_1mu5x")]
-position = Vector2(167, -48)
-visibility_rect = Rect2(-100, -100, 2000, 2000)
+[node name="StarryNight" parent="Camera2D" instance=ExtResource("4_1mu5x")]
+position = Vector2(-572, -331)
+visibility_rect = Rect2(0, 0, 1000, 1000)

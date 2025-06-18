@@ -528,7 +528,6 @@ func transition_to_level() -> void:
 	
 	# Fade in the current scene by gradually making the transition transparent.
 	var tween = transition.fade_in()
-
 	
 func _on_fade_out_finished() -> void:
 	# Change to the next level/mission.

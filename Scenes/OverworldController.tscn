@@ -1,14 +1,19 @@
-[gd_scene load_steps=3 format=3 uid="uid://48d8tkhp3xh0"]
+[gd_scene load_steps=8 format=3 uid="uid://48d8tkhp3xh0"]
 
+[ext_resource type="Texture2D" uid="uid://dqmlt3bpfxcqb" path="res://Sprites/Portraits/pilots/mek_portraits/novice_group.png" id="2_iq2g5"]
 [ext_resource type="PackedScene" uid="uid://dyvg1q4u48f01" path="res://Scenes/Overworld.tscn" id="2_k221l"]
-[ext_resource type="PackedScene" uid="uid://npnv1wvwmhj3" path="res://Scenes/Main.tscn" id="2_uosq8"]
+[ext_resource type="Texture2D" uid="uid://du3scrmgdo0uq" path="res://Sprites/Portraits/pilots/mek_portraits/r2.png" id="3_net20"]
+[ext_resource type="Texture2D" uid="uid://d3s67lch382rk" path="res://Sprites/Portraits/pilots/mek_portraits/r3.png" id="4_4at8d"]
+[ext_resource type="Texture2D" uid="uid://bygvhthawhht8" path="res://Sprites/Portraits/pilots/mek_portraits/r4.png" id="5_re4jv"]
+[ext_resource type="Texture2D" uid="uid://beu8s26b4wob0" path="res://Sprites/Portraits/pilots/mek_portraits/s2.png" id="6_qpboe"]
+[ext_resource type="Texture2D" uid="uid://b4xbvy5vgjg60" path="res://Sprites/Portraits/pilots/mek_portraits/s3.png" id="7_2ftuw"]
 
 [node name="OverworldNode" type="Node2D"]
 
 [node name="OverworldController" type="Node2D" parent="."]
 
 [node name="Overworld" parent="OverworldController" instance=ExtResource("2_k221l")]
-region_scenes = Array[PackedScene]([ExtResource("2_uosq8")])
+region_textures = Array[Texture2D]([ExtResource("2_iq2g5"), ExtResource("3_net20"), ExtResource("4_4at8d"), ExtResource("5_re4jv"), ExtResource("6_qpboe"), ExtResource("7_2ftuw")])
 
 [node name="OverlayLayer" type="CanvasLayer" parent="."]
 scale = Vector2(0.5, 0.5)
