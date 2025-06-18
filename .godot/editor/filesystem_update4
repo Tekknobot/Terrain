@@ -15,3 +15,7 @@ res://Scenes/GameOver.tscn
 res://Scenes/Overworld.tscn
 res://Scripts/OverworldMap.gd
 res://Scripts/SmoothClickFollow.gd
+res://Scripts/OverworldController.gd
+res://Scenes/OverworldController.tscn
+res://Scripts/GameData.gd
+res://Scripts/TitleScreen.gd

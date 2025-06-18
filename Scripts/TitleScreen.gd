@@ -17,7 +17,7 @@ func _ready() -> void:
 
 func _on_PlayButton_pressed() -> void:
 	# Transition to your main game scene.
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
 
 func _on_MultiplayerButton_pressed() -> void:
 	get_tree().change_scene_to_file("res://Scenes/MultiplayerLobby.tscn")	# add_child(options_dialog)

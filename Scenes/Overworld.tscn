@@ -12,7 +12,9 @@ branches_per_node = 2
 region_font = ExtResource("2_xydvu")
 
 [node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(579, 324)
 script = ExtResource("3_rqdjr")
 
 [node name="StarryNight" parent="." instance=ExtResource("4_1mu5x")]
 position = Vector2(167, -48)
+visibility_rect = Rect2(-100, -100, 2000, 2000)

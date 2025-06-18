@@ -55,6 +55,11 @@ var	next_unit_id = 1
 var in_upgrade_phase: bool = false
 var enemy_upgraded : bool = false
 
+
+#-------------------------------------
+var next_region_scene: PackedScene = null
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Reset all memory between matches
 # ─────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ signal region_selected(index, name)
 @export var region_radius: float = 16.0
 @export var region_font: Font
 
+@export var region_scenes: Array[PackedScene] = []
 var difficulty_tiers: Dictionary = {
 	1: "Novice", 2: "Apprentice", 3: "Adept", 4: "Expert",
 	5: "Master", 6: "Grandmaster", 7: "Legendary", 8: "Mythic",
@@ -17,10 +18,11 @@ var difficulty_tiers: Dictionary = {
 }
 
 @export var region_names: Array = [
-	"Root", "Branchwood", "Silverleaf", "Ironforge", "Stormvale",
-	"Suncrest", "Starfall", "Moonreach", "Frosthaven", "Emberfall",
-	"Duskwood", "Brightwater", "Darkgrove", "Windhelm", "Ravenmoor",
-	"Highspire", "Lowmarsh", "Goldcrest", "Shadowfen", "Crystalglade"
+	"Ironhold", "Gearfall", "Steelforge", "Rusthaven", "Cinderwall",
+	"Forgekeep", "Pulsegate", "Hammerfall", "Blastmoor", "Magnetar",
+	"Titanreach", "Axlepoint", "Vulcannon", "Boltspire", "Mecharis",
+	"Lockridge", "Quakefield", "Junktown", "Arcforge", "ZeroCore",
+	"Crankton", "Ironvale", "Shattergate", "Voltmoor", "Gritstone"
 ]
 
 # Internal storage
@@ -107,8 +109,3 @@ func _on_hover(i: int) -> void:
 func _on_unhover(i: int) -> void:
 	var reg = regions[i]
 	reg.circle.modulate = reg.circle.color
-
-func _on_click(idx: int, _viewport, event: InputEvent, _shape_idx: int) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		emit_signal("region_selected", idx, region_names[idx % region_names.size()])
-		follow_target = regions[idx]["pos"]    # ← start lerping toward this

@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://48d8tkhp3xh0"]
+
+[ext_resource type="PackedScene" uid="uid://dyvg1q4u48f01" path="res://Scenes/Overworld.tscn" id="2_k221l"]
+[ext_resource type="PackedScene" uid="uid://npnv1wvwmhj3" path="res://Scenes/Main.tscn" id="2_uosq8"]
+
+[node name="OverworldNode" type="Node2D"]
+
+[node name="OverworldController" type="Node2D" parent="."]
+
+[node name="Overworld" parent="OverworldController" instance=ExtResource("2_k221l")]
+region_scenes = Array[PackedScene]([ExtResource("2_uosq8")])
+
+[node name="OverlayLayer" type="CanvasLayer" parent="."]
+scale = Vector2(0.5, 0.5)
+transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
