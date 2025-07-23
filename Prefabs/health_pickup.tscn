@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://dre4ogvxn2wo"]
 
-[ext_resource type="Script" path="res://Scripts/health_pickup.gd" id="1_056bs"]
+[ext_resource type="Script" uid="uid://bhjft2tle02kd" path="res://Scripts/health_pickup.gd" id="1_056bs"]
 [ext_resource type="Texture2D" uid="uid://dlbicachyet3k" path="res://Sprites/Drops/health_drop.png" id="2_j1v56"]
 [ext_resource type="AudioStream" uid="uid://c6s11jra8nh3m" path="res://Audio/SFX/pickupCoin.wav" id="3_jpliu"]
 

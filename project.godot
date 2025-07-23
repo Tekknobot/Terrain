@@ -12,10 +12,10 @@ config_version=5
 
 config/name="Mek VS Mek"
 run/main_scene="res://Scenes/TitleScreen.tscn"
-config/features=PackedStringArray("4.3", "Mobile")
+config/features=PackedStringArray("4.4", "Mobile")
 boot_splash/bg_color=Color(0, 0, 0, 1)
-boot_splash/image="res://Icon/pizzza-logo.png"
 boot_splash/fullsize=false
+boot_splash/image="res://Icon/pizzza-logo.png"
 config/icon="res://Icon/mek.png"
 boot_splash/minimum_display_time=2000
 

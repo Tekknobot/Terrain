@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://sxwe2nwdmjfh"]
 
-[ext_resource type="Script" path="res://Scripts/coin_pickup.gd" id="1_o5esp"]
+[ext_resource type="Script" uid="uid://bgjm447sptdjg" path="res://Scripts/coin_pickup.gd" id="1_o5esp"]
 [ext_resource type="Texture2D" uid="uid://dyrj6sn1b2njm" path="res://Sprites/Drops/money_drop.png" id="2_oenu0"]
 [ext_resource type="AudioStream" uid="uid://c6s11jra8nh3m" path="res://Audio/SFX/pickupCoin.wav" id="3_ctm4j"]
 

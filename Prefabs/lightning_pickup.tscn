@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://c6osukj3vlxbv"]
 
-[ext_resource type="Script" path="res://Scripts/lightning_pickup.gd" id="1_5aycb"]
+[ext_resource type="Script" uid="uid://brrbtlbiojioh" path="res://Scripts/lightning_pickup.gd" id="1_5aycb"]
 [ext_resource type="Texture2D" uid="uid://cfwgg1ejs0o6y" path="res://Sprites/Drops/lightning_drop.png" id="2_2umha"]
 [ext_resource type="AudioStream" uid="uid://c6s11jra8nh3m" path="res://Audio/SFX/pickupCoin.wav" id="3_pgatu"]
 

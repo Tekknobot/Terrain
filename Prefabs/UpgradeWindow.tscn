@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://dpko8iiayblbf"]
 
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="1_gj83i"]
-[ext_resource type="Script" path="res://Scripts/RewardsUpgrades.gd" id="1_wd14e"]
+[ext_resource type="Script" uid="uid://3xxwxcde1yj3" path="res://Scripts/RewardsUpgrades.gd" id="1_wd14e"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_egeuw"]
 bg_color = Color(0, 0, 0, 1)

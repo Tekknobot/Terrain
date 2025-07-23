@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://bwwfgkwcafc8o"]
 
-[ext_resource type="Script" path="res://Scripts/orbital_strike_pickup.gd" id="1_bvqa8"]
+[ext_resource type="Script" uid="uid://bkm8mp3ancqq8" path="res://Scripts/orbital_strike_pickup.gd" id="1_bvqa8"]
 [ext_resource type="Texture2D" uid="uid://dg1tao3x22ih2" path="res://Sprites/Drops/orbital_drop.png" id="2_q0sk2"]
 [ext_resource type="AudioStream" uid="uid://c6s11jra8nh3m" path="res://Audio/SFX/pickupCoin.wav" id="3_kitd2"]
 

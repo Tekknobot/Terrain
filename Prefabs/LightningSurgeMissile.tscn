@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://cg58q7ro3t3s"]
 
-[ext_resource type="Script" path="res://Scripts/LightningSurgeMissile.gd" id="1_fcauj"]
+[ext_resource type="Script" uid="uid://yw5eqavyq2l6" path="res://Scripts/LightningSurgeMissile.gd" id="1_fcauj"]
 
 [node name="Node2D" type="Node2D"]
 script = ExtResource("1_fcauj")

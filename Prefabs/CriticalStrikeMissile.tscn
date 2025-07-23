@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://wwyv6u5bn3on"]
 
-[ext_resource type="Script" path="res://Scripts/CriticalStrikeMissile.gd" id="1_5ab02"]
+[ext_resource type="Script" uid="uid://d2jqcovvqjdrs" path="res://Scripts/CriticalStrikeMissile.gd" id="1_5ab02"]
 [ext_resource type="Texture2D" uid="uid://180q5qojg8k8" path="res://Textures/missile.png" id="2_5ime2"]
 [ext_resource type="AudioStream" uid="uid://cw6p7njt8awwy" path="res://Prefabs/missile_launch.wav" id="3_4juw7"]
 

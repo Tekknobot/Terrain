@@ -1,8 +1,8 @@
 [gd_scene load_steps=5 format=3 uid="uid://dyvg1q4u48f01"]
 
-[ext_resource type="Script" path="res://Scripts/OverworldMap.gd" id="1_hfkso"]
+[ext_resource type="Script" uid="uid://daoinq6pelhfm" path="res://Scripts/OverworldMap.gd" id="1_hfkso"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="2_xydvu"]
-[ext_resource type="Script" path="res://Scripts/SmoothClickFollow.gd" id="3_rqdjr"]
+[ext_resource type="Script" uid="uid://cfix5byy48oda" path="res://Scripts/SmoothClickFollow.gd" id="3_rqdjr"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://Scenes/VFX/StarNight.tscn" id="4_1mu5x"]
 
 [node name="Overworld" type="Node2D"]

@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://cgen14lb730wo"]
 
-[ext_resource type="Script" path="res://Scripts/Transition.gd" id="1_iao40"]
+[ext_resource type="Script" uid="uid://bb7fd2vsaskm4" path="res://Scripts/Transition.gd" id="1_iao40"]
 
 [node name="Control" type="ColorRect"]
 z_index = 4096

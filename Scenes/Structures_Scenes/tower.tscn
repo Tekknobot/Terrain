@@ -1,6 +1,6 @@
 [gd_scene load_steps=12 format=3 uid="uid://dumfkfxnng3od"]
 
-[ext_resource type="Script" path="res://Scripts/Structure.gd" id="1_bdb8f"]
+[ext_resource type="Script" uid="uid://s03kmbrhawch" path="res://Scripts/Structure.gd" id="1_bdb8f"]
 [ext_resource type="Texture2D" uid="uid://ckxtu0sg4l76u" path="res://Sprites/Structures/tower/default/buildings 1.png" id="2_3tl2q"]
 [ext_resource type="Texture2D" uid="uid://bh2v5n6ud2ksd" path="res://Sprites/Structures/tower/buildings 1_demolished1.png" id="3_6vppo"]
 [ext_resource type="Texture2D" uid="uid://dmcnmf6lypgb0" path="res://Sprites/Structures/tower/buildings 1_demolished2.png" id="4_ffj3v"]

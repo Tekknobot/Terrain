@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://d1nrabrws4fy2"]
 
-[ext_resource type="Script" path="res://Scripts/Conclusion.gd" id="1_twcm3"]
+[ext_resource type="Script" uid="uid://cd7g02if5u8vc" path="res://Scripts/Conclusion.gd" id="1_twcm3"]
 [ext_resource type="AudioStream" uid="uid://deqv1i3mx4h3b" path="res://Audio/SFX/victorymale-version-230553.mp3" id="2_owpg0"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="2_ww6bq"]
 [ext_resource type="AudioStream" uid="uid://c5nuhu5prbrn1" path="res://Audio/SFX/8-bit-logo-291104.mp3" id="3_lt44g"]

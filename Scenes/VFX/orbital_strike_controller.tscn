@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://u2roq00qfoec"]
 
-[ext_resource type="Script" path="res://Scripts/OrbitalStrikeController.gd" id="1_jouj2"]
+[ext_resource type="Script" uid="uid://dma217vdwguq7" path="res://Scripts/OrbitalStrikeController.gd" id="1_jouj2"]
 
 [node name="OrbitalStrikeController" type="Node2D"]
 script = ExtResource("1_jouj2")
