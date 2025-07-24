@@ -23,8 +23,9 @@ defeat_sound = ExtResource("3_lt44g")
 [node name="Control" type="Control" parent="CanvasLayer"]
 layout_mode = 3
 anchors_preset = 0
+offset_top = -34.0
 offset_right = 40.0
-offset_bottom = 40.0
+offset_bottom = 6.0
 
 [node name="ResultLabel" type="Label" parent="CanvasLayer/Control"]
 layout_mode = 2

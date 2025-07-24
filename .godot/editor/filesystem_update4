@@ -61,3 +61,6 @@ res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
+res://Scripts/MusicManager.gd
+res://Scripts/RewardsUpgrades.gd
+res://Scripts/TurnManager.gd

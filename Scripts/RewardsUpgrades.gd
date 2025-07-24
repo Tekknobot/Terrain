@@ -8,7 +8,7 @@ extends CanvasLayer
 	"move_boost",
 ]
 
-@export var label_font: Font  # Custom font for labels
+@export var label_font: Font   # Custom font for labels
 @export var button_font: Font  # Custom font for buttons
 @export var panel_offset: Vector2 = Vector2.ZERO  # Manual offset from screen center
 
@@ -19,7 +19,7 @@ func _ready():
 	_center_panel_with_offset()
 	# Prevent any clicks on this CanvasLayer from propagating to the TileMap:
 	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
-	$Control/PanelContainer.mouse_filter = Control.MOUSE_FILTER_STOP	
+	$Control/PanelContainer.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _center_panel_with_offset():
 	await get_tree().process_frame
@@ -36,7 +36,7 @@ func _center_panel_with_offset():
 func set_rewards():
 	var panel = $Control/PanelContainer
 	panel.visible = false
-	await get_tree().create_timer(1).timeout 
+	await get_tree().create_timer(1).timeout
 	
 	GameData.in_upgrade_phase = true
 	
@@ -55,47 +55,65 @@ func _display_unit_choices():
 	)
 	_units_to_choose = units.size()
 
+	# Container where each unit's options vbox will go
+	var upgrade_container = $Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer
+
+	# Clear any old choices
+	for child in upgrade_container.get_children():
+		upgrade_container.remove_child(child)
+
+	# Create a VBox for each unit
 	for unit in units:
 		var unit_id = unit.unit_id
-		var name    = unit.unit_name
-		var vbox    = VBoxContainer.new()
-		vbox.name   = str(unit_id)
-
-		# Portrait
+		var vbox = VBoxContainer.new()
+		vbox.name = str(unit_id)
+		
+		# Portrait (kept aspect ratio)
 		if unit.portrait:
 			var portrait = TextureRect.new()
 			portrait.texture      = unit.portrait
-			portrait.expand_mode  = TextureRect.EXPAND_KEEP_SIZE
-			portrait.stretch_mode = TextureRect.STRETCH_SCALE
 			portrait.size         = Vector2(64, 64)
+			portrait.expand_mode  = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
+			portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			vbox.add_child(portrait)
 
-			# — now add the mek overlay portrait below it —
 			if unit.mek_portrait:
 				var mek = TextureRect.new()
-				mek.texture          = unit.mek_portrait
-				mek.expand_mode      = TextureRect.EXPAND_KEEP_SIZE
-				mek.stretch_mode     = TextureRect.STRETCH_SCALE
-				mek.size             = Vector2(64, 64)
+				mek.texture      = unit.mek_portrait
+				mek.size         = Vector2(64, 64)
+				mek.expand_mode  = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
+				mek.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				vbox.add_child(mek)
-				
-		# … rest is unchanged …
+		
+		# Prepare and shuffle options
 		var options = upgrade_options.duplicate()
 		if unit.unit_type == "Melee":
 			options.erase("range_boost")
 		options.shuffle()
 
+		# Create one button per option
 		for i in range(3):
 			var upgrade = options[i]
 			var btn = Button.new()
-			btn.text = upgrade
+			# Remove 'boost' suffix and capitalize for display
+			var label_text = upgrade.replace("_boost", "").capitalize()
+			btn.text = label_text
+
+			# Apply inspector-chosen font and size override
 			if button_font:
 				btn.add_theme_font_override("font", button_font)
+				btn.add_theme_font_size_override("font_size", 32)
+			
+			# Ensure a minimum size so UI doesn’t shrink/grow
+			btn.custom_minimum_size = Vector2(140, 40)
+
+			# Signal
 			btn.pressed.connect(Callable(self, "_on_upgrade_chosen").bind(unit_id, upgrade))
 			vbox.add_child(btn)
 
-		$Control/PanelContainer/MarginContainer/VBoxContainer/UpgradeContainer.add_child(vbox)
-
+		# Add to main container
+		upgrade_container.add_child(vbox)
+		
 func _on_upgrade_chosen(unit_id: int, upgrade: String):
 	if chosen_upgrades.has(unit_id):
 		return
@@ -109,14 +127,11 @@ func _on_upgrade_chosen(unit_id: int, upgrade: String):
 		if child is Button:
 			child.disabled = true
 
-	# Once all chosen, close UI and return
+	# If last unit chosen, auto-advance
 	if chosen_upgrades.size() >= _units_to_choose:
-		GameData.current_level += 1
-		GameData.max_enemy_units += 1
-		GameData.map_difficulty += 1
+		_on_continue_button_pressed()
 
 func _apply_upgrade_to_unit(unit_id: int, upgrade: String) -> void:
-	# 1) Apply the specified upgrade to the matching unit
 	for unit in get_tree().get_nodes_in_group("Units"):
 		if unit.unit_id == unit_id:
 			unit.apply_upgrade(upgrade)
@@ -132,4 +147,7 @@ func _on_continue_button_pressed() -> void:
 	tilemap.input_locked = false
 	# ─────────────────────────────────────────────────────────────────────
 	GameData.mark_map_completed(GameData.current_level)
+	GameData.current_level += 1
+	GameData.max_enemy_units += 1
+	GameData.map_difficulty += 1
 	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
