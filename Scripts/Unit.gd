@@ -669,10 +669,9 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 func _choose_drop_scene() -> PackedScene:
 	var roll = randi() % 100
 	if roll < 50:  # 50% chance to drop something
-		match randi() % 4:
-			0: return HEALTH_SCENE
-			1: return LIGHTNING_SCENE
-			2: return ORBITAL_STRIKE_SCENE
+		match randi() % 3:
+			0: return LIGHTNING_SCENE
+			1: return ORBITAL_STRIKE_SCENE 
 	return null
 	
 @rpc("reliable")
@@ -2228,7 +2227,7 @@ func spawn_floating_text(amount: int):
 func spawn_text_popup(message: String, color: Color = Color.WHITE):
 	var popup_scene = preload("res://Scenes/VFX/popup_text.tscn")
 	var popup = popup_scene.instantiate()
-	popup.position = global_position + Vector2(0, -32)  # Slightly above the unit
+	popup.position = global_position + Vector2(0, -64)  # Slightly above the unit
 	popup.set_text(message, color)
 	get_tree().get_current_scene().add_child(popup)
 

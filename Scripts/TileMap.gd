@@ -214,8 +214,8 @@ func _ready():
 
 		print("[Client] → seeded unit_upgrades:", GameData.unit_upgrades)
 		
-	TutorialManager.instruction_label = get_node("/root/BattleGrid/CanvasLayer/TutorialLabel")
-	TutorialManager.start()
+	#TutorialManager.instruction_label = get_node("/root/BattleGrid/CanvasLayer/TutorialLabel")
+	#TutorialManager.start()
 		
 
 

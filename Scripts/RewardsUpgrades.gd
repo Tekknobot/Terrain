@@ -72,7 +72,7 @@ func _display_unit_choices():
 		if unit.portrait:
 			var portrait = TextureRect.new()
 			portrait.texture      = unit.portrait
-			portrait.size         = Vector2(64, 64)
+			portrait.size         = Vector2(32, 32)
 			portrait.expand_mode  = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
 			portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			vbox.add_child(portrait)
@@ -80,7 +80,7 @@ func _display_unit_choices():
 			if unit.mek_portrait:
 				var mek = TextureRect.new()
 				mek.texture      = unit.mek_portrait
-				mek.size         = Vector2(64, 64)
+				mek.size         = Vector2(32, 32)
 				mek.expand_mode  = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
 				mek.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				vbox.add_child(mek)
@@ -105,7 +105,7 @@ func _display_unit_choices():
 				btn.add_theme_font_size_override("font_size", 32)
 			
 			# Ensure a minimum size so UI doesn’t shrink/grow
-			btn.custom_minimum_size = Vector2(140, 40)
+			btn.custom_minimum_size = Vector2(100, 35)
 
 			# Signal
 			btn.pressed.connect(Callable(self, "_on_upgrade_chosen").bind(unit_id, upgrade))
