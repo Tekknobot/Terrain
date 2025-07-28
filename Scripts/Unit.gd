@@ -110,7 +110,9 @@ var prev_tile_pos: Vector2i
 func _ready():
 	prev_tile_pos = tile_pos
 	connect("movement_finished", Callable(self, "_on_movement_finished"))
-		
+	TurnManager.connect("round_ended", Callable(self, "_on_round_ended"))
+	TurnManager.connect("turn_ended", Callable(self, "_on_turn_ended"))
+	
 	# On the host (authoritative), assign a new ID if one is not already set.
 	if is_multiplayer_authority():
 		if not has_meta("unit_id"):
@@ -1260,74 +1262,94 @@ func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
 func guardian_halo(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 
-	# distance check
-	var dist = (target_tile - tile_pos).abs().x + (target_tile - tile_pos).abs().y
-	if dist > 5:
+	# 1) distance check
+	var delta = target_tile - tile_pos
+	if abs(delta.x) + abs(delta.y) > 5:
 		return
 
-	# find the ally at that tile
-	var ally = tilemap.get_unit_at_tile(target_tile)
-
-	ally.shield_duration = 1
-	ally._shield_just_applied = true
-	
-	# fallback in case your map lookup differs
-	if not ally:
+	# 2) find the unit on that tile (map lookup, then fallback)
+	var unit = tilemap.get_unit_at_tile(target_tile)
+	if not is_instance_valid(unit):
 		for u in get_tree().get_nodes_in_group("Units"):
-			if u.tile_pos == target_tile and u.is_player == is_player:
-				ally = u
+			if u.tile_pos == target_tile:
+				unit = u
 				break
 
-	if ally and ally.is_player == is_player:
-		# buff them
-		ally.shield_duration = 1
-		# make sure a Halo particle node exists
-		var halo = ally.get_node_or_null("Halo") as CPUParticles2D
+	if is_instance_valid(unit):
+		# 3) apply shield and mark it as “just applied”
+		unit.shield_duration = 1
+		unit._shield_just_applied = true
+
+		# 4) ensure a Halo particle exists
+		var halo = unit.get_node_or_null("Halo") as CPUParticles2D
 		if not halo:
-			$Halo.emitting = true
+			halo = CPUParticles2D.new()
 			halo.name = "Halo"
-			# …configure your particle material here…
-			ally.add_child(halo)
+			# …configure your particle material…
+			unit.add_child(halo)
 		halo.emitting = true
 
-		# play caster VFX & SFX
+		# 5) play VFX/SFX & await
 		$AudioStreamPlayer2D.play()
 		$AnimatedSprite2D.play("attack")
 		await $AnimatedSprite2D.animation_finished
 		$AnimatedSprite2D.play("default")
 	else:
-		# no valid friend there? heal yourself instead
+		# no unit there → heal self
 		health = min(max_health, health + 20)
 		update_health_bar()
 		$AnimatedSprite2D.play("attack")
 		await $AnimatedSprite2D.animation_finished
 		$AnimatedSprite2D.play("default")
-	# mark you’ve used your action
+
+	# 6) mark action used
 	has_moved = true
 	has_attacked = true
-	$AnimatedSprite2D.self_modulate = Color(0.4,0.4,0.4,1)
+	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-func _on_round_ended() -> void:
-	# (Your existing shield_duration logic, if any)
+func _on_round_ended(ended_team: int) -> void:
+	# if it was *your* team’s turn that just ended, do nothing
+	var ended_is_player_turn = (ended_team == TurnManager.Team.PLAYER)
+	if ended_is_player_turn == is_player:
+		return
+
+	# otherwise, expire Guardian Halo:
 	if shield_duration > 0:
-		if _shield_just_applied:
-			# skip this round, but clear the flag so next time it really counts
-			_shield_just_applied = false
-		else:
-			shield_duration -= 1
-			if shield_duration == 0 and has_node("Halo"):
-				get_node("Halo").emitting = false
+		shield_duration -= 1
+		if shield_duration == 0:
+			var halo = get_node_or_null("Halo") as CPUParticles2D
+			if halo:
+				halo.emitting = false
 
-	# Clear Fortify status
+	# and expire Fortify:
 	if is_fortified:
 		is_fortified = false
-
-		# Remove the aura if it’s still active
 		if _fortify_aura:
 			_fortify_aura.queue_free()
 			_fortify_aura = null
 
-	#apply_tile_effect()
+func _on_turn_ended(ended_team: int) -> void:
+	# did my own team just finish?
+	var ended_is_player = (ended_team == TurnManager.Team.PLAYER)
+	if ended_is_player == is_player:
+		return  # skip—only expire on *opponent* turn end
+
+	# --- Opponent just finished → expire buffs now ---
+
+	# Guardian’s halo:
+	if shield_duration > 0:
+		shield_duration -= 1
+		if shield_duration == 0:
+			var halo = get_node_or_null("Halo") as CPUParticles2D
+			if halo:
+				halo.emitting = false
+
+	# Brute’s fortify:
+	if is_fortified:
+		is_fortified = false
+		if _fortify_aura:
+			_fortify_aura.queue_free()
+			_fortify_aura = null
 
 func apply_tile_effect():
 	# ─── Reset to base stats first ─────────────────────────
