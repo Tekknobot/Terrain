@@ -158,22 +158,7 @@ func debug_print_units():
 
 func _process(delta):
 	update_z_index()
-	_update_tile_pos()    # updates tile_pos behind the scenes
 	check_water_status()
-
-	# Did we change cells since last frame?
-	if tile_pos != prev_tile_pos:
-		apply_tile_effect()
-		prev_tile_pos = tile_pos
-
-func _update_tile_pos():
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var old = tile_pos
-	tile_pos = tilemap.local_to_map(tilemap.to_local(global_position))
-	if tile_pos != old:
-		# We’ve stepped onto a different tile—clear out the old effect
-		apply_tile_effect()
-		prev_tile_pos = tile_pos
 
 func update_z_index():
 	z_index = int(position.y)
@@ -182,19 +167,16 @@ func update_z_index():
 ### PLAYER TURN ###
 func start_turn():
 	# Wait for player input; call on_player_done() when action is complete
-	#apply_tile_effect()
 	pass
 
 func on_player_done():
 	TurnManager.unit_finished_action(self)
 
-
 func compute_path(from: Vector2i, to: Vector2i) -> Array:
 	await get_tree().process_frame
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	tilemap.update_astar_grid()  # 🔥 Crucial step!
+	tilemap.update_astar_grid()  # Crucial step!
 	return tilemap.astar.get_point_path(from, to)
-
 
 func _move_one(dest: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
@@ -240,22 +222,6 @@ func move_to(dest: Vector2i) -> void:
 	has_moved = true
 	
 	print("DEBUG: Finished moving unit ", unit_id, ". Tile pos: ", tile_pos, ", Global pos: ", global_position)
-	
-	if is_multiplayer_authority():
-		print("DEBUG: Authority moving unit:", unit_id, ", new tile:", tile_pos, ", new global pos:", global_position)
-		rpc("remote_update_unit_position", unit_id, tile_pos, global_position)
-	else:
-		print("DEBUG: Not the authority for unit:", unit_id)
-
-@rpc("reliable")
-func remote_update_unit_position(remote_id: int, new_tile: Vector2i, new_position: Vector2) -> void:
-	var unit = get_unit_by_id(remote_id)
-	if unit and unit != self:
-		unit.tile_pos = new_tile
-		unit.global_position = new_position
-		print("Updated unit ", remote_id, " to new_tile: ", new_tile, ", new global pos: ", new_position)
-	else:
-		print("Failed to update unit with remote_id: ", remote_id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -851,6 +817,7 @@ func execute_actions():
 		await move_to(queued_move)
 		has_moved = true
 		queued_move = Vector2i(-1, -1)
+		emit_signal("movement_finished")
 		if not is_instance_valid(self):
 			return
 		if not is_player and attack_range == 1:
@@ -2251,8 +2218,8 @@ func apply_upgrade(upgrade: String) -> void:
 func get_mek_portrait() -> Texture:
 	return mek_portrait
 
-func _on_movement_finished():
-	# only re-apply if the tile actually changed
+func _on_movement_finished() -> void:
+	# only apply when the tile actually changed
 	if tile_pos != prev_tile_pos:
 		apply_tile_effect()
 		prev_tile_pos = tile_pos

@@ -1,4 +1,4 @@
-res://Prefabs/UpgradeWindow.tscn
+res://Scenes/TitleScreen.tscn
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
 res://Textures/level_up.gdshader
@@ -8,11 +8,10 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
-res://Scenes/TitleScreen.tscn
-res://Scripts/RewardsUpgrades.gd
 res://Scenes/Main.tscn
+res://Prefabs/UpgradeWindow.tscn
 res://Scenes/GameOver.tscn
-res://Scripts/Unit.gd
+res://Scripts/RewardsUpgrades.gd
 res://Scripts/TurnManager.gd
-res://Scripts/TutorialManager.gd
+res://Scripts/Unit.gd
 res://Scripts/TileMap.gd

@@ -261,6 +261,7 @@ func _physics_process(delta):
 				moving = false
 				sprite.play("default")
 				selected_unit.has_moved = true
+				selected_unit._on_movement_finished()
 
 # ———————————————————————————————————————————————————————————————
 # MAP INITIALIZATION & IMPORT/EXPORT
@@ -2083,47 +2084,14 @@ func _move_selected_to(target: Vector2i) -> void:
 	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
+		selected_unit._on_movement_finished()
 		return
 
 	moving = true
 	print("DEBUG: Moving unit", selected_unit.unit_id, "→", target)
 
-	if is_multiplayer_authority():
-		server_request_move(selected_unit.unit_id, target.x, target.y)
-	else:
-		var auth_id = get_multiplayer_authority()
-		print("Client → server_request_move → authority peer", auth_id)
-		rpc_id(auth_id, "server_request_move", selected_unit.unit_id, target.x, target.y)
-
 	if TutorialManager.tutorial_active:
 		TutorialManager.on_action("unit_moved")		
-
-@rpc("any_peer", "reliable")
-func server_request_move(unit_id: int, tx: int, ty: int) -> void:
-	if not is_multiplayer_authority():
-		return
-
-	var to = Vector2i(tx, ty)
-	print("🏠 Server got move request for unit", unit_id, "→", to)
-	rpc("remote_start_move", unit_id, tx, ty)
-	remote_start_move(unit_id, tx, ty)
-
-@rpc("any_peer", "unreliable")
-func remote_start_move(unit_id: int, tx: int, ty: int) -> void:
-	var to = Vector2i(tx, ty)
-	var unit = get_unit_by_id(unit_id)
-	if not unit:
-		print("⚠ remote_start_move: no unit", unit_id)
-		return
-
-	selected_unit = unit
-	update_astar_grid()
-	current_path = get_weighted_path(unit.tile_pos, to)
-	if current_path.is_empty():
-		return
-
-	moving = true
-	print("🔔 Peer", get_tree().get_multiplayer().get_unique_id(), "syncing move of unit", unit_id, "→", to)
 
 # ———————————————————————————————————————————————————————————————
 # TURN MANAGEMENT

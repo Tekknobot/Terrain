@@ -1,6 +1,6 @@
+Label
 Node2D
 Camera2D
-Label
 Control
 CanvasLayer
 PanelContainer
@@ -12,4 +12,3 @@ HBoxContainer
 Button
 Line2D
 AudioStreamPlayer2D
-CollisionShape2D
