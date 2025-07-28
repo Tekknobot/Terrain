@@ -21,6 +21,7 @@ var next_unit_id: int = 1
 var match_done: bool = false
 
 @export var reset_button: Button
+const AI_SPECIAL_CHANCE := 60  # percent chance to actually fire a special when one is available
 
 func _ready():
 	# Record the initial number of player units.
@@ -128,95 +129,102 @@ func evaluate_candidate(candidate: Vector2i, unit, tilemap, target) -> int:
 	return score
 
 func _start_unit_action(team):
-	# 1) If any unit is still flagged as being pushed, wait one frame and retry
+	# 1) Wait for any “being_pushed” to clear
 	while true:
-		var any_still_pushing = false
+		var still_pushing = false
 		for u in get_tree().get_nodes_in_group("Units"):
 			if is_instance_valid(u) and u.being_pushed:
-				any_still_pushing = true
+				still_pushing = true
 				break
-		if not any_still_pushing:
+		if not still_pushing:
 			break
 		await get_tree().process_frame
-			
+
 	active_units = active_units.filter(is_instance_valid)
-	
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+
+	# 2) Find the next unit for this team
 	while active_unit_index < active_units.size():
 		var unit = active_units[active_unit_index]
 		if not is_instance_valid(unit):
 			active_unit_index += 1
 			continue
-		
-		# Enemy branch:
+
+		# ─── ENEMY TURN ─────────────────────────────────────────
 		if team == Team.ENEMY and not unit.is_player:
 			hide_end_turn_button()
-			# First, plan movement toward the closest enemy.
-			var target = find_closest_enemy(unit)
-			var path = []
-			if target:
-				var tilemap = get_tree().get_current_scene().get_node("TileMap")
-				tilemap.update_astar_grid()
-				path = await unit.compute_path(unit.tile_pos, target.tile_pos)
-				if path.size() > 1:
-					var move_tile = unit.tile_pos  # default to current position
 
-					var max_range_tile = unit.tile_pos
-					var max_distance := -1
-					
+			# a) Only try a special if we haven't yet moved or attacked
+			if not unit.has_moved and not unit.has_attacked:
+				var special = _choose_special_ability(unit)
+				if special and (randi() % 100) < AI_SPECIAL_CHANCE:
+					match special.ability:
+						"ground_slam":
+							tilemap.request_ground_slam(unit.unit_id, special.target)
+						"mark_and_pounce":
+							tilemap.request_mark_and_pounce(unit.unit_id, special.target.get_meta("unit_id"))
+						"guardian_halo":
+							tilemap.request_guardian_halo(unit.unit_id, special.target)
+						"high_arcing_shot":
+							tilemap.request_high_arcing_shot(unit.unit_id, special.target)
+						"suppressive_fire":
+							tilemap.request_suppressive_fire(unit.unit_id, special.target)
+						"fortify":
+							tilemap.request_fortify(unit.unit_id, special.target)
+						"request_airlift_pick":
+							tilemap.request_heavy_rain(unit.unit_id, special.target)
+						"spider_blast":
+							tilemap.request_thread_attack(unit.unit_id, special.target)
+						# …add any other specials you’ve defined here…
+					unit.has_moved = true
+					unit.has_attacked = true
+					unit_finished_action(unit)
+					return
+
+			# b) Otherwise, plan movement toward closest enemy
+			var target = find_closest_enemy(unit)
+			if target:
+				tilemap.update_astar_grid()
+				var path = await unit.compute_path(unit.tile_pos, target.tile_pos)
+				if path.size() > 1:
+					var move_tile: Vector2i = unit.tile_pos
+					var max_dist := -1
 					if is_instance_valid(target):
 						for i in range(1, min(unit.movement_range + 1, path.size())):
-							var tile: Vector2i = path[i]
-							var distance = abs(tile.x - target.tile_pos.x) + abs(tile.y - target.tile_pos.y)
-
-							# Stay in attack range, but not adjacent
-							if distance <= unit.attack_range and distance > 1:
-								if distance > max_distance:
-									max_distance = distance
-									move_tile = tile
-					else:
-						print("⚠️ Skipping movement — target no longer valid for", unit.name)
-						
-					# If no suitable tile found, fall back to closest in movement range
+							var world_point: Vector2 = path[i]
+							var tile_point = Vector2i(int(world_point.x), int(world_point.y))
+							var d = tile_point.distance_to(target.tile_pos)
+							if d <= unit.attack_range and d > 1 and d > max_dist:
+								max_dist = d
+								move_tile = tile_point
 					if move_tile == unit.tile_pos and path.size() > 1:
-						move_tile = path[min(unit.movement_range, path.size() - 1)]
-
-					print("🎯 Planning move to:", move_tile, "for enemy", unit.name)
+						var fallback = path[min(unit.movement_range, path.size() - 1)]
+						move_tile = Vector2i(int(fallback.x), int(fallback.y))
 					unit.plan_move(move_tile)
 
-			else:
-				print("❌ No valid path found. Enemy won't move this turn.")
-			
-			# Execute the planned movement.
+			# execute movement
 			await unit.execute_actions()
 			if not is_instance_valid(unit):
 				end_turn()
-								
-			# Now, if the unit is ranged, check for a valid target.
-			if unit.unit_type == "Ranged" or unit.unit_type == "Support":
-				var ranged_target = _find_ranged_target(unit)
-				if ranged_target:
-					print("🤖 Ranged enemy", unit.name, "attacking target", ranged_target.name)
-					unit.has_moved = true
-					await unit.auto_attack_ranged(ranged_target, unit)
-				# (Optional: you might let a melee enemy also attack here if adjacent.)
-			else:
-				# For melee units, check if there is an adjacent enemy to attack.
-				if unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
-					print("⚔️ Enemy", unit.name, "has adjacent target. Skipping movement attack.")
-					unit.has_moved = true
-					await _run_safe_enemy_action(unit)
-							
-			unit_finished_action(unit)			
+
+			# c) Ranged vs melee fallback attack
+			if unit.unit_type in ["Ranged", "Support"]:
+				var rt = _find_ranged_target(unit)
+				if rt:
+					tilemap.request_auto_attack_ranged_unit(unit.unit_id, rt.unit_id)
+			elif unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
+				await unit.auto_attack_adjacent()
+
+			unit_finished_action(unit)
 			return
-		
-		# Player branch.
+
+		# ─── PLAYER TURN ────────────────────────────────────────
 		elif team == Team.PLAYER and unit.is_player:
-			print("🧍 Player unit turn:", unit.name)
 			unit.start_turn()
 			return
-		
+
 		active_unit_index += 1
-	
+
 	end_turn()
 
 func _run_safe_enemy_action(unit):
@@ -592,3 +600,139 @@ func manhattan_line(start: Vector2i, end: Vector2i) -> Array:
 		path.append(Vector2i(current.x, current.y))
 		
 	return path
+
+func _choose_special_ability(unit):
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var directions = [
+		Vector2i( 1,  0), Vector2i(-1,  0),
+		Vector2i( 0,  1), Vector2i( 0, -1)
+	]
+
+	# 1) Hulk — Ground Slam
+	if unit.unit_name == "Vanguard":
+		for dir in directions:
+			var check = unit.tile_pos + dir
+			if tilemap.is_within_bounds(check):
+				var u = tilemap.get_unit_at_tile(check)
+				if u and u.is_player:
+					return {
+						"ability": "ground_slam",
+						"target": check
+					}
+
+	# 2) Panther — Mark & Pounce
+	if unit.unit_name == "Aegis":
+		for other in get_tree().get_nodes_in_group("Units"):
+			if other.is_player:
+				var dist = abs(unit.tile_pos.x - other.tile_pos.x) + abs(unit.tile_pos.y - other.tile_pos.y)
+				if dist > 0 and dist <= 3:
+					return {
+						"ability": "mark_and_pounce",
+						"target": other
+					}
+
+	# 3) Angel — Guardian Halo
+	if unit.unit_name == "Tempest":
+		var best_ally = null
+		var lowest_hp = INF
+		for u in get_tree().get_nodes_in_group("Units"):
+			if u.is_player == unit.is_player and u != unit:
+				var d = abs(unit.tile_pos.x - u.tile_pos.x) + abs(unit.tile_pos.y - u.tile_pos.y)
+				if d <= 5 and u.health < lowest_hp:
+					lowest_hp = u.health
+					best_ally = u
+		if best_ally and best_ally.health < best_ally.max_health * 0.7:
+			return {
+				"ability": "guardian_halo",
+				"target": best_ally.tile_pos
+			}
+
+	# 4) Cannon — High‑Arcing Shot
+	if unit.unit_name == "Titan":
+		var best_center = null
+		var best_count = 0
+		for other in get_tree().get_nodes_in_group("Units"):
+			if other.is_player:
+				var center = other.tile_pos
+				var d = abs(unit.tile_pos.x - center.x) + abs(unit.tile_pos.y - center.y)
+				if d <= 5:
+					var count = 0
+					for dx in range(-1, 2):
+						for dy in range(-1, 2):
+							var t = Vector2i(center.x + dx, center.y + dy)
+							if tilemap.is_within_bounds(t):
+								var u = tilemap.get_unit_at_tile(t)
+								if u and u.is_player:
+									count += 1
+					if count > best_count:
+						best_count = count
+						best_center = center
+		if best_center != null and best_count > 1:
+			return {
+				"ability": "high_arcing_shot",
+				"target": best_center
+			}
+
+	# 5) MultiTurret — Suppressive Fire
+	if unit.unit_name == "Specter":
+		for dir in directions:
+			var check = unit.tile_pos + dir
+			if tilemap.is_within_bounds(check):
+				var u = tilemap.get_unit_at_tile(check)
+				if u and u.is_player:
+					return {
+						"ability": "suppressive_fire",
+						"target": unit.tile_pos
+					}
+
+	# 6) Brute — Fortify (self‑buff)
+	if unit.unit_name == "Nova":
+		if not unit.is_fortified:
+			return {
+				"ability": "fortify",
+				"target": unit.tile_pos   # ← now we supply one Vector2i
+			}
+
+	# 7) Helicopter — Heavy Rain (5×5 AOE within 5)
+	if unit.unit_name == "Raptor":
+		var best_center := Vector2i(-1, -1)
+		var best_count := 0
+		# scan every player unit as a candidate center
+		for other in get_tree().get_nodes_in_group("Units"):
+			if other.is_player:
+				var center = other.tile_pos
+				var d = abs(unit.tile_pos.x - center.x) + abs(unit.tile_pos.y - center.y)
+				if d <= 5:
+					# count how many enemies in a 5×5 around this center
+					var count := 0
+					for dx in range(-2, 3):  # -2, -1, 0, 1, 2
+						for dy in range(-2, 3):
+							var t = Vector2i(center.x + dx, center.y + dy)
+							if tilemap.is_within_bounds(t):
+								var u = tilemap.get_unit_at_tile(t)
+								if u and u.is_player:
+									count += 1
+					if count > best_count:
+						best_count = count
+						best_center = center
+
+		# only cast if we'll hit at least one target
+		if best_center != Vector2i(-1, -1) and best_count > 0:
+			return {
+				"ability": "request_heavy_rain",
+				"target": best_center
+			}
+
+	# 8) Spider — Spider Blast
+	if unit.unit_name == "Valkyrie":
+		for other in get_tree().get_nodes_in_group("Units"):
+			if other.is_player:
+				var d = abs(unit.tile_pos.x - other.tile_pos.x) + abs(unit.tile_pos.y - other.tile_pos.y)
+				if d <= 5:
+					return {
+						"ability": "spider_blast",
+						"target": other.tile_pos
+					}
+
+	# no special chosen
+	return null

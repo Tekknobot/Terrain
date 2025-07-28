@@ -19,7 +19,7 @@ func _ready():
 		preload("res://Audio/Music/Track 3.wav")		
 	]
 
-	#play_current_track()
+	play_current_track()
 
 func play_current_track():
 	if playlist.is_empty():

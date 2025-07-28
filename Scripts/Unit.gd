@@ -592,7 +592,7 @@ func _get_random_open_tile() -> Vector2i:
 #–– Your burst spawner, but now landing on a random open tile
 func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 	var tm = tilemap.get_node("TileMap") if tilemap.has_node("TileMap") else tilemap
-	var num_attempts  := 3
+	var num_attempts  := 1
 	var spawn_height  := 200.0
 	var fall_time     := 5.0
 	var fade_in_time  := 1

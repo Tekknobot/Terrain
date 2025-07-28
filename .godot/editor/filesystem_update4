@@ -16,3 +16,13 @@ res://Scripts/TurnManager.gd
 res://Scripts/Unit.gd
 res://Scripts/TileMap.gd
 res://Scripts/Missile.gd
+res://Scripts/MusicManager.gd
+res://Scripts/GameData.gd
+res://Scenes/Meks_Scenes/PLAYER/M1.scn
+res://Scenes/Meks_Scenes/PLAYER/S3.scn
+res://Scenes/Meks_Scenes/PLAYER/M2.scn
+res://Scenes/Meks_Scenes/PLAYER/R1.scn
+res://Scenes/Meks_Scenes/PLAYER/R2.scn
+res://Scenes/Meks_Scenes/PLAYER/R3.scn
+res://Scenes/Meks_Scenes/PLAYER/R4.scn
+res://Scenes/Meks_Scenes/PLAYER/S2.scn

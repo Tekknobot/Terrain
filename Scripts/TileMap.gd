@@ -1593,23 +1593,13 @@ func sync_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
 		atk.suppressive_fire(dir)
 
 # 6) Fortify
-@rpc("any_peer", "reliable")
-func request_fortify(attacker_id: int) -> void:
-	if not is_multiplayer_authority():
-		return
+# before: func request_fortify(attacker_id: int) -> void
+@rpc("any_peer","reliable")
+func request_fortify(attacker_id: int, target_tile: Vector2i) -> void:
+	if not is_multiplayer_authority(): return
 	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.fortify()
-	rpc("sync_fortify", attacker_id)
-
-@rpc("any_peer", "reliable")
-func sync_fortify(attacker_id: int) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.fortify()
+	if not atk: return
+	atk.fortify(target_tile)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 7a) Airlift — PICK UP an ally
