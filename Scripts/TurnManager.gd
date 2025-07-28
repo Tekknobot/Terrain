@@ -176,6 +176,7 @@ func _start_unit_action(team):
 						"spider_blast":
 							tilemap.request_thread_attack(unit.unit_id, special.target)
 						# …add any other specials you’ve defined here…
+					await unit.execute_actions()
 					unit.has_moved = true
 					unit.has_attacked = true
 					unit_finished_action(unit)

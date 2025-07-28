@@ -39,6 +39,7 @@ var being_pushed: bool = false
 # 2) Angel shield
 var shield_amount: int = 0
 var shield_duration: int = 0  # counts down at end of next turn
+var _shield_just_applied := false
 
 # 3) Multi Turret suppression
 var is_suppressed: bool = false
@@ -1259,67 +1260,63 @@ func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
 func guardian_halo(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 
-	# 1) Distance check
-	var du = target_tile - tile_pos
-	var dist = abs(du.x) + abs(du.y)
-	print("Guardian Halo called by ", name, "for tile", target_tile, "— dist:", dist)
+	# distance check
+	var dist = (target_tile - tile_pos).abs().x + (target_tile - tile_pos).abs().y
 	if dist > 5:
-		print(" → out of range")
 		return
 
-	# 2) Try to find the ally
+	# find the ally at that tile
 	var ally = tilemap.get_unit_at_tile(target_tile)
+
+	ally.shield_duration = 1
+	ally._shield_just_applied = true
+	
+	# fallback in case your map lookup differs
 	if not ally:
-		# fallback: search the Units group manually
 		for u in get_tree().get_nodes_in_group("Units"):
-			if u.is_player == is_player and u.tile_pos == target_tile:
+			if u.tile_pos == target_tile and u.is_player == is_player:
 				ally = u
 				break
-	print(" → found ally:", ally)
 
-	# 3) Grant shield if it really is an ally
 	if ally and ally.is_player == is_player:
+		# buff them
 		ally.shield_duration = 1
-		print("Angel ", name, " granted Guardian Halo to ", ally.name)
-
-		# Turn on the Halo particle (or create one if missing)
-		var halo: CPUParticles2D = null
-		if ally.has_node("Halo"):
-			halo = ally.get_node("Halo")
-		else:
-			halo = CPUParticles2D.new()
+		# make sure a Halo particle node exists
+		var halo = ally.get_node_or_null("Halo") as CPUParticles2D
+		if not halo:
+			$Halo.emitting = true
 			halo.name = "Halo"
+			# …configure your particle material here…
 			ally.add_child(halo)
-			# configure your particles here…
-
 		halo.emitting = true
 
-		# play effect + sound
+		# play caster VFX & SFX
 		$AudioStreamPlayer2D.play()
 		$AnimatedSprite2D.play("attack")
 		await $AnimatedSprite2D.animation_finished
 		$AnimatedSprite2D.play("default")
-
 	else:
-		# no valid ally → fallback heal
-		print("Angel ", name, " found no ally → healing self")
+		# no valid friend there? heal yourself instead
 		health = min(max_health, health + 20)
 		update_health_bar()
 		$AnimatedSprite2D.play("attack")
 		await $AnimatedSprite2D.animation_finished
 		$AnimatedSprite2D.play("default")
-
-	# 4) mark done
+	# mark you’ve used your action
+	has_moved = true
 	has_attacked = true
-	has_moved   = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	$AnimatedSprite2D.self_modulate = Color(0.4,0.4,0.4,1)
 
 func _on_round_ended() -> void:
 	# (Your existing shield_duration logic, if any)
 	if shield_duration > 0:
-		shield_duration -= 1
-		if shield_duration == 0 and has_node("Halo"):
-			get_node("Halo").emitting = false
+		if _shield_just_applied:
+			# skip this round, but clear the flag so next time it really counts
+			_shield_just_applied = false
+		else:
+			shield_duration -= 1
+			if shield_duration == 0 and has_node("Halo"):
+				get_node("Halo").emitting = false
 
 	# Clear Fortify status
 	if is_fortified:
