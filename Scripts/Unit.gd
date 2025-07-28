@@ -266,8 +266,6 @@ func take_damage(amount: int) -> bool:
 func auto_attack_adjacent():
 	# no melee attacks if you have zero range
 	if attack_range < 1:
-		# show a little “no attack” popup in red
-		spawn_text_popup("No ATK!", Color(1, 0, 0))
 		return
 			
 	var directions = [
@@ -455,9 +453,7 @@ func spawn_explosion_at(pos: Vector2):
 
 
 func has_adjacent_enemy() -> bool:
-	if attack_range < 1:
-		# show a little “no attack” popup in red
-		spawn_text_popup("No ATK!", Color(1, 0, 0))	
+	if attack_range < 1:	
 		return false
 			
 	var directions = [
@@ -1382,7 +1378,7 @@ func apply_tile_effect():
 		if neighbours.size() > 0:
 			var dest = neighbours[randi() % neighbours.size()]
 			plan_move(dest)
-			spawn_text_popup("Slip!", Color(0.6, 0.8, 1))
+			spawn_text_popup("-Slip!", Color(0.6, 0.8, 1))
 			await get_tree().create_timer(0.5).timeout
 			# ── apply a -2 ATK penalty on slip:
 			attack_range = max(0, attack_range - 2)

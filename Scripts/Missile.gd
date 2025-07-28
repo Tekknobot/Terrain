@@ -110,7 +110,9 @@ func _process(delta):
 					occupant.being_pushed = false
 					TutorialManager.on_action("collide_mechanic")
 					occupant.die()
-					tilemap.get_unit_at_tile(dest_tile).take_damage(25)
+					var pushed_unit = tilemap.get_unit_at_tile(dest_tile)
+					if pushed_unit:
+						pushed_unit.take_damage(25)
 					if tilemap.get_structure_at_tile(dest_tile):
 						var anim_sprite = tilemap.get_structure_at_tile(dest_tile).get_node_or_null("AnimatedSprite2D")
 						if anim_sprite:
