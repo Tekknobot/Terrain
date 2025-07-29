@@ -7,9 +7,9 @@ extends Node
 var coins: int = 0
 var xp: int = 0
 var current_level: int = 1
-var max_enemy_units: int = 1
+var max_enemy_units: int = 2
 
-var last_enemy_upgrade_level: int = 0
+var last_enemy_upgrade_level: int = 1
 
 var completed_maps: Array[int] = []
 

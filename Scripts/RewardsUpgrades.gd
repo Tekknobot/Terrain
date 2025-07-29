@@ -102,7 +102,7 @@ func _display_unit_choices():
 			# Apply inspector-chosen font and size override
 			if button_font:
 				btn.add_theme_font_override("font", button_font)
-				btn.add_theme_font_size_override("font_size", 16)
+				btn.add_theme_font_size_override("font_size", 32)
 			
 			# Ensure a minimum size so UI doesn’t shrink/grow
 			btn.custom_minimum_size = Vector2(64, 16)
