@@ -298,9 +298,9 @@ grow_vertical = 0
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 0
-offset_left = 23.0
+offset_left = -107.0
 offset_top = 32.0
-offset_right = 769.0
+offset_right = 771.0
 offset_bottom = 66.0
 theme_override_constants/separation = 32
 
@@ -332,6 +332,13 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("39_jffjd")
 theme_override_font_sizes/font_size = 32
 text = "Menu"
+
+[node name="Full" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
+custom_minimum_size = Vector2(100, 32)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("39_jffjd")
+theme_override_font_sizes/font_size = 32
+text = "Screen"
 
 [node name="TutorialLabel" type="Label" parent="CanvasLayer"]
 offset_left = 16.0
@@ -506,4 +513,5 @@ transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Menu" to="TileMap" method="_on_back_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Full" to="TileMap" method="_on_full_pressed"]
 [connection signal="pressed" from="HUDLayer/Control/Ability" to="TileMap" method="_on_ability_pressed"]

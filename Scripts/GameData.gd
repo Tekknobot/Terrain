@@ -155,3 +155,5 @@ func mark_map_completed(map_id: int) -> void:
 
 func is_map_completed(map_id: int) -> bool:
 	return map_id in completed_maps
+	
+	

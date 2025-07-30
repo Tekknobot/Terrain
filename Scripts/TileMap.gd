@@ -2626,3 +2626,11 @@ func _on_selected_unit_died():
 	selected_unit = null
 	showing_attack = false
 	_clear_highlights()
+
+func _on_full_pressed() -> void:
+	# Toggle between windowed and fullscreen
+	var mode = DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_WINDOWED:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
