@@ -175,10 +175,9 @@ func _start_unit_action(team):
 							tilemap.request_heavy_rain(unit.unit_id, special.target)
 						"spider_blast":
 							tilemap.request_thread_attack(unit.unit_id, special.target)
-						# …add any other specials you’ve defined here…
-					await unit.execute_actions()
-					unit.has_moved = true
-					unit.has_attacked = true
+					# ── WAIT FOR THE SPECIAL TO COMPLETE ──
+					while is_instance_valid(unit) and not (unit.has_moved and unit.has_attacked):
+						await get_tree().process_frame
 					unit_finished_action(unit)
 					return
 
@@ -205,8 +204,35 @@ func _start_unit_action(team):
 
 			# execute movement
 			await unit.execute_actions()
+
+			# ── allow special after movement if they still haven't attacked ──
+			if is_instance_valid(unit) and not unit.has_attacked:
+				var special2 = _choose_special_ability(unit)
+				if special2 and (randi() % 100) < AI_SPECIAL_CHANCE:
+					match special2.ability:
+						"ground_slam":
+							tilemap.request_ground_slam(unit.unit_id, special2.target)
+						"mark_and_pounce":
+							tilemap.request_mark_and_pounce(unit.unit_id, special2.target.get_meta("unit_id"))
+						"guardian_halo":
+							tilemap.request_guardian_halo(unit.unit_id, special2.target)
+						"high_arcing_shot":
+							tilemap.request_high_arcing_shot(unit.unit_id, special2.target)
+						"suppressive_fire":
+							tilemap.request_suppressive_fire(unit.unit_id, special2.target)
+						"fortify":
+							tilemap.request_fortify(unit.unit_id, special2.target)
+						"request_airlift_pick":
+							tilemap.request_heavy_rain(unit.unit_id, special2.target)
+						"spider_blast":
+							tilemap.request_thread_attack(unit.unit_id, special2.target)
+					while is_instance_valid(unit) and not unit.has_attacked:
+						await get_tree().process_frame
+
+			# If unit died during or after movement, bail out
 			if not is_instance_valid(unit):
 				end_turn()
+				return
 
 			# c) Ranged vs melee fallback attack
 			if unit.unit_type in ["Ranged", "Support"]:
