@@ -9,3 +9,7 @@ res://Textures/in_water.tres
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
 res://Scripts/Unit.gd
+res://Scripts/TileMap.gd
+res://Scenes/TitleScreen.tscn
+res://Prefabs/UpgradeWindow.tscn
+res://Scenes/GameOver.tscn

@@ -548,7 +548,7 @@ func die():
 	await get_tree().process_frame
 
 	# Spawn coins **first**
-	#_spawn_burst(death_scene, death_tile)
+	_spawn_burst(death_scene, death_tile)
 
 	# Now free this unit AFTER coins exist
 	queue_free()

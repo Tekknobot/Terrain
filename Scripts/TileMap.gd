@@ -1242,33 +1242,33 @@ func _input(event):
 					var enemy     = get_unit_at_tile(mouse_tile)
 					var structure = get_structure_at_tile(mouse_tile)
 
-					# ─────────── RANGED LOGIC ───────────
+					# ———————————————————————————————————————————————————————————————
+					# RANGED ATTACK: click to shoot, no “attack mode” needed
+					# ———————————————————————————————————————————————————————————————
 					if selected_unit.unit_type in ["Ranged", "Support"]:
+						# 1) Enemy on tile?
 						if enemy and enemy != selected_unit \
-						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
-							var server = get_multiplayer_authority()
+						   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 							request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-							showing_attack = false
 							_clear_highlights()
 							return
-						elif structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
-							var server = get_multiplayer_authority()
-							var tpos = structure.tile_pos
-							request_auto_attack_ranged_structure(selected_unit.unit_id, tpos)
+
+						# 2) Structure on tile?
+						if structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
+							request_auto_attack_ranged_structure(selected_unit.unit_id, structure.tile_pos)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-							showing_attack = false
 							_clear_highlights()
 							return
-						elif not enemy and not structure \
-							 and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
-							var server = get_multiplayer_authority()
+
+						# 3) Empty ground within range?
+						if not enemy and not structure \
+						   and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 							request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-							showing_attack = false
 							_clear_highlights()
 							return
-					
+
 					# ─────────── MELEE LOGIC ───────────
 					else:
 						if enemy and enemy.is_player != selected_unit.is_player \
