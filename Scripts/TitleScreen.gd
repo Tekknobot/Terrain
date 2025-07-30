@@ -4,6 +4,7 @@ extends Control
 @onready var play_button = $CenterContainer/VBoxContainer/Play
 @onready var multiplayer_button = $CenterContainer/VBoxContainer/Multiplayer
 @onready var quit_button = $CenterContainer/VBoxContainer/Quit
+@onready var tutorial_button = $CenterContainer/VBoxContainer/Tutorials
 
 func _ready() -> void:
 	# Optionally, play background music or start animations here.
@@ -13,7 +14,9 @@ func _ready() -> void:
 	# Connect signals if you haven't connected them in the editor.
 	play_button.pressed.connect(_on_PlayButton_pressed)
 	multiplayer_button.pressed.connect(_on_MultiplayerButton_pressed)
-	quit_button.pressed.connect(_on_QuitButton_pressed)
+	quit_button.pressed.connect(_on_QuitButton_pressed)	
+	tutorial_button.pressed.connect(_on_TutorialButton_pressed)
+
 
 func _on_PlayButton_pressed() -> void:
 	# Transition to your main game scene.
@@ -29,3 +32,6 @@ func _on_reset_pressed() -> void:
 	GameData.last_enemy_upgrade_level = 0
 	GameData.play_reset()
 	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
+
+func _on_TutorialButton_pressed() -> void:
+	get_tree().change_scene_to_file("res://Scenes/TutorialMenu.tscn")

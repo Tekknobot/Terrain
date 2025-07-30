@@ -1,0 +1,82 @@
+[gd_scene load_steps=5 format=3 uid="uid://cbfa0neupg0vi"]
+
+[ext_resource type="Script" uid="uid://c0kyqc7rd7fvh" path="res://Scripts/TutorialMenu.gd" id="1_u3yf7"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="2_pge7u"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="3_e5g7e"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_u3yf7"]
+bg_color = Color(0.0588235, 0.0588235, 0.0588235, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+
+[node name="TutorialMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_u3yf7")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 0
+offset_left = 223.0
+offset_top = 160.0
+offset_right = 435.0
+offset_bottom = 411.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_pge7u")
+theme_override_font_sizes/font_size = 64
+text = "Videos"
+
+[node name="PushBtn" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_e5g7e")
+theme_override_font_sizes/font_size = 32
+text = "Push"
+
+[node name="ImpactBtn" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_e5g7e")
+theme_override_font_sizes/font_size = 32
+text = "Impact"
+
+[node name="AbilitiesBtn" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_e5g7e")
+theme_override_font_sizes/font_size = 32
+text = "Abilities"
+
+[node name="TipsBtn" type="Button" parent="CenterContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_e5g7e")
+theme_override_font_sizes/font_size = 32
+text = "Tips"
+
+[node name="BackBtn" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_e5g7e")
+theme_override_font_sizes/font_size = 32
+text = "Back"
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 468.0
+offset_top = 229.0
+offset_right = 528.0
+offset_bottom = 289.0
+scale = Vector2(0.5, 0.5)
+theme_override_styles/panel = SubResource("StyleBoxFlat_u3yf7")
+
+[node name="VideoPlayer" type="VideoStreamPlayer" parent="PanelContainer"]
+layout_mode = 2

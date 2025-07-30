@@ -98,6 +98,13 @@ theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 32
 text = "PLAY"
 
+[node name="Tutorials" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_gujq3")
+theme_override_font_sizes/font_size = 32
+text = "Tutorials"
+
 [node name="Reset" type="Button" parent="CenterContainer/VBoxContainer"]
 custom_minimum_size = Vector2(200, 40)
 layout_mode = 2
