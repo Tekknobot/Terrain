@@ -134,10 +134,8 @@ func _start_unit_action(team):
 		var still_pushing = false
 		for u in get_tree().get_nodes_in_group("Units"):
 			if is_instance_valid(u) and u.being_pushed:
-				still_pushing = true
-				break
-		if not still_pushing:
-			break
+				still_pushing = true; break
+		if not still_pushing: break
 		await get_tree().process_frame
 
 	active_units = active_units.filter(is_instance_valid)
@@ -147,8 +145,7 @@ func _start_unit_action(team):
 	while active_unit_index < active_units.size():
 		var unit = active_units[active_unit_index]
 		if not is_instance_valid(unit):
-			active_unit_index += 1
-			continue
+			active_unit_index += 1; continue
 
 		# ─── ENEMY TURN ─────────────────────────────────────────
 		if team == Team.ENEMY and not unit.is_player:
@@ -159,83 +156,89 @@ func _start_unit_action(team):
 				var special = _choose_special_ability(unit)
 				if special and (randi() % 100) < AI_SPECIAL_CHANCE:
 					match special.ability:
-						"ground_slam":
-							tilemap.request_ground_slam(unit.unit_id, special.target)
-						"mark_and_pounce":
-							tilemap.request_mark_and_pounce(unit.unit_id, special.target.get_meta("unit_id"))
-						"guardian_halo":
-							tilemap.request_guardian_halo(unit.unit_id, special.target)
-						"high_arcing_shot":
-							tilemap.request_high_arcing_shot(unit.unit_id, special.target)
-						"suppressive_fire":
-							tilemap.request_suppressive_fire(unit.unit_id, special.target)
-						"fortify":
-							tilemap.request_fortify(unit.unit_id, special.target)
-						"request_airlift_pick":
-							tilemap.request_heavy_rain(unit.unit_id, special.target)
-						"spider_blast":
-							tilemap.request_thread_attack(unit.unit_id, special.target)
-					# ── WAIT FOR THE SPECIAL TO COMPLETE ──
+						"ground_slam": tilemap.request_ground_slam(unit.unit_id, special.target)
+						"mark_and_pounce": tilemap.request_mark_and_pounce(unit.unit_id, special.target.get_meta("unit_id"))
+						"guardian_halo": tilemap.request_guardian_halo(unit.unit_id, special.target)
+						"high_arcing_shot": tilemap.request_high_arcing_shot(unit.unit_id, special.target)
+						"suppressive_fire": tilemap.request_suppressive_fire(unit.unit_id, special.target)
+						"fortify": tilemap.request_fortify(unit.unit_id, special.target)
+						"request_airlift_pick": tilemap.request_heavy_rain(unit.unit_id, special.target)
+						"spider_blast": tilemap.request_thread_attack(unit.unit_id, special.target)
+					unit.has_moved  = true
+					unit.has_attacked = true	
+					# ── WAIT FOR SPECIAL TO FINISH ──
 					while is_instance_valid(unit) and not (unit.has_moved and unit.has_attacked):
 						await get_tree().process_frame
+					# if attacker died, abort
+					if not is_instance_valid(unit):
+						end_turn()
+						return
+					# check for game over (no opposing units)
+					var players_left = get_tree().get_nodes_in_group("Units").filter(func(u): return is_instance_valid(u) and u.is_player).size()
+					var enemies_left = get_tree().get_nodes_in_group("Units").filter(func(u): return is_instance_valid(u) and not u.is_player).size()
+					if players_left == 0 or enemies_left == 0:
+						end_turn()
+						return
 					unit_finished_action(unit)
 					return
 
-			# b) Otherwise, plan movement toward closest enemy
+			# b) Plan movement toward closest enemy
 			var target = find_closest_enemy(unit)
 			if target:
 				tilemap.update_astar_grid()
 				var path = await unit.compute_path(unit.tile_pos, target.tile_pos)
 				if path.size() > 1:
-					var move_tile: Vector2i = unit.tile_pos
-					var max_dist := -1
+					var move_tile = unit.tile_pos
+					var max_d = -1
 					if is_instance_valid(target):
-						for i in range(1, min(unit.movement_range + 1, path.size())):
-							var world_point: Vector2 = path[i]
-							var tile_point = Vector2i(int(world_point.x), int(world_point.y))
-							var d = tile_point.distance_to(target.tile_pos)
-							if d <= unit.attack_range and d > 1 and d > max_dist:
-								max_dist = d
-								move_tile = tile_point
-					if move_tile == unit.tile_pos and path.size() > 1:
-						var fallback = path[min(unit.movement_range, path.size() - 1)]
-						move_tile = Vector2i(int(fallback.x), int(fallback.y))
+						for i in range(1, min(unit.movement_range, path.size())):
+							var pt = Vector2i(path[i].x, path[i].y)
+							var d = pt.distance_to(target.tile_pos)
+							if d <= unit.attack_range and d > 1 and d > max_d:
+								max_d = d; move_tile = pt
+					if move_tile == unit.tile_pos:
+						move_tile = Vector2i(path[min(unit.movement_range, path.size()-1)].x, path[min(unit.movement_range, path.size()-1)].y)
 					unit.plan_move(move_tile)
 
 			# execute movement
 			await unit.execute_actions()
 
-			# ── allow special after movement if they still haven't attacked ──
+			# allow a second special if still able
 			if is_instance_valid(unit) and not unit.has_attacked:
 				var special2 = _choose_special_ability(unit)
 				if special2 and (randi() % 100) < AI_SPECIAL_CHANCE:
 					match special2.ability:
-						"ground_slam":
-							tilemap.request_ground_slam(unit.unit_id, special2.target)
-						"mark_and_pounce":
-							tilemap.request_mark_and_pounce(unit.unit_id, special2.target.get_meta("unit_id"))
-						"guardian_halo":
-							tilemap.request_guardian_halo(unit.unit_id, special2.target)
-						"high_arcing_shot":
-							tilemap.request_high_arcing_shot(unit.unit_id, special2.target)
-						"suppressive_fire":
-							tilemap.request_suppressive_fire(unit.unit_id, special2.target)
-						"fortify":
-							tilemap.request_fortify(unit.unit_id, special2.target)
-						"request_airlift_pick":
-							tilemap.request_heavy_rain(unit.unit_id, special2.target)
-						"spider_blast":
-							tilemap.request_thread_attack(unit.unit_id, special2.target)
+						"ground_slam": tilemap.request_ground_slam(unit.unit_id, special2.target)
+						"mark_and_pounce": tilemap.request_mark_and_pounce(unit.unit_id, special2.target.get_meta("unit_id"))
+						"guardian_halo": tilemap.request_guardian_halo(unit.unit_id, special2.target)
+						"high_arcing_shot": tilemap.request_high_arcing_shot(unit.unit_id, special2.target)
+						"suppressive_fire": tilemap.request_suppressive_fire(unit.unit_id, special2.target)
+						"fortify": tilemap.request_fortify(unit.unit_id, special2.target)
+						"request_airlift_pick": tilemap.request_heavy_rain(unit.unit_id, special2.target)
+						"spider_blast": tilemap.request_thread_attack(unit.unit_id, special2.target)
+					unit.has_moved  = true
+					unit.has_attacked = true	
 					while is_instance_valid(unit) and not unit.has_attacked:
 						await get_tree().process_frame
+					if not is_instance_valid(unit):
+						end_turn()
+						return
+					# game over check
+					var players_left = get_tree().get_nodes_in_group("Units").filter(func(u): return is_instance_valid(u) and u.is_player).size()
+					var enemies_left = get_tree().get_nodes_in_group("Units").filter(func(u): return is_instance_valid(u) and not u.is_player).size()
+					if players_left == 0 or enemies_left == 0:
+						end_turn()
+						return
+					unit_finished_action(unit)
+					return
 
-			# If unit died during or after movement, bail out
+			# if movement left unit invalid, abort
 			if not is_instance_valid(unit):
 				end_turn()
 				return
 
-			# c) Ranged vs melee fallback attack
-			if unit.unit_type in ["Ranged", "Support"]:
+			# c) Ranged/melee fallback
+			if is_instance_valid(unit) and unit.unit_type in ["Ranged","Support"]:
 				var rt = _find_ranged_target(unit)
 				if rt:
 					tilemap.request_auto_attack_ranged_unit(unit.unit_id, rt.unit_id)
