@@ -13,4 +13,3 @@ res://Scenes/Main.tscn
 res://Prefabs/UpgradeWindow.tscn
 res://Scenes/GameOver.tscn
 res://Scenes/TutorialMenu.tscn
-res://Scripts/TutorialMenu.gd

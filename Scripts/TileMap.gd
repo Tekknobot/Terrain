@@ -18,11 +18,11 @@ const MOVE_SPEED := 100.0  # pixels/sec
 
 @export var tilemap : TileMap
 
-@export var water_threshold := -0.65
-@export var sandstone_threshold := -0.2
-@export var dirt_threshold := 0.1
-@export var grass_threshold := 0.4
-@export var snow_threshold := 0.7
+@export var water_threshold   := -0.825    # was -0.65
+@export var sandstone_threshold := -0.2    # unchanged
+@export var dirt_threshold      :=  0.1    # unchanged
+@export var grass_threshold     :=  0.70   # was 0.4
+@export var snow_threshold      :=  0.85   # was 0.7
 
 @export var water_tile_id := 6
 @export var sandstone_tile_id := 10
@@ -360,7 +360,7 @@ func _get_tile_id_from_noise(n: float) -> int:
 func _generate_roads():
 	var used_h := []
 	var used_v := []
-	for i in randi_range(0, 2):
+	for i in randi_range(1, 2):
 		var hy = _get_unique_random_odd(grid_height, used_h)
 		draw_road(Vector2i(0, hy), Vector2i(1, 0), DOWN_RIGHT_ROAD)
 		var vx = _get_unique_random_odd(grid_width, used_v)
