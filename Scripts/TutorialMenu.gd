@@ -17,18 +17,18 @@ func _ready() -> void:
 func _on_controls_pressed() -> void:
 	info_label.text = """[b][color=orange]Controls[/color][/b]
 
-• [color=yellow]Left click[/color] or tap to [color=green]select[/color] a unit  
-• [color=yellow]Right click[/color] or hold to enter [color=red]attack mode[/color]  
-• [color=gray]Scroll Wheel[/color] to [color=blue]zoom[/color]"""
+[color=yellow]Left click[/color] or tap to [color=green]select[/color] a unit  
+[color=yellow]Right click[/color] or hold to enter [color=red]attack mode[/color]  
+[color=gray]Scroll Wheel[/color] to [color=blue]zoom[/color]"""
 
 func _on_terrain_pressed() -> void:
 	info_label.text = """[b][color=orange]Terrain Effects[/color][/b]
 
-• [color=green]Grass[/color] gains 5 HP when standing on it  
-• [color=white]Snow[/color] reduces attack range by 1  
-• [color=cyan]Ice[/color] reduces attack range by 2  
-• [color=brown]Road[/color] move 1 tile further on down right or down left  
-• [color=purple]Intersection[/color] move 2 tiles further"""
+[color=green]Grass[/color] gains 5 HP when standing on it  
+[color=white]Snow[/color] reduces attack range by 1  
+[color=cyan]Ice[/color] reduces attack range by 2  
+[color=brown]Road[/color] move 1 tile further on down right or down left  
+[color=purple]Intersection[/color] move 2 tiles further"""
 
 func _on_abilities_pressed() -> void:
 	info_label.text = """[b][color=orange]Special Abilities[/color][/b]
