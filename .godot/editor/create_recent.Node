@@ -1,7 +1,10 @@
 PanelContainer
+Container
+RichTextLabel
+Panel
+Label
 VideoStreamPlayer
 Button
-Label
 VBoxContainer
 CenterContainer
 Node2D
@@ -9,6 +12,3 @@ Camera2D
 Control
 CanvasLayer
 MarginContainer
-TextureRect
-Panel
-HBoxContainer
