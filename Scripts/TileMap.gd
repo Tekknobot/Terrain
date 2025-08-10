@@ -1118,7 +1118,7 @@ func _input(event):
 			and not selected_unit.has_attacked \
 			and selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1):
 				_clear_highlights()
-				selected_unit.fortify(mouse_tile)
+				selected_unit.fortify()
 				print("Fortify activated by unit:", selected_unit.name)
 				fortify_mode = false
 				ability_button.button_pressed = false
@@ -1165,126 +1165,113 @@ func _input(event):
 		# === NORMAL MOVEMENT / ATTACK / SELECTION ===
 		#
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			# If no unit is selected yet, allow this click to select a unit
-			# BEFORE any ability-mode blocks can early-return.			
 			var click_unit = get_unit_at_tile(mouse_tile)
-			# NEW: if a different unit is under the cursor, and it's on the active team,
-			# switch selection immediately (before any early returns).
-			if click_unit and selected_unit != null and click_unit != selected_unit:
-				var active_team = TurnManager.get_active_team()
-				var clicked_is_active = (active_team == TurnManager.Team.PLAYER and click_unit.is_player) \
-									 or (active_team == TurnManager.Team.ENEMY  and not click_unit.is_player)
-				if clicked_is_active:
+
+			# A) If nothing is selected yet, allow selection and bail.
+			if selected_unit == null:
+				if click_unit:
 					_select_unit_at_mouse()
-					return				
-			if click_unit:
-				_select_unit_at_mouse()
-				return			
-			if selected_unit and is_instance_valid(selected_unit):
-				# 1) compute “is it actually this unit’s turn?”
-				var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
-				var is_enemy_turn  = (turn_team == TurnManager.Team.ENEMY)
-				var can_act    = (is_player_turn and selected_unit.is_player) \
-							   or (is_enemy_turn  and not selected_unit.is_player)
-
-				# new: allow action only if it's this unit's team turn
-				var active_team = TurnManager.get_active_team()  # or TurnManager.active_team / TurnManager.get_active_team()
-
-				if active_team == TurnManager.Team.PLAYER:
-					can_act = selected_unit.is_player
-				else:
-					can_act = not selected_unit.is_player
-
-				var not_tinted  = (selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1))
-
-				# 2) attack logic (only if can_act AND showing_attack)
-				if not_tinted and can_act and showing_attack:
-					var enemy     = get_unit_at_tile(mouse_tile)
-					var structure = get_structure_at_tile(mouse_tile)
-
-					# ———————————————————————————————————————————————————————————————
-					# RANGED ATTACK: click to shoot, no “attack mode” needed
-					# ———————————————————————————————————————————————————————————————
-					if selected_unit.unit_type in ["Ranged", "Support"]:
-						# 1) Enemy on tile?
-						if enemy and enemy != selected_unit \
-						   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
-							auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
-							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-							_clear_highlights()
-							return
-
-						# 2) Structure on tile?
-						if structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
-							auto_attack_ranged_structure(selected_unit.unit_id, structure.tile_pos)
-							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-							_clear_highlights()
-							return
-
-						# 3) Empty ground within range?
-						if not enemy and not structure \
-						   and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
-							auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
-							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-							_clear_highlights()
-							return
-
-					# ─────────── MELEE LOGIC ───────────
-					else:
-						if enemy and enemy.is_player != selected_unit.is_player \
-						and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
-							selected_unit.auto_attack_adjacent()
-							var anim = selected_unit.get_node("AnimatedSprite2D")
-							anim.play("attack")
-							selected_unit.has_moved = true
-							showing_attack = false
-							_clear_highlights()
-							play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
-							return
-					# end melee
-
-				if selected_unit.being_pushed:
-					return
-					
-				# 3) movement logic – only if we are in “movement‐range shown” mode
-				if not_tinted and not showing_attack and not selected_unit.has_moved and can_act:
-					if highlighted_tiles.size() > 0 \
-					and highlighted_tiles.has(mouse_tile) \
-					and dist <= selected_unit.movement_range:
-						_move_selected_to(mouse_tile)
-						var sprite = selected_unit.get_node("AnimatedSprite2D")
-						sprite.self_modulate = Color(1, 0.6, 0.6, 1)
-						return
-
-				# 4) if it wasn’t a valid attack or move, but it’s still that unit’s turn, show range
-				if not_tinted and can_act and showing_attack == false:
-					# (nothing special here—just fall through to selection if they aren’t trying to move)
-					pass
-				# 5) if it’s not that unit’s turn, show its range anyway (peeking)
-				elif not_tinted and can_act == false:
-					# If you clicked a friendly unit, switch to it; otherwise just show range.
-					var clicked = get_unit_at_tile(mouse_tile)
-					var clicked_is_active = clicked != null and (
-						(active_team == TurnManager.Team.PLAYER and clicked.is_player) or
-						(active_team == TurnManager.Team.ENEMY  and not clicked.is_player)
-					)
-					if clicked_is_active and clicked != selected_unit:
-						_select_unit_at_mouse()
-					else:
-						_show_range_for_selected_unit()
-					return
-
-			# end if selected_unit
-
-			# 6) if we didn’t attack or move, check for an enemy‐peek click
-			if click_unit and click_unit.is_player == false:
-				_clear_highlights()
-				_peek_show_range_for(click_unit)
 				return
 
-			# 7) otherwise, select a new unit (or clear selection)
-			_select_unit_at_mouse()
+			# B) If our selected_unit is invalid, bail.
+			if not is_instance_valid(selected_unit):
+				return
 
+			# --- turn & state gates ---
+			var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
+			var is_enemy_turn  = (turn_team == TurnManager.Team.ENEMY)
+			var can_act = (is_player_turn and selected_unit.is_player) or (is_enemy_turn and not selected_unit.is_player)
+
+			var active_team = TurnManager.get_active_team()
+			can_act = (active_team == TurnManager.Team.PLAYER and selected_unit.is_player) \
+				   or (active_team == TurnManager.Team.ENEMY  and not selected_unit.is_player)
+
+			var not_tinted = (selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1))
+
+			# ==========================
+			# 1) ATTACKS COME FIRST
+			# ==========================
+			var enemy     = click_unit if (click_unit and click_unit.is_player != selected_unit.is_player) else null
+			var structure = get_structure_at_tile(mouse_tile)
+
+			# --- RANGED ATTACK (requires attack mode) ---
+			if not_tinted and can_act and showing_attack and selected_unit.unit_type in ["Ranged", "Support"]:
+				if enemy and enemy != selected_unit and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
+					auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
+					selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+					_clear_highlights()
+					return
+
+				if structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
+					auto_attack_ranged_structure(selected_unit.unit_id, structure.tile_pos)
+					selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+					_clear_highlights()
+					return
+
+				if not enemy and not structure and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
+					auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
+					selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
+					_clear_highlights()
+					return
+
+			# --- MELEE ATTACK (no attack mode required) ---
+			if not_tinted and can_act and selected_unit.unit_type == "Melee":
+				if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
+					selected_unit.auto_attack_adjacent()
+					var anim = selected_unit.get_node("AnimatedSprite2D")
+					anim.play("attack")
+					selected_unit.has_moved = true
+					showing_attack = false
+					_clear_highlights()
+					play_attack_sound(to_global(map_to_local(enemy.tile_pos)))
+					return
+
+			# If something is being pushed, ignore the rest
+			if selected_unit.being_pushed:
+				return
+
+			# ==========================
+			# 2) MOVEMENT (when not showing attack)
+			# ==========================
+			if not_tinted and not showing_attack and not selected_unit.has_moved and can_act:
+				if highlighted_tiles.size() > 0 and highlighted_tiles.has(mouse_tile) and dist <= selected_unit.movement_range:
+					_move_selected_to(mouse_tile)
+					var sprite = selected_unit.get_node("AnimatedSprite2D")
+					sprite.self_modulate = Color(1, 0.6, 0.6, 1)
+					return
+
+			# If it’s not our unit’s turn, allow peeking or switching to a same-team active unit
+			if not_tinted and not can_act:
+				var clicked_is_active = click_unit != null and (
+					(active_team == TurnManager.Team.PLAYER and click_unit.is_player) or
+					(active_team == TurnManager.Team.ENEMY  and not click_unit.is_player)
+				)
+				if clicked_is_active and click_unit != selected_unit and click_unit.is_player == selected_unit.is_player:
+					_select_unit_at_mouse()
+				else:
+					_show_range_for_selected_unit()
+				return
+
+			# ==========================
+			# 3) SELECTION FALLBACK
+			# ==========================
+			if click_unit:
+				# Same-team & active? Switch selection.
+				var same_team = (click_unit.is_player == selected_unit.is_player)
+				var clicked_is_active = (active_team == TurnManager.Team.PLAYER and click_unit.is_player) \
+									 or (active_team == TurnManager.Team.ENEMY  and not click_unit.is_player)
+				if same_team and clicked_is_active and click_unit != selected_unit:
+					_select_unit_at_mouse()
+					return
+
+				# Enemy clicked and no action happened → peek range (do NOT select the enemy)
+				if not click_unit.is_player:
+					_clear_highlights()
+					_peek_show_range_for(click_unit)
+					return
+
+			# Otherwise, refresh selection under cursor or clear
+			_select_unit_at_mouse()
 
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# If we have a selected_unit, behave as before (show its attack range)
