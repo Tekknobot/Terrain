@@ -327,10 +327,9 @@ func end_turn(game_over: bool = false):
 		print("❌ Game Over - You Lost!")
 		_show_game_over_screen("lose", stats, rewards)
 		hide_end_turn_button()
-		TurnManager.save_player_survivors_to_gamedata()
 		match_done = true
 		await get_tree().create_timer(1.0).timeout
-		#GameData.on_run_failed()  # ← hard reset between runs, back to Title
+		GameData.on_run_failed()  # ← hard reset between runs, back to Title
 		return
 	elif not enemy_units_exist:
 		print("✅ Game Over - You Won!")

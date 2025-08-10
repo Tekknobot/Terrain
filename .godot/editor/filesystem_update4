@@ -15,3 +15,6 @@ res://Scenes/GameOver.tscn
 res://Scenes/TutorialMenu.tscn
 res://Scenes/SquadSelect.tscn
 res://Scenes/UnitCard.tscn
+res://Scripts/RewardsUpgrades.gd
+res://Scripts/TurnManager.gd
+res://Scenes/RewardUpgrade.tscn

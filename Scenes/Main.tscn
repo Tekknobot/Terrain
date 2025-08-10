@@ -298,9 +298,9 @@ grow_vertical = 0
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Control"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 0
-offset_left = -50.0
+offset_left = 183.0
 offset_top = 32.0
-offset_right = 828.0
+offset_right = 1061.0
 offset_bottom = 66.0
 theme_override_constants/separation = 16
 
@@ -328,6 +328,7 @@ theme_override_font_sizes/font_size = 32
 text = "MAP"
 
 [node name="Menu" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
+visible = false
 custom_minimum_size = Vector2(100, 32)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("39_jffjd")
