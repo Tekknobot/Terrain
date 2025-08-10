@@ -34,6 +34,9 @@ const MOVE_SPEED := 100.0  # pixels/sec
 @export var player_units: Array[PackedScene]
 @export var enemy_units: Array[PackedScene]
 
+# at top with exports
+@export var all_player_prefabs: Array[PackedScene] = []
+
 @export var map_details: Label
 @export var highlight_tile_id := 5
 @export var attack_tile_id := 3
@@ -442,6 +445,10 @@ func _post_map_generation():
 
 	var used_tiles: Array[Vector2i] = []
 
+	# in _post_map_generation(), BEFORE _use_selected_squad_from_gamedata()
+	if all_player_prefabs.is_empty():
+		all_player_prefabs = player_units.duplicate(true)
+		
 	# 🔸 Use the exact squad the picker saved
 	_use_selected_squad_from_gamedata()
 
@@ -661,7 +668,7 @@ func spawn_structures():
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5
 	
-	max_structures = randi_range(4, 6)
+	max_structures = randi_range(3, 5)
 	
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
@@ -2158,13 +2165,15 @@ func _spawn_reinforcement_internal(is_player_team: bool) -> void:
 	# choose pool
 	var pool: Array[PackedScene] = []
 	if is_player_team:
-		pool = player_units
+		# ✅ use the full, original pool — not the selected squad
+		pool = all_player_prefabs
 	else:
 		pool = enemy_units
+
 	if pool.is_empty():
 		push_warning("Reinforcement: no scenes for team.")
 		return
-
+		
 	# zone like _spawn_side
 	var zone := Rect2i()
 	if is_player_team:

@@ -320,6 +320,7 @@ theme_override_font_sizes/font_size = 32
 text = "END TURN"
 
 [node name="Reset" type="Button" parent="CanvasLayer/Control/HBoxContainer" groups=["Reset_Button"]]
+visible = false
 custom_minimum_size = Vector2(100, 32)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("39_jffjd")

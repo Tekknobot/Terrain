@@ -31,7 +31,7 @@ func _on_QuitButton_pressed() -> void:
 func _on_reset_pressed() -> void:
 	GameData.last_enemy_upgrade_level = 0
 	GameData.play_reset()
-	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
+	get_tree().change_scene_to_file("res://Scenes/SquadSelect.tscn")
 
 func _on_TutorialButton_pressed() -> void:
 	get_tree().change_scene_to_file("res://Scenes/TutorialMenu.tscn")
