@@ -831,7 +831,7 @@ func spawn_new_enemy_units():
 		var id = GameData.next_unit_id
 		enemy_unit.unit_id = id
 		GameData.next_unit_id = id + 1
-		# enemy_unit.peer_id = 1             # ❌ remove
+		enemy_unit.set_meta("unit_id", id)  # ✅ add this
 		enemy_unit.set_meta("peer_id", 1)     # ✅ tag it instead
 		enemy_unit.set_meta("scene_path", enemy_scene.resource_path)
 
@@ -1315,89 +1315,12 @@ func _get_adjacent_tile(base: Vector2i) -> Vector2i:
 			return neighbor
 	return Vector2i(-1, -1)
 
-
 func get_unit_by_id(target_id: int) -> Node:
 	for u in get_tree().get_nodes_in_group("Units"):
-		if u.has_meta("unit_id") and u.get_meta("unit_id") == target_id:
+		if not is_instance_valid(u): continue
+		if (u.has_meta("unit_id") and int(u.get_meta("unit_id")) == target_id) or (u.has_meta("unit_id") and int(u.unit_id) == target_id):
 			return u
 	return null
-
-# 8) Web Field
-@rpc("any_peer", "reliable")
-func request_web_field(attacker_id: int, center_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.web_field(center_tile)
-	rpc("sync_web_field", attacker_id, center_tile)
-
-@rpc("any_peer", "reliable")
-func sync_web_field(attacker_id: int, center_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.web_field(center_tile)
-
-# 9) Thread Attack
-@rpc("any_peer", "reliable")
-func request_thread_attack(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.thread_attack(target_tile)
-	rpc("sync_thread_attack", attacker_id, target_tile)
-
-@rpc("any_peer", "reliable")
-func sync_thread_attack(attacker_id: int, target_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.thread_attack(target_tile)
-
-# 10) Lightning Surge
-@rpc("any_peer", "reliable")
-func request_lightning_surge(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.lightning_surge(target_tile)
-	rpc("sync_lightning_surge", attacker_id, target_tile)
-
-@rpc("any_peer", "reliable")
-func sync_lightning_surge(attacker_id: int, target_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.lightning_surge(target_tile)
-
-# 11) Heavy Rain
-@rpc("any_peer", "reliable")
-func request_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.spider_blast(target_tile)
-	rpc("sync_heavy_rain", attacker_id, target_tile)
-
-@rpc("any_peer", "reliable")
-func sync_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.spider_blast(target_tile)
-
 
 # ———————————————————————————————————————————————————————————————
 # VISUAL HELPERS
@@ -2150,22 +2073,58 @@ func _on_ability_pressed() -> void:
 # HELPER FUNCTIONS FOR TURN FLOW
 # ———————————————————————————————————————————————————————————————
 func _on_reset_pressed() -> void:
-	# Wipe *all* progress and start over
+	# Keep survivors (carryovers) just like Continue
+	_build_carryover_snapshot()
+
+	# Reset run stats + advance to next level (your existing behavior)
 	TurnManager.reset_match_stats()
 	TurnManager.transition_to_next_level()
-	
+
 	GameData.last_enemy_upgrade_level = 0
 	GameData.clear_enemy_upgrades()
+
 	endturn_button.visible = false
 	menu_button.visible   = false
 	reset_button.visible  = false
 
-func _on_continue_pressed() -> void:
-	# Keep your picked specials/upgrades, just bump the level
-	GameData.advance_level()
-	TurnManager.reset_match_stats()
-	self.visible = false
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+func _on_continue_button_pressed() -> void:
+	GameData.in_upgrade_phase = false
+
+	# 🔒 unlock input
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	tilemap.input_locked = false
+
+	# ✅ NEW: rebuild carryover snapshot *after* upgrades were chosen/applied
+	if tilemap and tilemap.has_method("_build_carryover_snapshot"):
+		tilemap._build_carryover_snapshot()
+
+	GameData.mark_map_completed(GameData.current_level)
+	GameData.current_level += 1
+	GameData.max_enemy_units += 1
+	GameData.map_difficulty += 1
+	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
+
+func _build_carryover_snapshot() -> void:
+	GameData.carryover_units.clear()
+	for unit in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(unit): 
+			continue
+		if not unit.is_player or unit.health <= 0:
+			continue
+		if not unit.has_meta("scene_path"):
+			continue
+		var scene_path := String(unit.get_meta("scene_path"))
+		var upgs: Array = GameData.get_upgrades(unit.unit_id)
+		var special_name := GameData.get_unit_special(unit.unit_id)
+
+		GameData.carryover_units.append({
+			"scene_path": scene_path,
+			"max_health": unit.max_health,
+			"health":     unit.health,
+			"upgrades":   upgs.duplicate(true),
+			"special":    special_name,
+			"level":      unit.level,
+		})
 
 func _on_back_pressed() -> void:
 	GameData.save_settings()
@@ -2255,6 +2214,7 @@ func _spawn_reinforcement_internal(is_player_team: bool) -> void:
 	# integrate like other spawns (with drop-in animation)
 	_finalize_spawn(u, pos, is_player_team, true)
 
+	# print debug
 	var team_label = "Player"
 	if not is_player_team:
 		team_label = "Enemy"
@@ -2581,6 +2541,16 @@ func _spawn_player_carryovers(used_tiles: Array[Vector2i]) -> void:
 
 		# Make them fade in like first spawns
 		u.modulate.a = 0.0
+
+		# Use this ONLY in places where you *have* an `info` dict (e.g. _spawn_player_carryovers / _spawn_reinforcement_from_info)
+		var prev_level: int = int(info.get("level", 1))
+		u.level = prev_level + 1  # or just = prev_level if you don't want auto level-up on carryover
+
+		# keep stats as restored from save; just clamp and refresh UI
+		if u.has_meta("max_health"):
+			u.health = clamp(u.health, 1, u.max_health)
+		if u.has_method("update_health_bar"):
+			u.update_health_bar()
 
 		# Use the SAME finalize path as all spawns
 		_finalize_spawn(u, spawn_tile, true, true) # (node, tile, is_player_team, do_drop_in)

@@ -345,6 +345,7 @@ func end_turn(game_over: bool = false):
 		print("❌ Game Over - You Lost!")
 		_show_game_over_screen("lose", stats, rewards)
 		hide_end_turn_button()
+		TurnManager.save_player_survivors_to_gamedata()
 		match_done = true
 		return
 	elif not enemy_units_exist:
@@ -817,6 +818,7 @@ func save_player_survivors_to_gamedata() -> void:
 			"upgrades":   upgs,          # carry upgrades by value (not id)
 			"special":    special_name,  # carry the chosen special by name
 			"portrait":   u.portrait,    # optional
+			"level":      u.level,         # ← add this so we don’t lose level
 		})
 	GameData.carryover_units = out
 	print("🔁 Saved", out.size(), "player survivors for next map.")

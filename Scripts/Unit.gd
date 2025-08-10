@@ -354,10 +354,21 @@ func auto_attack_adjacent():
 				elif tilemap.is_within_bounds(push_pos):
 					var target_pos3 = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
 					var push_speed3 = 150.0
-					while unit.global_position.distance_to(target_pos3) > 1.0:
+
+					while true:
+						# abort if the unit was freed during the push
+						if not is_instance_valid(unit):
+							return
+						if unit.global_position.distance_to(target_pos3) <= 1.0:
+							break
+
 						var d3 = get_process_delta_time()
 						unit.global_position = unit.global_position.move_toward(target_pos3, push_speed3 * d3)
 						await get_tree().process_frame
+
+					# one last validity check before touching properties
+					if not is_instance_valid(unit):
+						return
 					unit.global_position = target_pos3
 					unit.tile_pos = push_pos
 
@@ -556,7 +567,7 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 
 func _choose_drop_scene() -> PackedScene:
 	var roll = randi() % 100
-	if roll < 100:
+	if roll < 50:
 		match randi() % 3:
 			0: return HEALTH_SCENE
 			1: return LIGHTNING_SCENE
