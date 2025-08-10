@@ -82,8 +82,8 @@ func set_from_prefab(prefab: PackedScene) -> void:
 	# helpful tooltip (since there are no labels on the card)
 	var combat_class := "Ranged" if rng > 1 else "Melee"
 	var def_part := "  DEF %d" % defv if defv != 0 else ""
-	var spec_part := " —  %s" % special if special != "" else ""
-	tooltip_text = "%s — %s [%s]\nHP %d/%d  ATK %d  RNG %d  MOV %d%s%s" % [
+	var spec_part := " - %s" % special if special != "" else ""  # replace em dash with hyphen
+	tooltip_text = "%s - %s [%s]\nHP %d/%d  ATK %d  RNG %d  MOV %d%s%s" % [
 		u_name, u_type, combat_class, hp, hp_max, atk, rng, mov, def_part, spec_part
 	]
 
