@@ -38,5 +38,5 @@ func _trigger_lightning_storm(is_player_team: bool):
 
 	var lightning = lightning_scene.instantiate()
 	get_tree().get_current_scene().add_child(lightning)
-	lightning.start(3.0, 1.0, 1, 15, is_player_team)
+	lightning.start(3.0, 1.0, 1, 30, is_player_team)
 	lightning.z_index = 9999

@@ -559,8 +559,8 @@ func _choose_drop_scene() -> PackedScene:
 	if roll < 100:
 		match randi() % 3:
 			0: return HEALTH_SCENE
-			1: return HEALTH_SCENE
-			2: return HEALTH_SCENE
+			1: return LIGHTNING_SCENE
+			2: return ORBITAL_STRIKE_SCENE
 	return null
 
 # ─────────────────────────────────────────────────────────────────────────────

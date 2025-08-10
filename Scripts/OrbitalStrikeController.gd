@@ -82,7 +82,7 @@ func _strike_all(is_player_team: bool) -> void:
 
 		# 🔒 Only strike if still valid and an enemy
 		if is_instance_valid(unit) and unit.is_player != is_player_team:
-			unit.take_damage(20)
+			unit.take_damage(40)
 
 		# e) wait before next beam
 		await get_tree().create_timer(laser_delay).timeout

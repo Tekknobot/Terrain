@@ -352,6 +352,7 @@ func end_turn(game_over: bool = false):
 		_show_game_over_screen("win", stats, rewards)
 		hide_end_turn_button()
 		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
+		TurnManager.save_player_survivors_to_gamedata()
 		match_done = true
 		
 		# Hide reset button
@@ -788,3 +789,34 @@ func _choose_special_ability(unit):
 
 func get_active_team() -> int:
 	return turn_order[current_turn_index]
+
+# TileMap.gd (add this helper)
+func save_player_survivors_to_gamedata() -> void:
+	var out: Array = []
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(u): continue
+		if not u.is_player: continue
+		if u.health <= 0: continue
+
+		var scene_path := ""
+		if u.has_meta("scene_path"):
+			scene_path = String(u.get_meta("scene_path"))
+
+		# collect upgrades and special for this unit_id
+		var upgs: Array = []
+		if GameData.unit_upgrades.has(u.unit_id) and typeof(GameData.unit_upgrades[u.unit_id]) == TYPE_ARRAY:
+			upgs = GameData.unit_upgrades[u.unit_id].duplicate(true)
+
+		var special_name := GameData.get_unit_special(u.unit_id)
+
+		out.append({
+			"scene_path": scene_path,
+			"health":     u.health,
+			"max_health": u.max_health,
+			"unit_type":  u.unit_type,   # optional, if you ever branch on type
+			"upgrades":   upgs,          # carry upgrades by value (not id)
+			"special":    special_name,  # carry the chosen special by name
+			"portrait":   u.portrait,    # optional
+		})
+	GameData.carryover_units = out
+	print("🔁 Saved", out.size(), "player survivors for next map.")

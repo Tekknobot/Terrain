@@ -13,6 +13,8 @@ var last_enemy_upgrade_level: int = 1
 
 var completed_maps: Array[int] = []
 
+var carryover_units: Array = []  # cleared after being consumed
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Map settings
 # ─────────────────────────────────────────────────────────────────────────────

@@ -412,44 +412,54 @@ func update_astar_grid() -> void:
 # TEAM & UNIT SPAWNING
 # ———————————————————————————————————————————————————————————————
 func _post_map_generation():
+	# Fresh run-state
 	TurnManager.match_done = false
 	GameData.next_unit_id = 1
 
-	_spawn_teams()
+	# We'll collect used spawn tiles so we don't overlap player & enemy spawns.
+	var used_tiles: Array[Vector2i] = []
+
+	# ─────────────────────────────────────────────────────────────────────
+	# 1) STRUCTURES & VISUALS
+	# ─────────────────────────────────────────────────────────────────────
 	spawn_structures()
 	fade_in_structures()
+
+	# ─────────────────────────────────────────────────────────────────────
+	# 2) PLAYER SIDE
+	#    If we have carryover survivors saved from the last map, spawn those.
+	#    Otherwise, use your normal player-side spawner.
+	# ─────────────────────────────────────────────────────────────────────
+	if not GameData.carryover_units.is_empty():
+		_spawn_player_carryovers(used_tiles)
+	else:
+		_spawn_side(player_units, grid_height - 1, true, used_tiles)
+
+	# Reset round-robin index and spawn enemies
+	next_spawn_index = 0
+	_spawn_side(enemy_units, 0, false, used_tiles)
+		
 	fade_in_units()
+
+	# Pathfinding should reflect the final placement
 	update_astar_grid()
 
-	# ─── REASSIGN ALL SPECIALS STARTING AT unit_id=1 ────────────────────────
-	GameData.unit_special.clear()
+	# ─────────────────────────────────────────────────────────────────────
+	# 3) ENSURE EVERY UNIT HAS A SPECIAL
+	#    (Don’t overwrite carryover specials; only assign if empty.)
+	# ─────────────────────────────────────────────────────────────────────
+	for u in get_tree().get_nodes_in_group("Units"):
+		if u is Node2D:
+			var existing := GameData.get_unit_special(u.unit_id)
+			if typeof(existing) != TYPE_STRING or existing == "":
+				_assign_special_for_unit(u)
 
-	var abilities      = GameData.available_abilities
-	var num_abilities  = abilities.size()
-	var uids: Array    = []
-
-	# collect & sort all the unit IDs (now starting at 1)
-	for unit in get_tree().get_nodes_in_group("Units"):
-		uids.append(unit.unit_id)
-	uids.sort()
-
-	# map uid=1→abilities[0], uid=2→abilities[1], etc.
-	for i in range(uids.size()):
-		var uid     = uids[i]
-		var special = abilities[i % num_abilities]
-		GameData.set_unit_special(uid, special)
-		print("[Server] mapping special:%s → unit_id:%d" % [special, uid])
-	# ────────────────────────────────────────────────────────────────────────
-
+	# ─────────────────────────────────────────────────────────────────────
+	# 4) KICK OFF THE MATCH
+	# ─────────────────────────────────────────────────────────────────────
 	TurnManager.start_turn()
-	#TurnManager.transition_to_level()
 
-	if is_multiplayer_authority():
-		GameState.stored_map_data       = export_map_data()
-		GameState.stored_unit_data      = export_unit_data()
-		GameState.stored_structure_data = export_structure_data()
-		broadcast_game_state()
-	
+	# Optional little delay before fading the tilemap in (matches your flow)
 	await get_tree().create_timer(3).timeout
 	fade_in_tilemap()
 	
@@ -2542,3 +2552,70 @@ func _fallback_scene_index_special(u: Node2D) -> String:
 		if pool[i].resource_path == scene_path:
 			idx = i; break
 	return abilities[idx % abilities.size()]
+
+# Spawns last-map survivors into the back-third player zone and reapplies their stats.
+func _spawn_player_carryovers(used_tiles: Array[Vector2i]) -> void:
+	var zone := Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+
+	for info in GameData.carryover_units:
+		var scene_path := String(info.get("scene_path", ""))
+		if scene_path == "":
+			continue
+		var packed: PackedScene = load(scene_path)
+		if packed == null:
+			continue
+
+		var spawn_tile = get_random_valid_tile_in_zone(zone, used_tiles)
+		if spawn_tile == Vector2i(-1, -1):
+			push_warning("No valid tile for carryover unit; skipping.")
+			continue
+
+		# NEW map-scoped unit id
+		var new_id = GameData.next_unit_id
+		GameData.next_unit_id = new_id + 1
+
+		var u: Node2D = packed.instantiate()
+		u.unit_id = new_id
+		u.set_meta("unit_id", new_id)
+		u.set_meta("scene_path", scene_path)
+
+		# Make them fade in like first spawns
+		u.modulate.a = 0.0
+
+		# Use the SAME finalize path as all spawns
+		_finalize_spawn(u, spawn_tile, true, true) # (node, tile, is_player_team, do_drop_in)
+
+		# Reapply health
+		u.max_health = int(info.get("max_health", u.max_health))
+		u.health     = clamp(int(info.get("health", u.max_health)), 1, u.max_health)
+		if u.has_method("update_health_bar"):
+			u.update_health_bar()
+
+		# Reapply upgrades (value-based, not old id)
+		var upgs: Array = info.get("upgrades", [])
+		if upgs and u.has_method("apply_upgrade"):
+			for upg in upgs:
+				u.apply_upgrade(String(upg))
+		GameData.unit_upgrades[new_id] = upgs.duplicate(true)
+
+		# Ensure it has the same special by name (or assign a default)
+		var sp_name := String(info.get("special", ""))
+		if sp_name != "":
+			GameData.set_unit_special(new_id, sp_name)
+		else:
+			_assign_special_for_unit(u)
+
+		# Make sure it’s usable right away this turn
+		u.has_moved = false
+		u.has_attacked = false
+
+		used_tiles.append(spawn_tile)
+
+	# Keep nav + turn lists in sync
+	await get_tree().process_frame
+	update_astar_grid()
+	var tm = get_node("/root/TurnManager")
+	if tm and tm.has_method("_populate_units"):
+		tm._populate_units()
+
+	GameData.carryover_units.clear()

@@ -33,3 +33,6 @@ res://Scenes/Meks_Scenes/PLAYER/R3.scn
 res://Scenes/Meks_Scenes/PLAYER/R2.scn
 res://Scenes/Meks_Scenes/PLAYER/R1.scn
 res://Scenes/Meks_Scenes/PLAYER/M2.scn
+res://Scripts/lightning_pickup.gd
+res://Scripts/OrbitalStrikeController.gd
+res://Scripts/GameData.gd
