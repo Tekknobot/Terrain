@@ -52,25 +52,7 @@ func start_turn():
 			enemy_units_exist = true
 
 	if not player_units_exist or not enemy_units_exist:
-		var result = ""
-		if not player_units_exist:
-			result = "lose"
-		elif not enemy_units_exist:
-			result = "win"
-			reset_button.visible = false
-		
-		var stats = {
-			"units_lost": calculate_units_lost(),
-			"damage_dealt": calculate_damage_dealt()
-		}
-		var rewards = {
-			"xp": calculate_xp_reward(),
-			"coins": calculate_coins_reward()
-		}
-		
-		_show_game_over_screen(result, stats, rewards)
-		
-		print("🏁 Game Over — no units remain for one team. Turn will not start.")
+		end_turn(true)
 		return
 
 	var team_name = "UNKNOWN"
@@ -347,10 +329,11 @@ func end_turn(game_over: bool = false):
 		hide_end_turn_button()
 		TurnManager.save_player_survivors_to_gamedata()
 		match_done = true
+		await get_tree().create_timer(1.0).timeout
+		#GameData.on_run_failed()  # ← hard reset between runs, back to Title
 		return
 	elif not enemy_units_exist:
 		print("✅ Game Over - You Won!")
-		_show_game_over_screen("win", stats, rewards)
 		hide_end_turn_button()
 		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
 		TurnManager.save_player_survivors_to_gamedata()

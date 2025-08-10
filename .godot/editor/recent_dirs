@@ -1,8 +1,10 @@
-/Users/machome/Godot/_Builds/Mek VS Mek/WEB
-res://Scenes
-res://Textures
-res://Sprites/Portraits/pilots/mek_portraits
+res://Scenes/Meks_Scenes/PLAYER
 res://Scripts
+res://Sprites/Portraits/pilots/mek_portraits
+res://Sprites/Portraits/pilots
+res://Scenes
+/Users/machome/Godot/_Builds/Mek VS Mek/WEB
+res://Textures
 /Users/machome/Godot/_Builds/Mek VS Mek
 res://Scenes/VFX
 res://Sprites/Drops
@@ -12,11 +14,9 @@ res://Prefabs
 res://Sprites/Portraits
 res://Sprites/Thumbnails/Mek_hover
 res://Sprites/Meks/M1
-res://Scenes/Meks_Scenes/PLAYER
 res://Sprites/Meks/R4
 res://Sprites/Meks/R2
 res://Sprites/Meks/S3
 res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist.
 res://Audio/SFX
 res://Sprites/TitleScreen
-res://Sprites/Portraits/pilots

@@ -408,92 +408,71 @@ func update_astar_grid() -> void:
 	astar.update()
 	print("✅ AStar grid rebuilt — occupied tiles excluded.")
 
+# TileMap.gd (anywhere above _post_map_generation)
+func _use_selected_squad_from_gamedata() -> void:
+	var gd := get_node_or_null("/root/GameData")
+	if gd == null:
+		return
+	var picks = gd.selected_squad
+	if picks.is_empty():
+		return
+
+	var built: Array[PackedScene] = []
+	for it in picks:
+		if it is PackedScene:
+			built.append(it)
+		elif typeof(it) == TYPE_STRING:
+			var packed: PackedScene = load(it)
+			if packed:
+				built.append(packed)
+		elif typeof(it) == TYPE_DICTIONARY and it.has("scene_path"):
+			var packed2: PackedScene = load(String(it["scene_path"]))
+			if packed2:
+				built.append(packed2)
+
+	if built.size() > 0:
+		player_units = built  # override the exported list with the exact picks
+
 # ———————————————————————————————————————————————————————————————
 # TEAM & UNIT SPAWNING
 # ———————————————————————————————————————————————————————————————
 func _post_map_generation():
-	# Fresh run-state
 	TurnManager.match_done = false
 	GameData.next_unit_id = 1
 
-	# We'll collect used spawn tiles so we don't overlap player & enemy spawns.
 	var used_tiles: Array[Vector2i] = []
 
-	# ─────────────────────────────────────────────────────────────────────
-	# 1) STRUCTURES & VISUALS
-	# ─────────────────────────────────────────────────────────────────────
+	# 🔸 Use the exact squad the picker saved
+	_use_selected_squad_from_gamedata()
+
 	spawn_structures()
 	fade_in_structures()
 
-	# ─────────────────────────────────────────────────────────────────────
-	# 2) PLAYER SIDE
-	#    If we have carryover survivors saved from the last map, spawn those.
-	#    Otherwise, use your normal player-side spawner.
-	# ─────────────────────────────────────────────────────────────────────
 	if not GameData.carryover_units.is_empty():
 		_spawn_player_carryovers(used_tiles)
 	else:
 		_spawn_side(player_units, grid_height - 1, true, used_tiles)
 
-	# Reset round-robin index and spawn enemies
 	next_spawn_index = 0
 	_spawn_side(enemy_units, 0, false, used_tiles)
-		
-	fade_in_units()
 
-	# Pathfinding should reflect the final placement
+	fade_in_units()
 	update_astar_grid()
 
-	# ─────────────────────────────────────────────────────────────────────
-	# 3) ENSURE EVERY UNIT HAS A SPECIAL
-	#    (Don’t overwrite carryover specials; only assign if empty.)
-	# ─────────────────────────────────────────────────────────────────────
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u is Node2D:
-			var existing := GameData.get_unit_special(u.unit_id)
+			var existing = GameData.get_unit_special(u.unit_id)
 			if typeof(existing) != TYPE_STRING or existing == "":
 				_assign_special_for_unit(u)
 
-	# ─────────────────────────────────────────────────────────────────────
-	# 4) KICK OFF THE MATCH
-	# ─────────────────────────────────────────────────────────────────────
 	TurnManager.start_turn()
 
-	# Optional little delay before fading the tilemap in (matches your flow)
 	await get_tree().create_timer(3).timeout
 	fade_in_tilemap()
 	
 # Helper comparator:
 func _compare_by_unit_id(a, b) -> bool:
 	return a.unit_id < b.unit_id
-
-@rpc
-func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: Array) -> void:
-	# 1) Reconstruct exactly as the host did:
-	_generate_client_map(map_data, unit_data, structure_data)
-	print("Client map and state rebuilt.")
-	
-	# 2) Override peer_id for every enemy unit so the client truly owns them:
-	var my_id = get_tree().get_multiplayer().get_unique_id()
-	for u in get_tree().get_nodes_in_group("Units"):
-		if not u.is_player:
-			u.peer_id = my_id
-			u.set_meta("peer_id", my_id)
-	
-	# 3) Mirror the host’s ability assignment (unchanged):
-	var all_units = get_tree().get_nodes_in_group("Units")
-	for i in range(all_units.size()):
-		var unit = all_units[i]
-		var uid = unit.unit_id
-		var ability_name = ""
-		if i < GameData.available_abilities.size():
-			ability_name = GameData.available_abilities[i]
-		GameData.unit_upgrades[uid] = ability_name
-	print("[Client] forced GameData.unit_upgrades =", GameData.unit_upgrades)
-	
-	# 4) Finally switch to the Main scene:
-	await get_tree().process_frame
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
 func _spawn_teams():
 	var used_tiles: Array[Vector2i] = []
@@ -502,72 +481,76 @@ func _spawn_teams():
 	_spawn_side(enemy_units, 0, false, used_tiles)
 
 func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]) -> void:
-	var base := 3
-	var raw_spawn = base + max(GameData.current_level - 1, 0)
-	var total_to_spawn = raw_spawn
-	if is_player:
-		total_to_spawn = min(raw_spawn, 8)
-
-	if units.is_empty():
-		return
-
-	# Pick which scenes to spawn this turn
+	# ─────────────────────────────────────────────────────────
+	# OVERRIDE for player: use EXACT picked prefabs from GameData
+	# ─────────────────────────────────────────────────────────
 	var chosen_scenes: Array[PackedScene] = []
-	for i in range(total_to_spawn):
-		var idx := (next_spawn_index + i) % units.size()
-		chosen_scenes.append(units[idx])
-	next_spawn_index = (next_spawn_index + total_to_spawn) % units.size()
+	if is_player and not GameData.selected_squad.is_empty():
+		for it in GameData.selected_squad:
+			if it is PackedScene:
+				chosen_scenes.append(it)
+			elif typeof(it) == TYPE_STRING:
+				var p: PackedScene = load(it)
+				if p: chosen_scenes.append(p)
+			elif typeof(it) == TYPE_DICTIONARY and it.has("scene_path"):
+				var p2: PackedScene = load(String(it["scene_path"]))
+				if p2: chosen_scenes.append(p2)
+	else:
+		# original behavior for enemies (or fallback if no squad set)
+		var base := 3
+		var raw_spawn = base + max(GameData.current_level - 1, 0)
+		var total_to_spawn: int
+		if is_player:
+			total_to_spawn = min(raw_spawn, 8)
+		else:
+			total_to_spawn = raw_spawn
 
-	# Define the rectangular spawn zone
+		if units.is_empty(): return
+		for i in range(total_to_spawn):
+			var idx := (next_spawn_index + i) % units.size()
+			chosen_scenes.append(units[idx])
+		next_spawn_index = (next_spawn_index + total_to_spawn) % units.size()
+
+	# define spawn zone
 	var zone := Rect2i()
 	if is_player:
 		zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
 	else:
 		zone = Rect2i(0, 0, grid_width, int(grid_height / 3))
 
+	# spawn exactly what’s in chosen_scenes
 	for scene_to_spawn in chosen_scenes:
 		var spawn_tile = get_random_valid_tile_in_zone(zone, used_tiles)
 		if spawn_tile == Vector2i(-1, -1):
 			continue
 
-		# Local unique id
 		var id = GameData.next_unit_id
 		GameData.next_unit_id += 1
 
-		# Instantiate and assign the ID
 		var unit_instance: Node2D = scene_to_spawn.instantiate()
 		unit_instance.unit_id = id
 		unit_instance.set_meta("unit_id", id)
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
 
-		# Position & team setup
 		unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
 		unit_instance.set_team(is_player)
 		unit_instance.add_to_group("Units")
 		unit_instance.tile_pos = spawn_tile
-
-		# Add to scene before applying upgrades (in case they reference children)
 		add_child(unit_instance)
 
-		# Re-apply any saved upgrades
+		# re-apply saved upgrades
 		for upg in GameData.get_upgrades(id):
 			if unit_instance.has_method("apply_upgrade"):
 				unit_instance.apply_upgrade(upg)
 
-		# Flip the sprite for player units
 		if is_player:
 			var sprite := unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true
 
 		unit_instance.modulate.a = 0.0
-
 		used_tiles.append(spawn_tile)
-		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
-
-	if not is_player and GameData.current_level > GameData.last_enemy_upgrade_level:
-		_apply_enemy_upgrades_by_level(GameData.current_level)
-		GameData.last_enemy_upgrade_level = GameData.current_level
+		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at ", spawn_tile)
 	
 func _apply_enemy_upgrades_by_level(level: int) -> void:
 	var possible_upgrades := [
@@ -2115,7 +2098,7 @@ func _build_carryover_snapshot() -> void:
 			continue
 		var scene_path := String(unit.get_meta("scene_path"))
 		var upgs: Array = GameData.get_upgrades(unit.unit_id)
-		var special_name := GameData.get_unit_special(unit.unit_id)
+		var special_name = GameData.get_unit_special(unit.unit_id)
 
 		GameData.carryover_units.append({
 			"scene_path": scene_path,
@@ -2483,7 +2466,7 @@ func do_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
 
 func _assign_special_for_unit(u: Node2D) -> void:
 	var uid = u.unit_id
-	var existing := GameData.get_unit_special(uid)
+	var existing = GameData.get_unit_special(uid)
 	if typeof(existing) == TYPE_STRING and existing != "":
 		return
 

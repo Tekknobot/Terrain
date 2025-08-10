@@ -567,7 +567,7 @@ func _spawn_burst(tilemap: Node, tile_pos: Vector2i) -> void:
 
 func _choose_drop_scene() -> PackedScene:
 	var roll = randi() % 100
-	if roll < 50:
+	if roll < 100:
 		match randi() % 3:
 			0: return HEALTH_SCENE
 			1: return LIGHTNING_SCENE
@@ -1029,17 +1029,31 @@ func mark_and_pounce(target_unit: Node) -> void:
 	tween.tween_callback(Callable(self, "_on_pounce_finished"))
 
 func _on_pounce_arrived(target_unit: Node) -> void:
+	# Store a weak reference so we can safely re-check later
+	var target_ref = weakref(target_unit)
+
+	var hit_pos: Vector2
+	if is_instance_valid(target_unit):
+		hit_pos = target_unit.global_position
+	else:
+		hit_pos = global_position
+
 	var explosion_instance = ExplosionScene.instantiate()
-	explosion_instance.global_position = target_unit.global_position
+	explosion_instance.global_position = hit_pos
 	get_tree().get_current_scene().add_child(explosion_instance)
 
 	$AnimatedSprite2D.play("attack")
 	await $AnimatedSprite2D.animation_finished
 
-	if target_unit.has_method("take_damage"):
-		target_unit.take_damage(damage)
-		target_unit.flash_white()
-		target_unit.shake()
+	# Re-resolve after the await in case the target was freed
+	var u = target_ref.get_ref()
+	if is_instance_valid(u):
+		if u.has_method("take_damage"):
+			u.take_damage(damage)
+		if u.has_method("flash_white"):
+			u.flash_white()
+		if u.has_method("shake"):
+			u.shake()
 
 	$AnimatedSprite2D.play("default")
 

@@ -28,17 +28,15 @@ offset_right = 40.0
 offset_bottom = 6.0
 
 [node name="ResultLabel" type="Label" parent="CanvasLayer/Control"]
-visible = false
 layout_mode = 2
-offset_left = 27.0
-offset_top = 102.0
-offset_right = 288.0
-offset_bottom = 140.0
+offset_left = 451.0
+offset_top = 240.0
+offset_right = 712.0
+offset_bottom = 293.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("2_ww6bq")
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 64
 theme_override_styles/normal = SubResource("StyleBoxFlat_4pobx")
-text = "Result"
 horizontal_alignment = 1
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
