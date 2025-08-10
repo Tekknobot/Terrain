@@ -172,52 +172,17 @@ const DROP_OFFSET := 100.0  # how far above the target to start
 # LIFECYCLE CALLBACKS
 # ———————————————————————————————————————————————————————————————
 func _ready():
-	if is_multiplayer_authority():
-		get_tree().get_multiplayer().connect("peer_connected", Callable(self, "_on_peer_connected"))
-			
 	tile_size = get_tileset().tile_size
 	_setup_noise()
 
-	# Connect to HUD
 	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
 	connect("unit_selected", Callable(hud, "_on_unit_selected"))
-
-	# Listen globally for Units that die:
 	get_tree().connect("node_removed", Callable(self, "_on_node_removed"))
-	
 
-	if is_multiplayer_authority():
-		await _generate_map()
-		call_deferred("_post_map_generation")
-	else:
-		clear_map()
+	await _generate_map()
+	call_deferred("_post_map_generation")
 
-	print("My peer ID is: ", get_tree().get_multiplayer().get_unique_id())
-	if is_multiplayer_authority():
-		print("→ I am the server")
-	else:
-		print("→ I am a client")
-		
-	# If I’m a client (not the authority), “force‐assign” ability names here:
-	if not is_multiplayer_authority():
-		# Wait one frame so that all Units have spawned
-		await get_tree().process_frame
-
-		var units = get_tree().get_nodes_in_group("Units")
-		for i in range(units.size()):
-			var unit = units[i]
-			var uid = unit.unit_id
-
-			# Cycle through the 8 abilities repeatedly:
-			var ability_name = GameData.available_abilities[i % GameData.available_abilities.size()]
-			GameData.unit_upgrades[uid] = ability_name
-
-		print("[Client] → seeded unit_upgrades:", GameData.unit_upgrades)
-		
-	#TutorialManager.instruction_label = get_node("/root/BattleGrid/CanvasLayer/TutorialLabel")
-	#TutorialManager.start()
-		
-
+	# no multiplayer prints/logic
 
 func _process(delta):
 	if selected_unit and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -520,7 +485,6 @@ func receive_game_state(map_data: Dictionary, unit_data: Array, structure_data: 
 	await get_tree().process_frame
 	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 
-
 func _spawn_teams():
 	var used_tiles: Array[Vector2i] = []
 	_spawn_side(player_units, grid_height - 1, true, used_tiles)
@@ -534,11 +498,11 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 	if is_player:
 		total_to_spawn = min(raw_spawn, 8)
 
-	if units.size() == 0:
+	if units.is_empty():
 		return
 
 	# Pick which scenes to spawn this turn
-	var chosen_scenes := []
+	var chosen_scenes: Array[PackedScene] = []
 	for i in range(total_to_spawn):
 		var idx := (next_spawn_index + i) % units.size()
 		chosen_scenes.append(units[idx])
@@ -556,14 +520,15 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		if spawn_tile == Vector2i(-1, -1):
 			continue
 
-		# ← grab & advance the global ID counter
+		# Local unique id
 		var id = GameData.next_unit_id
 		GameData.next_unit_id += 1
 
 		# Instantiate and assign the ID
-		var unit_instance = scene_to_spawn.instantiate()
+		var unit_instance: Node2D = scene_to_spawn.instantiate()
 		unit_instance.unit_id = id
 		unit_instance.set_meta("unit_id", id)
+		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
 
 		# Position & team setup
 		unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
@@ -571,27 +536,22 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.add_to_group("Units")
 		unit_instance.tile_pos = spawn_tile
 
-		# Networking metadata
-		unit_instance.peer_id = get_tree().get_multiplayer().get_unique_id()
-		unit_instance.set_meta("peer_id", unit_instance.peer_id)
-		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
+		# Add to scene before applying upgrades (in case they reference children)
+		add_child(unit_instance)
 
 		# Re-apply any saved upgrades
-		add_child(unit_instance)
-		
-		# 🔄 Re-apply any saved upgrades for player
 		for upg in GameData.get_upgrades(id):
 			if unit_instance.has_method("apply_upgrade"):
 				unit_instance.apply_upgrade(upg)
-			
+
 		# Flip the sprite for player units
 		if is_player:
-			var sprite = unit_instance.get_node_or_null("AnimatedSprite2D")
+			var sprite := unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true
 
-		unit_instance.modulate.a = 0
-			
+		unit_instance.modulate.a = 0.0
+
 		used_tiles.append(spawn_tile)
 		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at tile: ", spawn_tile)
 
@@ -843,24 +803,26 @@ func spawn_new_enemy_units():
 	# 6) Shuffle them and take exactly as many as we need
 	valid_tiles.shuffle()
 	var chosen_tiles = valid_tiles.slice(0, units_to_spawn)
-
+	
 	# 7) Spawn one enemy per chosen tile
 	for spawn_tile in chosen_tiles:
-		var random_index = randi() % enemy_units.size()
-		var enemy_scene   = enemy_units[random_index]
-		var enemy_unit    = enemy_scene.instantiate()
+		if enemy_units.is_empty():
+			break
+		var random_index = randi_range(0, enemy_units.size() - 1)
+		var enemy_scene: PackedScene = enemy_units[random_index]
+		var enemy_unit: Node2D = enemy_scene.instantiate()
 
 		add_child(enemy_unit)
 		enemy_unit.set_team(false)
 		enemy_unit.tile_pos = spawn_tile
 		enemy_unit.add_to_group("Units")
 
-		# your ID + metadata setup…
+		# id + metadata
 		var id = GameData.next_unit_id
 		enemy_unit.unit_id = id
 		GameData.next_unit_id = id + 1
-		enemy_unit.peer_id = 1
-		enemy_unit.set_meta("peer_id", 1)
+		# enemy_unit.peer_id = 1             # ❌ remove
+		enemy_unit.set_meta("peer_id", 1)     # ✅ tag it instead
 		enemy_unit.set_meta("scene_path", enemy_scene.resource_path)
 
 		# drop‐in effect
@@ -869,12 +831,12 @@ func spawn_new_enemy_units():
 		var tween = enemy_unit.create_tween()
 		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5) \
 			 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-			
+
 		await get_tree().create_timer(0.3).timeout
 
-	# 8) Rebuild pathfinding
-	await get_tree().process_frame
-	update_astar_grid()
+		# 8) Rebuild pathfinding
+		await get_tree().process_frame
+		update_astar_grid()
 
 # ———————————————————————————————————————————————————————————————
 # CAMERA SETUP
@@ -928,30 +890,11 @@ func _input(event):
 		#return
 			
 	var turn_team = TurnManager.turn_order[TurnManager.current_turn_index]
-	if turn_team != TurnManager.Team.PLAYER or input_locked:
-		#print("Not Player Team or INPUT LOCKED")
+	if input_locked:
 		return
 			
 	if moving:
 		return
-				
-	# ──────────────────────────────────────────────────────────────────────────
-	# If multiplayer, immediately ignore any client‐side clicks
-	# when it’s not this peer’s turn. Only allow “peeking” (right‐click) below.
-	# ──────────────────────────────────────────────────────────────────────────
-	if event is InputEventMouseButton:
-		if is_multiplayer_authority():
-			# server only acts on PLAYER’s turn
-			if turn_team != TurnManager.Team.PLAYER:
-				# Not player’s turn on the server → ignore all LEFT‐clicks/specials.
-				# But still let right‐click peeks happen (handled later).
-				if event.button_index == MOUSE_BUTTON_LEFT:
-					return
-		else:
-			# client only acts on ENEMY’s turn
-			if turn_team != TurnManager.Team.ENEMY:
-				if event.button_index == MOUSE_BUTTON_LEFT:
-					return
 
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_pos = get_global_mouse_position()
@@ -1222,6 +1165,13 @@ func _input(event):
 		# === NORMAL MOVEMENT / ATTACK / SELECTION ===
 		#
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			# If no unit is selected yet, allow this click to select a unit
+			# BEFORE any ability-mode blocks can early-return.			
+			if selected_unit == null:
+				var click_unit = get_unit_at_tile(mouse_tile)
+				if click_unit:
+					_select_unit_at_mouse()
+					return			
 			if selected_unit and is_instance_valid(selected_unit):
 				# 1) compute “is it actually this unit’s turn?”
 				var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
@@ -1229,11 +1179,13 @@ func _input(event):
 				var can_act    = (is_player_turn and selected_unit.is_player) \
 							   or (is_enemy_turn  and not selected_unit.is_player)
 
-				# ── NEW “unit_owner vs. my_id” check ──
-				var unit_owner = selected_unit.peer_id
-				var my_id      = get_tree().get_multiplayer().get_unique_id()
-				if unit_owner != my_id:
-					can_act = false
+				# new: allow action only if it's this unit's team turn
+				var active_team = TurnManager.get_active_team()  # or TurnManager.active_team / TurnManager.get_active_team()
+
+				if active_team == TurnManager.Team.PLAYER:
+					can_act = selected_unit.is_player
+				else:
+					can_act = not selected_unit.is_player
 
 				var not_tinted  = (selected_unit.get_child(0).self_modulate != Color(0.4, 0.4, 0.4, 1))
 
@@ -1249,14 +1201,14 @@ func _input(event):
 						# 1) Enemy on tile?
 						if enemy and enemy != selected_unit \
 						   and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
-							request_auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
+							auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							_clear_highlights()
 							return
 
 						# 2) Structure on tile?
 						if structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
-							request_auto_attack_ranged_structure(selected_unit.unit_id, structure.tile_pos)
+							auto_attack_ranged_structure(selected_unit.unit_id, structure.tile_pos)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							_clear_highlights()
 							return
@@ -1264,7 +1216,7 @@ func _input(event):
 						# 3) Empty ground within range?
 						if not enemy and not structure \
 						   and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
-							request_auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
+							auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
 							selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 							_clear_highlights()
 							return
@@ -1334,400 +1286,12 @@ func _input(event):
 
 			# Otherwise, ignore (no change in selection)
 
-# ———————————————————————————————————————————————————————————————
-# AUTO-ATTACK RPCS
-# ———————————————————————————————————————————————————————————————
-@rpc("any_peer", "reliable")
-func request_auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
-	# only the server computes damage & tells everyone else what happened
-	if not is_multiplayer_authority():
-		return
-
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if not atk or not tgt:
-		return
-
-	# figure out if this attack will kill the target
-	var died = (tgt.health - atk.damage) <= 0
-
-	# broadcast to all peers (including the host) and run it locally immediately
-	rpc("sync_auto_attack_ranged_unit", attacker_id, target_id, died)
-	sync_auto_attack_ranged_unit(attacker_id, target_id, died)
-
-	TutorialManager.on_action("enemy_attacked") 	
-
-@rpc("any_peer", "reliable")
-func sync_auto_attack_ranged_unit(attacker_id: int, target_id: int, died: bool) -> void:
-	# every peer—including the server—runs the exact same spawn+damage logic
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if not atk or not tgt:
-		return
-
-	# 1) play attack animation, fire projectile, await it, etc.
-	atk.auto_attack_ranged(tgt, atk)
-
-	# 2) award XP (same on every peer so UI stays in sync)
-	atk.gain_xp(25)
-	if died:
-		atk.gain_xp(25)
-		
-@rpc("any_peer","reliable")
-func request_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	var st  = get_structure_at_tile(tile)
-	if not atk or not st:
-		return
-
-	sync_auto_attack_ranged_structure(attacker_id, tile, 25, false)
-	rpc("sync_auto_attack_ranged_structure", attacker_id, tile, 25, false)
-
-@rpc("any_peer","reliable")
-func sync_auto_attack_ranged_structure(attacker_id: int, tile: Vector2i, damage: int, died: bool) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	var st  = get_structure_at_tile(tile)
-	if not atk or not st:
-		return
-
-	atk.auto_attack_ranged(st, atk)
-	atk.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-	atk.gain_xp(25)
-
-@rpc("any_peer","reliable")
-func request_auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	sync_auto_attack_ranged_empty(attacker_id, target_pos)
-	rpc("sync_auto_attack_ranged_empty", attacker_id, target_pos)
-
-@rpc("any_peer","reliable")
-func sync_auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.auto_attack_ranged_empty(target_pos, atk)
 
 func _compute_push_direction(attacker, target) -> Vector2i:
 	var delta = target.tile_pos - attacker.tile_pos
 	delta.x = sign(delta.x)
 	delta.y = sign(delta.y)
 	return delta
-
-@rpc("any_peer", "reliable")
-func request_auto_attack_adjacent(attacker_id: int, target_id: int) -> void:	
-	if not is_multiplayer_authority():
-		return
-
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if not atk or not tgt:
-		return
-
-	var damage = atk.damage
-	var push_dir = _compute_push_direction(atk, tgt)
-	var died = tgt.take_damage(damage)
-	var new_tile = tgt.tile_pos + push_dir
-	tgt.tile_pos = new_tile
-	update_astar_grid()
-
-	sync_melee_push(attacker_id, target_id, damage, new_tile, died)
-	rpc("sync_melee_push", attacker_id, target_id, damage, new_tile, died)
-	
-	# After performing the attack
-	TutorialManager.on_action("enemy_attacked")		
-
-@rpc("any_peer", "reliable")
-func sync_melee_push(attacker_id: int, target_id: int, damage: int, new_tile: Vector2i, died: bool) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if not atk or not tgt:
-		return
-
-	# If this is a client, apply damage locally; otherwise, the server already applied it.
-	var actually_died = died
-	if not is_multiplayer_authority():
-		actually_died = tgt.take_damage(damage)
-
-	# Play the attack animation & sound on the attacker
-	var atk_sprite = atk.get_node("AnimatedSprite2D")
-	if atk_sprite:
-		atk_sprite.play("attack")
-	play_attack_sound(atk.global_position)
-
-	# Grant XP for the hit (and extra if it died)
-	atk.gain_xp(25)
-	if actually_died:
-		atk.gain_xp(25)
-
-	# Flash the target briefly to show it was hit
-	tgt.flash_white()
-	tgt.being_pushed = true
-	
-	# Compute the world‐space position corresponding to new_tile (after push)
-	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
-
-	# Create a Tween to animate the target from its current position to world_dest
-	var tw = tgt.create_tween()
-	tw.tween_property(tgt, "global_position", world_dest, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	
-	# If the target died, queue it for freeing once the animation is done
-	if actually_died:
-		tw.tween_callback(func():
-			if is_instance_valid(tgt):
-				tgt.being_pushed = false
-				tgt.queue_free()
-		)
-
-	# Only after the visual Tween completes do we update the logical tile_pos and rebuild A⋆
-	tw.tween_callback(func():
-		if is_instance_valid(tgt):
-			tgt.tile_pos = new_tile
-			tgt.being_pushed = false
-			update_astar_grid()
-		# If it died, it's already freed above, so nothing more is needed here.
-	)
-
-# ———————————————————————————————————————————————————————————————
-# NEW RPCS FOR THE “EIGHT NEW SPECIAL ABILITIES”
-# Place this block directly after sync_melee_push, before toggle_borders()
-# ———————————————————————————————————————————————————————————————
-
-# 1) Ground Slam
-@rpc("any_peer", "reliable")
-func request_ground_slam(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.ground_slam(target_tile)
-	rpc("sync_ground_slam", attacker_id, target_tile)
-
-@rpc("any_peer", "reliable")
-func sync_ground_slam(attacker_id: int, target_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.ground_slam(target_tile)
-
-# 2) Mark & Pounce
-@rpc("any_peer", "reliable")
-func request_mark_and_pounce(attacker_id: int, target_id: int) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if not atk or not tgt:
-		return
-	atk.mark_and_pounce(tgt)
-	rpc("sync_mark_and_pounce", attacker_id, target_id)
-
-@rpc("any_peer", "reliable")
-func sync_mark_and_pounce(attacker_id: int, target_id: int) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	var tgt = get_unit_by_id(target_id)
-	if not atk or not tgt:
-		return
-	if not is_multiplayer_authority():
-		atk.mark_and_pounce(tgt)
-
-# 3) Guardian Halo
-@rpc("any_peer", "reliable")
-func request_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.guardian_halo(target_tile)
-	rpc("sync_guardian_halo", attacker_id, target_tile)
-
-@rpc("any_peer", "reliable")
-func sync_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.guardian_halo(target_tile)
-
-# 4) High Arching Shot
-@rpc("any_peer", "reliable")
-func request_high_arcing_shot(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.high_arcing_shot(target_tile)
-	rpc("sync_high_arcing_shot", attacker_id, target_tile)
-
-@rpc("any_peer", "reliable")
-func sync_high_arcing_shot(attacker_id: int, target_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.high_arcing_shot(target_tile)
-
-# 5) Suppressive Fire
-@rpc("any_peer", "reliable")
-func request_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	atk.suppressive_fire(dir)
-	rpc("sync_suppressive_fire", attacker_id, dir)
-
-@rpc("any_peer", "reliable")
-func sync_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk:
-		return
-	if not is_multiplayer_authority():
-		atk.suppressive_fire(dir)
-
-# 6) Fortify
-# before: func request_fortify(attacker_id: int) -> void
-@rpc("any_peer","reliable")
-func request_fortify(attacker_id: int, target_tile: Vector2i) -> void:
-	if not is_multiplayer_authority(): return
-	var atk = get_unit_by_id(attacker_id)
-	if not atk: return
-	atk.fortify(target_tile)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 7a) Airlift — PICK UP an ally
-# ─────────────────────────────────────────────────────────────────────────────
-
-@rpc("any_peer", "reliable")
-func request_airlift_pick(attacker_id: int, ally_id: int) -> void:
-	if not is_multiplayer_authority():
-		return
-
-	var heli = get_unit_by_id(attacker_id)
-	var ally = get_unit_by_id(ally_id)
-	if heli == null or ally == null:
-		return
-
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-
-	# Find one valid neighbor of the ally’s tile
-	var adjacent_tile := Vector2i(-1, -1)
-	for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var candidate = ally.tile_pos + dir
-		if tilemap.is_within_bounds(candidate) and tilemap._is_tile_walkable(candidate) and not tilemap.is_tile_occupied(candidate):
-			adjacent_tile = candidate
-			break
-
-	if adjacent_tile == Vector2i(-1, -1):
-		push_warning("❗ Helicopter cannot find any adjacent tile to pick up the ally.")
-		return
-
-	# Teleport the ally onto the helicopter’s tile and hide it
-	var heli_tile = heli.tile_pos
-	ally.tile_pos = heli_tile
-	ally.global_position = tilemap.to_global(tilemap.map_to_local(heli_tile)) + Vector2(0, ally.Y_OFFSET)
-	ally.visible = false
-	heli.queued_airlift_unit = ally
-
-	# Broadcast to clients
-	rpc("sync_airlift_pick", attacker_id, ally_id, heli_tile)
-
-
-@rpc("any_peer", "reliable")
-func sync_airlift_pick(attacker_id: int, ally_id: int, heli_tile: Vector2i) -> void:
-	# Clients mirror exactly what the server did above.
-	if is_multiplayer_authority():
-		return
-
-	var heli = get_unit_by_id(attacker_id)
-	var ally = get_unit_by_id(ally_id)
-	if heli == null or ally == null:
-		return
-
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-	ally.tile_pos = heli_tile
-	ally.global_position = tilemap.to_global(tilemap.map_to_local(heli_tile)) + Vector2(0, ally.Y_OFFSET)
-	ally.visible = false
-	heli.queued_airlift_unit = ally
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 7b) Airlift — DROP the carried ally at a target tile
-# ─────────────────────────────────────────────────────────────────────────────
-
-@rpc("any_peer", "reliable")
-func request_airlift_drop(attacker_id: int, ally_id: int, click_tile: Vector2i) -> void:
-	if not is_multiplayer_authority():
-		return
-
-	var heli = get_unit_by_id(attacker_id)
-	if heli == null or heli.queued_airlift_unit == null:
-		return
-
-	var carried = heli.queued_airlift_unit
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-
-	# 1) If the clicked tile is invalid, find a valid neighbor
-	var final_drop = _get_adjacent_tile(click_tile)
-	if final_drop == Vector2i(-1, -1):
-		push_warning("❗ No valid adjacent tile to drop the ally.")
-		return
-
-	# 2) Teleport & unhide the ally
-	carried.tile_pos = final_drop
-	carried.global_position = tilemap.to_global(tilemap.map_to_local(final_drop)) + Vector2(0, carried.Y_OFFSET)
-	carried.visible = true
-
-	# 3) Clear the helicopter’s carry pointer
-	heli.queued_airlift_unit = null
-
-	# 4) Play a small landing VFX
-	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
-	explosion.global_position = tilemap.to_global(tilemap.map_to_local(final_drop))
-	get_tree().get_current_scene().add_child(explosion)
-
-	# 5) Broadcast to clients
-	rpc("sync_airlift_drop", attacker_id, ally_id, final_drop)
-
-	# 6) Mark helicopter as used
-	heli.has_attacked = true
-	heli.has_moved = true
-	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-
-
-@rpc("any_peer", "reliable")
-func sync_airlift_drop(attacker_id: int, ally_id: int, final_drop: Vector2i) -> void:
-	# Clients mirror the “teleport & unhide” step
-	if is_multiplayer_authority():
-		return
-
-	var heli = get_unit_by_id(attacker_id)
-	var carried = get_unit_by_id(ally_id)
-	if heli == null or carried == null:
-		return
-
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-	carried.tile_pos = final_drop
-	carried.global_position = tilemap.to_global(tilemap.map_to_local(final_drop)) + Vector2(0, carried.Y_OFFSET)
-	carried.visible = true
-	heli.queued_airlift_unit = null
-
-	# Spawn the same landing VFX
-	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
-	explosion.global_position = tilemap.to_global(tilemap.map_to_local(final_drop))
-	get_tree().get_current_scene().add_child(explosion)
-
-	heli.has_attacked = true
-	heli.has_moved = true
-	heli.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: find a nearby valid tile for dropping
@@ -2305,8 +1869,7 @@ func export_unit_data() -> Array:
 			"tile_pos":   unit.tile_pos,
 			"is_player":  unit.is_player,
 			"health":     unit.health,
-			"unit_id":    unit.unit_id,
-			"peer_id":    unit.peer_id
+			"unit_id":    unit.unit_id
 		})
 	return data
 
@@ -2634,3 +2197,348 @@ func _on_full_pressed() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	else:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+
+# Public entry point (e.g. from pickup)
+func spawn_reinforcement(is_player_team: bool) -> void:
+	_spawn_reinforcement_internal(is_player_team)
+
+func _spawn_reinforcement_internal(is_player_team: bool) -> void:
+	# choose pool
+	var pool: Array[PackedScene] = []
+	if is_player_team:
+		pool = player_units
+	else:
+		pool = enemy_units
+	if pool.is_empty():
+		push_warning("Reinforcement: no scenes for team.")
+		return
+
+	# zone like _spawn_side
+	var zone := Rect2i()
+	if is_player_team:
+		zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+	else:
+		zone = Rect2i(0, 0, grid_width, int(grid_height / 3))
+
+	var pos = get_random_valid_tile_in_zone(zone, [])
+	if pos == Vector2i(-1, -1):
+		push_warning("Reinforcement: no valid tile.")
+		return
+
+	# pick scene + allocate id
+	var scene: PackedScene = pool[randi() % pool.size()]
+	var id = GameData.next_unit_id
+	GameData.next_unit_id = id + 1
+
+	# instantiate
+	var u: Node2D = scene.instantiate()
+	u.unit_id = id
+	u.set_meta("unit_id", id)
+	u.set_meta("scene_path", scene.resource_path)
+
+	# apply saved upgrades for players
+	if is_player_team:
+		for upg in GameData.get_upgrades(id):
+			if u.has_method("apply_upgrade"):
+				u.apply_upgrade(upg)
+
+	# integrate like other spawns (with drop-in animation)
+	_finalize_spawn(u, pos, is_player_team, true)
+
+	var team_label = "Player"
+	if not is_player_team:
+		team_label = "Enemy"
+	print("🎯 Reinforcement spawned:", u.name, " (ID=", id, ", team=", team_label, ") at ", pos)
+
+func _spawn_reinforcement_from_info(info: Dictionary) -> void:
+	var scene_path: String = info.get("scene_path","")
+	if scene_path == "":
+		return
+	var packed: PackedScene = load(scene_path)
+	if packed == null:
+		return
+
+	var u: Node2D = packed.instantiate()
+	var id = info.get("unit_id", -1)
+	var pos: Vector2i = info.get("tile_pos", Vector2i.ZERO)
+	var is_player_team: bool = info.get("is_player", true)
+
+	u.unit_id = id
+	u.set_meta("unit_id", id)
+	u.set_meta("scene_path", scene_path)
+
+	# mirror any upgrades if you store them per-id
+	if is_player_team:
+		for upg in GameData.get_upgrades(id):
+			if u.has_method("apply_upgrade"):
+				u.apply_upgrade(upg)
+
+	# Store ownership as meta only (avoid assigning unknown property)
+	u.set_meta("peer_id", get_tree().get_multiplayer().get_unique_id())
+
+	_finalize_spawn(u, pos, is_player_team, true)
+
+func _finalize_spawn(u: Node2D, pos: Vector2i, is_player_team: bool, do_drop_in := true) -> void:
+	# Add to scene & common setup
+	add_child(u)
+	u.add_to_group("Units")
+	u.set_team(is_player_team)
+	u.tile_pos = pos
+
+	# 🔸 Ensure the reinforcement has a special ability
+	_assign_special_for_unit(u)
+	
+	# World position (target)
+	var target_pos = to_global(map_to_local(pos)) + Vector2(0, u.Y_OFFSET)
+
+	# Optional drop-in tween (match spawn_new_enemy_units)
+	if do_drop_in:
+		u.global_position = target_pos - Vector2(0, 100)
+		var tween = u.create_tween()
+		tween.tween_property(u, "global_position", target_pos, 0.5)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	else:
+		u.global_position = target_pos
+
+	# Cosmetics
+	if is_player_team:
+		var sp = u.get_node_or_null("AnimatedSprite2D")
+		if sp:
+			sp.flip_h = true
+	else:
+		if u.get_child_count() > 0:
+			u.get_child(0).modulate = Color8(255, 110, 255)
+
+	# Fresh turn state
+	u.has_moved = false
+	u.has_attacked = false
+	var spr = u.get_node_or_null("AnimatedSprite2D")
+	if spr:
+		spr.self_modulate = Color(1,1,1,1)
+
+	# Rebuild pathfinding so tile becomes blocked immediately
+	update_astar_grid()
+
+	# Let TurnManager include this new unit in its list
+	var tm = get_node("/root/TurnManager")
+	if tm and tm.has_method("_populate_units"):
+		tm._populate_units()
+
+	# Optional: emit a local signal if you want other systems to react
+	emit_signal("units_spawned")
+
+# ===============================
+# LOCAL REPLACEMENTS (no RPC)
+# ===============================
+
+# --- Ranged: target is a unit ---
+func auto_attack_ranged_unit(attacker_id: int, target_id: int) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if not atk or not tgt: return
+	var died = (tgt.health - atk.damage) <= 0
+	atk.auto_attack_ranged(tgt, atk)
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
+
+# --- Ranged: target is a structure tile ---
+func auto_attack_ranged_structure(attacker_id: int, tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var st  = get_structure_at_tile(tile)
+	if not atk or not st: return
+	atk.auto_attack_ranged(st, atk)
+	var spr = atk.get_node_or_null("AnimatedSprite2D")
+	if spr:
+		spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+	atk.gain_xp(25)
+
+# --- Ranged: empty ground (fire effect, etc.) ---
+func auto_attack_ranged_empty(attacker_id: int, target_pos: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.auto_attack_ranged_empty(target_pos, atk)
+
+# --- Melee (with push + tween) ---
+func auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if not atk or not tgt: return
+
+	var damage = atk.damage
+	var push_dir = _compute_push_direction(atk, tgt)
+	var died = tgt.take_damage(damage)
+	var new_tile = tgt.tile_pos + push_dir
+
+	var atk_sprite = atk.get_node_or_null("AnimatedSprite2D")
+	if atk_sprite:
+		atk_sprite.play("attack")
+	play_attack_sound(atk.global_position)
+
+	atk.gain_xp(25)
+	if died:
+		atk.gain_xp(25)
+
+	tgt.flash_white()
+	tgt.being_pushed = true
+
+	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
+	var tw = tgt.create_tween()
+	tw.tween_property(tgt, "global_position", world_dest, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+	if died:
+		tw.tween_callback(func():
+			if is_instance_valid(tgt):
+				tgt.being_pushed = false
+				tgt.queue_free()
+		)
+
+	tw.tween_callback(func():
+		if is_instance_valid(tgt):
+			tgt.tile_pos = new_tile
+			tgt.being_pushed = false
+			update_astar_grid()
+	)
+
+# --- Ground Slam ---
+func do_ground_slam(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.ground_slam(target_tile)
+
+# --- Mark & Pounce ---
+func do_mark_and_pounce(attacker_id: int, target_id: int) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	var tgt = get_unit_by_id(target_id)
+	if not atk or not tgt: return
+	atk.mark_and_pounce(tgt)
+
+# --- Guardian Halo ---
+func do_guardian_halo(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.guardian_halo(target_tile)
+
+# --- High Arching Shot ---
+func do_high_arcing_shot(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.high_arcing_shot(target_tile)
+
+# --- Suppressive Fire (dir is {-1,0,1} per axis) ---
+func do_suppressive_fire(attacker_id: int, dir: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.suppressive_fire(dir)
+
+# --- Fortify (your request version ignored the tile; keep signature flexible) ---
+func do_fortify(attacker_id: int, _target_tile: Vector2i = Vector2i.ZERO) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	# If your Unit.fortify() needs a tile, pass it instead.
+	atk.fortify()
+
+# --- Airlift: PICK ally up ---
+func airlift_pick(attacker_id: int, ally_id: int) -> void:
+	var heli = get_unit_by_id(attacker_id)
+	var ally = get_unit_by_id(ally_id)
+	if heli == null or ally == null: return
+
+	var tilemap = self  # we are in TileMap.gd
+	var adjacent_tile := Vector2i(-1, -1)
+	for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var candidate = ally.tile_pos + dir
+		if tilemap.is_within_bounds(candidate) and tilemap._is_tile_walkable(candidate) and not tilemap.is_tile_occupied(candidate):
+			adjacent_tile = candidate
+			break
+	if adjacent_tile == Vector2i(-1, -1):
+		push_warning("❗ Helicopter cannot find any adjacent tile to pick up the ally.")
+		return
+
+	var heli_tile = heli.tile_pos
+	ally.tile_pos = heli_tile
+	ally.global_position = to_global(map_to_local(heli_tile)) + Vector2(0, ally.Y_OFFSET)
+	ally.visible = false
+	heli.queued_airlift_unit = ally
+
+# --- Airlift: DROP carried ally near clicked tile ---
+func airlift_drop(attacker_id: int, ally_id: int, click_tile: Vector2i) -> void:
+	var heli = get_unit_by_id(attacker_id)
+	if heli == null or heli.queued_airlift_unit == null: return
+
+	var carried = heli.queued_airlift_unit
+	var final_drop = _get_adjacent_tile(click_tile)
+	if final_drop == Vector2i(-1, -1):
+		push_warning("❗ No valid adjacent tile to drop the ally.")
+		return
+
+	carried.tile_pos = final_drop
+	carried.global_position = to_global(map_to_local(final_drop)) + Vector2(0, carried.Y_OFFSET)
+	carried.visible = true
+	heli.queued_airlift_unit = null
+
+	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
+	explosion.global_position = to_global(map_to_local(final_drop))
+	get_tree().get_current_scene().add_child(explosion)
+
+	heli.has_attacked = true
+	heli.has_moved = true
+	var spr = heli.get_node_or_null("AnimatedSprite2D")
+	if spr:
+		spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+# --- Web Field ---
+func do_web_field(attacker_id: int, center_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.web_field(center_tile)
+
+# --- Thread Attack ---
+func do_thread_attack(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.thread_attack(target_tile)
+
+# --- Lightning Surge ---
+func do_lightning_surge(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.lightning_surge(target_tile)
+
+# --- Heavy Rain (your impl uses spider_blast) ---
+func do_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
+	var atk = get_unit_by_id(attacker_id)
+	if not atk: return
+	atk.spider_blast(target_tile)
+
+func _assign_special_for_unit(u: Node2D) -> void:
+	var uid = u.unit_id
+	var existing := GameData.get_unit_special(uid)
+	if typeof(existing) == TYPE_STRING and existing != "":
+		return
+
+	var special := ""
+	var ds = u.get("default_special")  # ← read the exported property
+	if typeof(ds) == TYPE_STRING and ds != "":
+		special = ds
+	elif GameData.available_abilities.size() > 0:
+		special = GameData.available_abilities[0]
+
+	GameData.set_unit_special(uid, special)
+	print("⭐ Assigned special '%s' → unit_id:%d" % [special, uid])
+
+func _fallback_scene_index_special(u: Node2D) -> String:
+	var abilities: Array = GameData.available_abilities
+	if abilities.is_empty():
+		return ""
+	var scene_path := String(u.get_meta("scene_path"))
+	var pool: Array[PackedScene] = []
+	if u.is_player:
+		pool = player_units
+	else:
+		pool = enemy_units
+	var idx := 0
+	for i in range(pool.size()):
+		if pool[i].resource_path == scene_path:
+			idx = i; break
+	return abilities[idx % abilities.size()]

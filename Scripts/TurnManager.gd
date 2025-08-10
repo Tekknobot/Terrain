@@ -156,14 +156,23 @@ func _start_unit_action(team):
 				var special = _choose_special_ability(unit)
 				if special and (randi() % 100) < AI_SPECIAL_CHANCE:
 					match special.ability:
-						"ground_slam": tilemap.request_ground_slam(unit.unit_id, special.target)
-						"mark_and_pounce": tilemap.request_mark_and_pounce(unit.unit_id, special.target.get_meta("unit_id"))
-						"guardian_halo": tilemap.request_guardian_halo(unit.unit_id, special.target)
-						"high_arcing_shot": tilemap.request_high_arcing_shot(unit.unit_id, special.target)
-						"suppressive_fire": tilemap.request_suppressive_fire(unit.unit_id, special.target)
-						"fortify": tilemap.request_fortify(unit.unit_id, special.target)
-						"request_airlift_pick": tilemap.request_heavy_rain(unit.unit_id, special.target)
-						"spider_blast": tilemap.request_thread_attack(unit.unit_id, special.target)
+						"ground_slam":
+							tilemap.do_ground_slam(unit.unit_id, special.target)
+						"mark_and_pounce":
+							tilemap.do_mark_and_pounce(unit.unit_id, special.target.get_meta("unit_id"))
+						"guardian_halo":
+							tilemap.do_guardian_halo(unit.unit_id, special.target)
+						"high_arcing_shot":
+							tilemap.do_high_arcing_shot(unit.unit_id, special.target)
+						"suppressive_fire":
+							tilemap.do_suppressive_fire(unit.unit_id, special.target)
+						"fortify":
+							tilemap.do_fortify(unit.unit_id, special.target)
+						"request_airlift_pick":  # if your chooser uses this label
+							tilemap.airlift_pick(unit.unit_id, special.target.get_meta("unit_id"))
+						"spider_blast": # (your chooser’s label for thread/web? adjust if needed)
+							tilemap.do_thread_attack(unit.unit_id, special.target)
+
 					unit.has_moved  = true
 					unit.has_attacked = true	
 					# ── WAIT FOR SPECIAL TO FINISH ──
@@ -208,14 +217,23 @@ func _start_unit_action(team):
 				var special2 = _choose_special_ability(unit)
 				if special2 and (randi() % 100) < AI_SPECIAL_CHANCE:
 					match special2.ability:
-						"ground_slam": tilemap.request_ground_slam(unit.unit_id, special2.target)
-						"mark_and_pounce": tilemap.request_mark_and_pounce(unit.unit_id, special2.target.get_meta("unit_id"))
-						"guardian_halo": tilemap.request_guardian_halo(unit.unit_id, special2.target)
-						"high_arcing_shot": tilemap.request_high_arcing_shot(unit.unit_id, special2.target)
-						"suppressive_fire": tilemap.request_suppressive_fire(unit.unit_id, special2.target)
-						"fortify": tilemap.request_fortify(unit.unit_id, special2.target)
-						"request_airlift_pick": tilemap.request_heavy_rain(unit.unit_id, special2.target)
-						"spider_blast": tilemap.request_thread_attack(unit.unit_id, special2.target)
+						"ground_slam":
+							tilemap.do_ground_slam(unit.unit_id, special2.target)
+						"mark_and_pounce":
+							tilemap.do_mark_and_pounce(unit.unit_id, special2.target.get_meta("unit_id"))
+						"guardian_halo":
+							tilemap.do_guardian_halo(unit.unit_id, special2.target)
+						"high_arcing_shot":
+							tilemap.do_high_arcing_shot(unit.unit_id, special2.target)
+						"suppressive_fire":
+							tilemap.do_suppressive_fire(unit.unit_id, special2.target)
+						"fortify":
+							tilemap.do_fortify(unit.unit_id, special2.target)
+						"request_airlift_pick":
+							tilemap.airlift_pick(unit.unit_id, special2.target.get_meta("unit_id"))
+						"spider_blast":
+							tilemap.do_thread_attack(unit.unit_id, special2.target)
+
 					unit.has_moved  = true
 					unit.has_attacked = true	
 					while is_instance_valid(unit) and not unit.has_attacked:
@@ -241,7 +259,7 @@ func _start_unit_action(team):
 			if is_instance_valid(unit) and unit.unit_type in ["Ranged","Support"]:
 				var rt = _find_ranged_target(unit)
 				if rt:
-					tilemap.request_auto_attack_ranged_unit(unit.unit_id, rt.unit_id)
+					tilemap.auto_attack_ranged_unit(unit.unit_id, rt.unit_id)
 			elif unit.has_method("has_adjacent_enemy") and unit.has_adjacent_enemy():
 				await unit.auto_attack_adjacent()
 
@@ -767,3 +785,6 @@ func _choose_special_ability(unit):
 
 	# no special chosen
 	return null
+
+func get_active_team() -> int:
+	return turn_order[current_turn_index]
