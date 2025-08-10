@@ -1167,11 +1167,19 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			# If no unit is selected yet, allow this click to select a unit
 			# BEFORE any ability-mode blocks can early-return.			
-			if selected_unit == null:
-				var click_unit = get_unit_at_tile(mouse_tile)
-				if click_unit:
+			var click_unit = get_unit_at_tile(mouse_tile)
+			# NEW: if a different unit is under the cursor, and it's on the active team,
+			# switch selection immediately (before any early returns).
+			if click_unit and selected_unit != null and click_unit != selected_unit:
+				var active_team = TurnManager.get_active_team()
+				var clicked_is_active = (active_team == TurnManager.Team.PLAYER and click_unit.is_player) \
+									 or (active_team == TurnManager.Team.ENEMY  and not click_unit.is_player)
+				if clicked_is_active:
 					_select_unit_at_mouse()
-					return			
+					return				
+			if click_unit:
+				_select_unit_at_mouse()
+				return			
 			if selected_unit and is_instance_valid(selected_unit):
 				# 1) compute “is it actually this unit’s turn?”
 				var is_player_turn = (turn_team == TurnManager.Team.PLAYER)
@@ -1254,12 +1262,21 @@ func _input(event):
 					pass
 				# 5) if it’s not that unit’s turn, show its range anyway (peeking)
 				elif not_tinted and can_act == false:
-					_show_range_for_selected_unit()
+					# If you clicked a friendly unit, switch to it; otherwise just show range.
+					var clicked = get_unit_at_tile(mouse_tile)
+					var clicked_is_active = clicked != null and (
+						(active_team == TurnManager.Team.PLAYER and clicked.is_player) or
+						(active_team == TurnManager.Team.ENEMY  and not clicked.is_player)
+					)
+					if clicked_is_active and clicked != selected_unit:
+						_select_unit_at_mouse()
+					else:
+						_show_range_for_selected_unit()
 					return
+
 			# end if selected_unit
 
 			# 6) if we didn’t attack or move, check for an enemy‐peek click
-			var click_unit = get_unit_at_tile(mouse_tile)
 			if click_unit and click_unit.is_player == false:
 				_clear_highlights()
 				_peek_show_range_for(click_unit)
