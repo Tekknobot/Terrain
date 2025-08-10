@@ -18,3 +18,6 @@ res://Scenes/UnitCard.tscn
 res://Scripts/RewardsUpgrades.gd
 res://Scripts/TurnManager.gd
 res://Scenes/RewardUpgrade.tscn
+res://Prefabs/SpiderBlastMissile.tscn
+res://Scripts/SpiderBlastMissile.gd
+res://Scripts/Unit.gd

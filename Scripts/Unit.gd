@@ -2,6 +2,8 @@ extends Area2D
 
 var unit_id: int   # Local unique identifier
 
+signal spider_arc_done
+
 @export var is_player: bool = true
 @export var unit_type: String = "Soldier"
 @export var unit_name: String = "Hero"
@@ -1460,33 +1462,145 @@ func _get_adjacent_tile(tilemap: TileMap, base: Vector2i) -> Vector2i:
 			return n
 	return Vector2i(-1, -1)
 
-# 8) Spider – Blast (local)
 func spider_blast(target_tile: Vector2i) -> void:
-	var dist = abs(tile_pos.x - target_tile.x) + abs(tile_pos.y - target_tile.y)
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+	var du: Vector2i = target_tile - tile_pos
+	var dist: int = abs(du.x) + abs(du.y)
 	if dist > 5:
 		return
 
+	# Lock input for the whole sequence
+	tilemap.input_locked = true
 	gain_xp(25)
 
-	var tilemap = get_node("/root/BattleGrid/TileMap")
-	for x in range(-1, 2):
-		for y in range(-1, 2):
-			var blast_tile = target_tile + Vector2i(x, y)
-			var target_pos = tilemap.to_global(tilemap.map_to_local(blast_tile)) + Vector2(0, Y_OFFSET)
-			target_pos.y -= 8
-			var missile_scene = preload("res://Prefabs/SpiderBlastMissile.tscn")
-			var missile = missile_scene.instantiate()
-			get_tree().get_current_scene().add_child(missile)
-			missile.global_position = global_position
-			missile.set_target(global_position, target_pos)
-			print("Spider Blast toward: ", blast_tile)
-			await get_tree().create_timer(0.2).timeout
-	print("Spider Blast activated on ", target_tile)
+	# SFX + anim
+	$AudioStreamPlayer2D.stream = missile_sfx
+	$AudioStreamPlayer2D.play()
+	var sprite: AnimatedSprite2D = $AnimatedSprite2D as AnimatedSprite2D
+	if sprite:
+		sprite.play("attack")
+
+	# Trajectory/visual params (match High Arching Shot)
+	var ExplosionScene: PackedScene = preload("res://Scenes/VFX/Explosion.tscn")
+	var point_count: int = 64
+	var step_time: float = 2.0 / float(point_count)
+	var arc_height: float = 100.0
+	var trail_color: Color = Color(0.85, 0.85, 0.85, 1.0)
+	var launch_interval: float = 0.12
+
+	var pattern: Array[Vector2i] = [
+		Vector2i( 0,  0),
+		Vector2i(-1, -1), Vector2i( 0, -1), Vector2i( 1, -1),
+		Vector2i(-1,  0),                   Vector2i( 1,  0),
+		Vector2i(-1,  1), Vector2i( 0,  1), Vector2i( 1,  1)
+	]
+
+	var launched := 0
+	var completed := 0
+
+	# Temporary handler we can disconnect later
+	var on_arc := func() -> void:
+		completed += 1
+	self.spider_arc_done.connect(on_arc)
+
+	# Ensure we always clean up, even if something goes wrong
+	var _cleanup := func() -> void:
+		if sprite:
+			sprite.self_modulate = Color(0.4, 0.4, 0.4, 1.0)
+			sprite.play("default")
+		$AudioStreamPlayer2D.stream = attack_sfx
+		if is_instance_valid(tilemap):
+			tilemap.input_locked = false
+		if self.spider_arc_done.is_connected(on_arc):
+			self.spider_arc_done.disconnect(on_arc)
+
+	# Launch arcs (staggered)
+	for i in range(pattern.size()):
+		var offset: Vector2i = pattern[i]
+		var tile: Vector2i = target_tile + offset
+		if not tilemap.is_within_bounds(tile):
+			continue
+
+		var damage_val := 30
+		if offset == Vector2i.ZERO:
+			damage_val = 40
+
+		call_deferred("_fire_arc_to_tile_impl", tile, damage_val, point_count, step_time, arc_height, trail_color, ExplosionScene)
+		launched += 1
+		if i < pattern.size() - 1:
+			await get_tree().create_timer(launch_interval).timeout
+
+	# If somehow nothing launched, just clean up and return
+	if launched == 0:
+		_cleanup.call()
+		return
+
+	# Wait until all arcs complete, but POLL with a timeout so we never hang
+	var timeout_ms := 500
+	var start_ms := Time.get_ticks_msec()
+	var tick := 0.1
+	while completed < launched and (Time.get_ticks_msec() - start_ms) < timeout_ms:
+		await get_tree().create_timer(tick).timeout
+		# 'completed' is bumped asynchronously by on_arc
+
+	# Wrap up (even if we timed out)
 	has_attacked = true
 	has_moved = true
-	var sprite = get_child(0)
-	if sprite:
-		sprite.self_modulate = Color(0.4,0.4,0.4,1)
+	_cleanup.call()
+
+# Helper runs as its own coroutine (we never call it with await directly)
+func _fire_arc_to_tile_impl(tile: Vector2i, damage_val: int, point_count: int, step_time: float, arc_height: float, trail_color: Color, ExplosionScene: PackedScene) -> void:
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+
+	# Start/end world positions (same math as High Arching Shot)
+	var start_world: Vector2 = global_position
+	var end_world: Vector2 = tilemap.to_global(tilemap.map_to_local(tile))
+	end_world.y += Y_OFFSET
+
+	# Precompute curve points
+	var points: PackedVector2Array = PackedVector2Array()
+	for i in range(point_count + 1):
+		var t: float = float(i) / float(point_count)
+		var x: float = lerp(start_world.x, end_world.x, t)
+		var base_y: float = lerp(start_world.y, end_world.y, t)
+		var height_offset: float = -arc_height * sin(PI * t)
+		points.append(Vector2(x, base_y + height_offset))
+
+	# Draw the arc progressively
+	var line: Line2D = Line2D.new()
+	line.width = 1
+	line.z_index = 4000
+	line.default_color = trail_color
+	get_tree().get_current_scene().add_child(line)
+
+	for i in range(points.size()):
+		line.add_point(points[i])
+		await get_tree().create_timer(step_time).timeout
+
+	if is_instance_valid(line):
+		line.queue_free()
+
+	# Damage only the landing tile
+	var u = tilemap.get_unit_at_tile(tile)
+	if u:
+		u.take_damage(damage_val)
+		u.flash_white()
+		u.shake()
+
+	var st = tilemap.get_structure_at_tile(tile)
+	if st:
+		var st_sprite: AnimatedSprite2D = st.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+		if st_sprite:
+			st_sprite.play("demolished")
+			st_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+
+	# Explosion VFX at impact
+	var vfx = ExplosionScene.instantiate()
+	vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
+	get_tree().get_current_scene().add_child(vfx)
+
+	# Tell the caller this arc is done
+	emit_signal("spider_arc_done")
 
 # 9) Spider – Thread Attack (local)
 func thread_attack(target_tile: Vector2i) -> void:
