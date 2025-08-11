@@ -539,6 +539,12 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.set_meta("unit_id", id)
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
 
+		# 🔸 Ensure the meta carries the prefab’s default_special, then assign deterministically
+		if not unit_instance.has_meta("default_special"):
+			if typeof(unit_instance.get("default_special")) == TYPE_STRING:
+				unit_instance.set_meta("default_special", unit_instance.default_special)
+		GameData.set_unit_special(id, String(unit_instance.get_meta("default_special", "")))
+
 		unit_instance.global_position = to_global(map_to_local(spawn_tile)) + Vector2(0, unit_instance.Y_OFFSET)
 		unit_instance.set_team(is_player)
 		unit_instance.add_to_group("Units")
@@ -554,9 +560,6 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 			var sprite := unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true
-
-		# after: add_child(unit_instance), set team/tile_pos, etc.
-		_assign_special_for_unit(unit_instance)  # <-- give them their default_special now
 
 		unit_instance.modulate.a = 0.0
 		used_tiles.append(spawn_tile)
@@ -2535,20 +2538,6 @@ func do_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
 	if not atk: return
 	atk.spider_blast(target_tile)
 
-func _assign_special_for_unit(u: Node2D) -> void:
-	var uid = u.unit_id
-	var existing := GameData.get_unit_special(uid)
-	if typeof(existing) == TYPE_STRING and existing != "":
-		return  # don't overwrite a restored/saved special
-
-	var special := ""
-	var ds = u.get("default_special")  # read the unit's exported default_special
-	if typeof(ds) == TYPE_STRING and ds != "":
-		special = ds  # otherwise leave it empty (no fallback list)
-
-	GameData.set_unit_special(uid, special)
-	#print("⭐ Assigned special '%s' → unit_id:%d" % [special, uid])
-
 func _fallback_scene_index_special(u: Node2D) -> String:
 	var abilities: Array = GameData.available_abilities
 	if abilities.is_empty():
@@ -2637,3 +2626,19 @@ func _spawn_player_carryovers(used_tiles: Array[Vector2i]) -> void:
 		tm._populate_units()
 
 	GameData.carryover_units.clear()
+
+# Put near other helpers
+func _ensure_default_special_meta(u: Node) -> void:
+	# Prefer meta if already present; otherwise copy from exported var.
+	if not u.has_meta("default_special"):
+		if u.has_method("get") and typeof(u.get("default_special")) == TYPE_STRING:
+			u.set_meta("default_special", u.default_special)
+
+func _assign_special_for_unit(u: Node2D) -> void:
+	# Always set from meta/default; never random, never conditional.
+	_ensure_default_special_meta(u)
+	var ds := ""
+	if u.has_meta("default_special"):
+		ds = String(u.get_meta("default_special"))
+	# Mirror to GameData (single source of truth other systems already read)
+	GameData.set_unit_special(u.unit_id, ds)
