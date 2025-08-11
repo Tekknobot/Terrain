@@ -155,7 +155,8 @@ func _start_unit_action(team):
 						"spider_blast": # (your chooser’s label for thread/web? adjust if needed)
 							tilemap.do_thread_attack(unit.unit_id, special.target)
 
-
+					unit.has_moved  = true
+					unit.has_attacked = true	
 					# ── WAIT FOR SPECIAL TO FINISH ──
 					while is_instance_valid(unit) and not (unit.has_moved and unit.has_attacked):
 						await get_tree().process_frame
@@ -215,7 +216,8 @@ func _start_unit_action(team):
 						"spider_blast":
 							tilemap.do_thread_attack(unit.unit_id, special2.target)
 
-
+					unit.has_moved  = true
+					unit.has_attacked = true	
 					while is_instance_valid(unit) and not unit.has_attacked:
 						await get_tree().process_frame
 					if not is_instance_valid(unit):
@@ -667,7 +669,8 @@ func _choose_special_ability(unit):
 		for u in get_tree().get_nodes_in_group("Units"):
 			if u.is_player == unit.is_player and u != unit:
 				var d = abs(unit.tile_pos.x - u.tile_pos.x) + abs(unit.tile_pos.y - u.tile_pos.y)
-				if d <= 5 and u.health < lowest_hp:
+				# NEW: don't pick someone who already has an active shield
+				if d <= 5 and u.shield_duration <= 0 and u.health < lowest_hp:
 					lowest_hp = u.health
 					best_ally = u
 		if best_ally and best_ally.health < best_ally.max_health * 0.7:
@@ -675,6 +678,7 @@ func _choose_special_ability(unit):
 				"ability": "guardian_halo",
 				"target": best_ally.tile_pos
 			}
+
 
 	# 4) Cannon — High‑Arcing Shot
 	if unit.unit_name == "Titan":

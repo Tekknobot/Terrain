@@ -48,8 +48,8 @@ func _on_RetryButton_pressed():
 
 func _on_quit_pressed() -> void:
 	# Change to the main game scene (battle) instead of resetting entire game
+	GameData.on_run_failed()
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
-
 
 func _on_continue_pressed() -> void:
 	get_tree().reload_current_scene()

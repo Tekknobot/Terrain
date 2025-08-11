@@ -2496,12 +2496,12 @@ func do_heavy_rain(attacker_id: int, target_tile: Vector2i) -> void:
 
 func _assign_special_for_unit(u: Node2D) -> void:
 	var uid = u.unit_id
-	var existing = GameData.get_unit_special(uid)
+	var existing := GameData.get_unit_special(uid)
 	if typeof(existing) == TYPE_STRING and existing != "":
 		return
 
 	var special := ""
-	var ds = u.get("default_special")  # ← read the exported property
+	var ds = u.get("default_special")  # ✅ Proper way to read exported variable
 	if typeof(ds) == TYPE_STRING and ds != "":
 		special = ds
 	elif GameData.available_abilities.size() > 0:

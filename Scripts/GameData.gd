@@ -155,6 +155,48 @@ func on_map_won() -> void:
 	advance_level()
 	get_tree().change_scene_to_file(map_scene)
 
+func on_run_failed() -> void:
+	# Player chose Quit → original fail flow
+	carryover_units.clear()
+	clear_all_upgrades()
+	unit_special.clear()
+	current_level = 1
+	max_enemy_units = 2
+	map_difficulty = 1
+	next_unit_id = 1
+
+func _ask_continue_or_quit() -> bool:
+	# Returns true if the player clicks "Continue", false if "Quit"
+	var dlg := ConfirmationDialog.new()
+	dlg.dialog_text = "Mission failed. Continue from this map?"
+	dlg.ok_button_text = "Continue"
+	dlg.cancel_button_text = "Quit"
+	dlg.min_size = Vector2(380, 120)
+
+	# Put dialog on top of the current scene so it’s visible
+	var root := get_tree().current_scene if get_tree().current_scene else get_tree().root
+	root.add_child(dlg)
+	dlg.popup_centered()
+
+	var result := false
+	var choice_made := false
+
+	dlg.confirmed.connect(func ():
+		result = true
+		choice_made = true
+	)
+	dlg.canceled.connect(func ():
+		result = false
+		choice_made = true
+	)
+
+	# Wait until the user picks
+	while not choice_made:
+		await get_tree().process_frame
+
+	dlg.queue_free()
+	return result
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Resets / settings
 # ─────────────────────────────────────────────────────────────────────────────

@@ -104,11 +104,13 @@ var base_defense        := 0
 var prev_tile_pos: Vector2i
 var queued_airlift_origin: Vector2i = Vector2i(-1, -1)
 
+const SHIELD_ROUNDS := 1
+
 func _ready():
 	prev_tile_pos = tile_pos
 	connect("movement_finished", Callable(self, "_on_movement_finished"))
 	TurnManager.connect("round_ended", Callable(self, "_on_round_ended"))
-	TurnManager.connect("turn_ended", Callable(self, "_on_turn_ended"))
+	#TurnManager.connect("turn_ended", Callable(self, "_on_turn_ended"))
 
 	# Assign a local unique id if not set
 	if unit_id == 0 and has_meta("unit_id"):
@@ -1079,7 +1081,7 @@ func guardian_halo(target_tile: Vector2i) -> void:
 				break
 
 	if is_instance_valid(unit):
-		unit.shield_duration = 1
+		unit.shield_duration = SHIELD_ROUNDS
 		unit._shield_just_applied = true
 
 		var halo = unit.get_node_or_null("Halo") as CPUParticles2D
@@ -1104,23 +1106,26 @@ func guardian_halo(target_tile: Vector2i) -> void:
 	has_attacked = true
 	$AnimatedSprite2D.self_modulate = Color(0.4,0.4,0.4,1)
 
-func _on_round_ended(ended_team: int) -> void:
-	var ended_is_player_turn = (ended_team == TurnManager.Team.PLAYER)
-	if ended_is_player_turn == is_player:
-		return
-
+func _on_round_ended(_ended_team: int) -> void:
+	# Tick shields once per full round for ALL units
 	if shield_duration > 0:
-		shield_duration -= 1
-		if shield_duration == 0:
-			var halo = get_node_or_null("Halo") as CPUParticles2D
-			if halo:
-				halo.emitting = false
+		if _shield_just_applied:
+			_shield_just_applied = false
+		else:
+			shield_duration -= 1
+			if shield_duration <= 0:
+				var halo := get_node_or_null("Halo") as CPUParticles2D
+				if halo:
+					halo.emitting = false
 
+	# If Fortify is meant to last exactly one round, clear it here.
+	# (Or give it a duration counter like shields if you want longer.)
 	if is_fortified:
 		is_fortified = false
 		if _fortify_aura:
 			_fortify_aura.queue_free()
 			_fortify_aura = null
+
 
 func _on_turn_ended(ended_team: int) -> void:
 	var ended_is_player = (ended_team == TurnManager.Team.PLAYER)
