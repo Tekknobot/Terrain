@@ -2281,7 +2281,13 @@ func _spawn_reinforcement_from_info(info: Dictionary) -> void:
 
 	_finalize_spawn(u, pos, is_player_team, true)
 
-func _finalize_spawn(u: Node2D, pos: Vector2i, is_player_team: bool, do_drop_in := true) -> void:
+func _finalize_spawn(
+	u: Node2D,
+	pos: Vector2i,
+	is_player_team: bool,
+	do_drop_in := true,
+	special_override: String = ""
+) -> void:
 	# ✅ Last-second safety: if tile got taken, pick another free tile now
 	if is_tile_occupied(pos) or is_water_tile(pos) or not is_within_bounds(pos):
 		var zone: Rect2i
@@ -2301,9 +2307,14 @@ func _finalize_spawn(u: Node2D, pos: Vector2i, is_player_team: bool, do_drop_in 
 	u.add_to_group("Units")
 	u.set_team(is_player_team)
 	u.tile_pos = pos
-	_assign_special_for_unit(u)
 
-	# world pos & drop-in (unchanged)...
+	# ✅ Assign special deterministically
+	if is_player_team and special_override != "":
+		GameData.set_unit_special(u.unit_id, special_override)
+	else:
+		_assign_special_for_unit(u)
+
+	# World position & drop-in
 	var target_pos = to_global(map_to_local(pos)) + Vector2(0, u.Y_OFFSET)
 	if do_drop_in:
 		u.global_position = target_pos - Vector2(0, 100)
@@ -2313,26 +2324,30 @@ func _finalize_spawn(u: Node2D, pos: Vector2i, is_player_team: bool, do_drop_in 
 	else:
 		u.global_position = target_pos
 
-	# cosmetics (unchanged)...
+	# Cosmetics
 	if is_player_team:
 		var sp = u.get_node_or_null("AnimatedSprite2D")
-		if sp: sp.flip_h = true
+		if sp:
+			sp.flip_h = true
 	else:
 		if u.get_child_count() > 0:
 			u.get_child(0).modulate = Color8(255, 110, 255)
 
 	u.has_moved = false
 	u.has_attacked = false
-	var spr = u.get_node_or_null("AnimatedSprite2D"); if spr: spr.self_modulate = Color(1,1,1,1)
+	var spr = u.get_node_or_null("AnimatedSprite2D")
+	if spr:
+		spr.self_modulate = Color(1, 1, 1, 1)
 
-	# ✅ Mark grid immediately to reserve the tile
+	# ✅ Reserve tile in A*
 	astar.set_point_solid(pos, true)
 	update_astar_grid()
 
-	# sync TurnManager (unchanged)...
+	# Sync TurnManager
 	var tm = get_node("/root/TurnManager")
 	if tm and tm.has_method("_populate_units"):
 		tm._populate_units()
+
 	emit_signal("units_spawned")
 
 # ===============================
@@ -2580,46 +2595,42 @@ func _spawn_player_carryovers(used_tiles: Array[Vector2i]) -> void:
 		# Make them fade in like first spawns
 		u.modulate.a = 0.0
 
-		# Use this ONLY in places where you *have* an `info` dict (e.g. _spawn_player_carryovers / _spawn_reinforcement_from_info)
+		# Level restore
 		var prev_level: int = int(info.get("level", 1))
-		u.level = prev_level + 1  # or just = prev_level if you don't want auto level-up on carryover
+		u.level = prev_level + 1
 
-		# keep stats as restored from save; just clamp and refresh UI
+		# Health before spawn
 		if u.has_meta("max_health"):
 			u.health = clamp(u.health, 1, u.max_health)
 		if u.has_method("update_health_bar"):
 			u.update_health_bar()
 
-		# Use the SAME finalize path as all spawns
-		_finalize_spawn(u, spawn_tile, true, true) # (node, tile, is_player_team, do_drop_in)
+		# Pull saved special before finalize spawn
+		var sp_name := String(info.get("special", ""))
 
-		# Reapply health
+		# Use the SAME finalize path as all spawns, with special override
+		_finalize_spawn(u, spawn_tile, true, true, sp_name)
+
+		# Reapply max/current health
 		u.max_health = int(info.get("max_health", u.max_health))
 		u.health     = clamp(int(info.get("health", u.max_health)), 1, u.max_health)
 		if u.has_method("update_health_bar"):
 			u.update_health_bar()
 
-		# Reapply upgrades (value-based, not old id)
+		# Reapply upgrades
 		var upgs: Array = info.get("upgrades", [])
 		if upgs and u.has_method("apply_upgrade"):
 			for upg in upgs:
 				u.apply_upgrade(String(upg))
 		GameData.unit_upgrades[new_id] = upgs.duplicate(true)
 
-		# Ensure it has the same special by name (or assign a default)
-		var sp_name := String(info.get("special", ""))
-		if sp_name != "":
-			GameData.set_unit_special(new_id, sp_name)
-		else:
-			_assign_special_for_unit(u)
-
-		# Make sure it’s usable right away this turn
+		# Usable right away
 		u.has_moved = false
 		u.has_attacked = false
 
 		used_tiles.append(spawn_tile)
 
-	# Keep nav + turn lists in sync
+	# Sync navigation & turn manager
 	await get_tree().process_frame
 	update_astar_grid()
 	var tm = get_node("/root/TurnManager")
