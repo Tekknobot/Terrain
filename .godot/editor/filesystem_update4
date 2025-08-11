@@ -1,4 +1,4 @@
-res://Scenes/Main.tscn
+res://Scenes/TitleScreen.tscn
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
 res://Textures/level_up.gdshader
@@ -9,18 +9,11 @@ res://Textures/in_water.tres
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
 res://Scripts/TileMap.gd
-res://Scenes/TitleScreen.tscn
+res://Scenes/Main.tscn
 res://Prefabs/UpgradeWindow.tscn
 res://Scenes/GameOver.tscn
 res://Scenes/TutorialMenu.tscn
 res://Scenes/SquadSelect.tscn
 res://Scenes/UnitCard.tscn
-res://Scripts/RewardsUpgrades.gd
-res://Scripts/TurnManager.gd
 res://Scenes/RewardUpgrade.tscn
 res://Prefabs/SpiderBlastMissile.tscn
-res://Scripts/SpiderBlastMissile.gd
-res://Scripts/Unit.gd
-res://Scripts/GameData.gd
-res://Scripts/Conclusion.gd
-res://Scripts/TutorialMenu.gd

@@ -1166,12 +1166,20 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			var click_unit = get_unit_at_tile(mouse_tile)
 
-			# A) If nothing is selected yet, allow selection and bail.
+			# A) If nothing is selected yet…
 			if selected_unit == null:
 				if click_unit:
-					_select_unit_at_mouse()
+					if click_unit.is_player:
+						_select_unit_at_mouse()  # normal selection for your own unit
+					else:
+						# Enemy: peek only, don't change selection
+						_clear_highlights()
+						if showing_attack:
+							_peek_show_attack_range_for(click_unit)
+						else:
+							_peek_show_range_for(click_unit)
 				return
-
+				
 			# B) If our selected_unit is invalid, bail.
 			if not is_instance_valid(selected_unit):
 				return
@@ -1266,10 +1274,13 @@ func _input(event):
 					_select_unit_at_mouse()
 					return
 
-				# Enemy clicked and no action happened → peek range (do NOT select the enemy)
+				# Enemy clicked and no action happened → peek tiles (no selection change)
 				if not click_unit.is_player:
 					_clear_highlights()
-					_peek_show_range_for(click_unit)
+					if showing_attack:
+						_peek_show_attack_range_for(click_unit)
+					else:
+						_peek_show_range_for(click_unit)
 					return
 
 			# Otherwise, refresh selection under cursor or clear
@@ -1380,6 +1391,20 @@ func _select_unit_at_mouse():
 	mouse_pos.y += 16
 	var tile = local_to_map(to_local(mouse_pos))
 	var unit = get_unit_at_tile(tile)
+
+	if unit and not unit.is_player:
+		# Show HUD info but don't change selection or ability button
+		_show_only_hud(unit, tile)
+		ability_button.visible = false
+		ability_button.disabled = true
+		ability_button.text = ""
+
+		# Peek tiles: attack tiles if we're showing attack, otherwise movement
+		if showing_attack:
+			_peek_show_attack_range_for(unit)
+		else:
+			_peek_show_range_for(unit)
+		return
 
 	if unit == null:
 		# No unit under cursor → hide HUD & button
