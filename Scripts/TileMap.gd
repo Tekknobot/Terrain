@@ -2278,9 +2278,8 @@ func _spawn_reinforcement_from_info(info: Dictionary) -> void:
 			return
 		pos = fallback
 
-
 	_finalize_spawn(u, pos, is_player_team, true)
-
+	
 func _finalize_spawn(
 	u: Node2D,
 	pos: Vector2i,
@@ -2308,9 +2307,11 @@ func _finalize_spawn(
 	u.set_team(is_player_team)
 	u.tile_pos = pos
 
-	# ✅ Assign special deterministically
-	if is_player_team and special_override != "":
+	# ✅ Special: override wins for any team, and mirror onto the unit itself
+	if special_override != "":
 		GameData.set_unit_special(u.unit_id, special_override)
+		if u.has_meta("default_special"):
+			u.default_special = special_override
 	else:
 		_assign_special_for_unit(u)
 
@@ -2538,17 +2539,15 @@ func _assign_special_for_unit(u: Node2D) -> void:
 	var uid = u.unit_id
 	var existing := GameData.get_unit_special(uid)
 	if typeof(existing) == TYPE_STRING and existing != "":
-		return
+		return  # don't overwrite a restored/saved special
 
 	var special := ""
-	var ds = u.get("default_special")  # ✅ Proper way to read exported variable
+	var ds = u.get("default_special")  # read the unit's exported default_special
 	if typeof(ds) == TYPE_STRING and ds != "":
-		special = ds
-	elif GameData.available_abilities.size() > 0:
-		special = GameData.available_abilities[0]
+		special = ds  # otherwise leave it empty (no fallback list)
 
 	GameData.set_unit_special(uid, special)
-	print("⭐ Assigned special '%s' → unit_id:%d" % [special, uid])
+	#print("⭐ Assigned special '%s' → unit_id:%d" % [special, uid])
 
 func _fallback_scene_index_special(u: Node2D) -> String:
 	var abilities: Array = GameData.available_abilities
@@ -2595,17 +2594,17 @@ func _spawn_player_carryovers(used_tiles: Array[Vector2i]) -> void:
 		# Make them fade in like first spawns
 		u.modulate.a = 0.0
 
-		# Level restore
+		# Level restore (or keep same if you don't want auto level-up)
 		var prev_level: int = int(info.get("level", 1))
 		u.level = prev_level + 1
 
-		# Health before spawn
+		# Health before spawn (sanity)
 		if u.has_meta("max_health"):
 			u.health = clamp(u.health, 1, u.max_health)
 		if u.has_method("update_health_bar"):
 			u.update_health_bar()
 
-		# Pull saved special before finalize spawn
+		# Pull saved special and pass as override
 		var sp_name := String(info.get("special", ""))
 
 		# Use the SAME finalize path as all spawns, with special override
