@@ -23,3 +23,4 @@ res://Scripts/SpiderBlastMissile.gd
 res://Scripts/Unit.gd
 res://Scripts/GameData.gd
 res://Scripts/Conclusion.gd
+res://Scripts/TutorialMenu.gd

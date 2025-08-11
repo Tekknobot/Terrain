@@ -37,7 +37,7 @@ func _on_abilities_pressed() -> void:
 [b][color=red]Mark and Pounce [/color][/b] lock target leap in and strike with high damage  
 [b][color=red]High Arcing Shot [/color][/b] lands in 3x3 zone strong damage in center  
 [b][color=red]Suppressive Fire [/color][/b] fire in line up to 4 tiles damaging all in path  
-[b][color=red]Guardian Halo [/color][/b] give ally one round shield lost if missed  
+[b][color=red]Guardian Halo [/color][/b] give ally two round shield lost if missed  
 [b][color=red]Fortify [/color][/b] reduce all damage taken until next turn  
 [b][color=red]Heavy Rain [/color][/b] missile barrage over wide area heavy damage  
 [b][color=red]Web Field [/color][/b] trap and damage all enemies in the zone"""

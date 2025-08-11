@@ -1079,7 +1079,7 @@ func guardian_halo(target_tile: Vector2i) -> void:
 				break
 
 	if is_instance_valid(unit):
-		unit.shield_duration = 1
+		unit.shield_duration = 3
 		unit._shield_just_applied = true
 
 		var halo = unit.get_node_or_null("Halo") as CPUParticles2D

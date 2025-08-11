@@ -544,7 +544,7 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.add_to_group("Units")
 		unit_instance.tile_pos = spawn_tile
 		add_child(unit_instance)
-
+	
 		# re-apply saved upgrades
 		for upg in GameData.get_upgrades(id):
 			if unit_instance.has_method("apply_upgrade"):
@@ -554,6 +554,9 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 			var sprite := unit_instance.get_node_or_null("AnimatedSprite2D")
 			if sprite:
 				sprite.flip_h = true
+
+		# after: add_child(unit_instance), set team/tile_pos, etc.
+		_assign_special_for_unit(unit_instance)  # <-- give them their default_special now
 
 		unit_instance.modulate.a = 0.0
 		used_tiles.append(spawn_tile)
