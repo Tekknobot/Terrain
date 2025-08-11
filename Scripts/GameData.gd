@@ -155,17 +155,6 @@ func on_map_won() -> void:
 	advance_level()
 	get_tree().change_scene_to_file(map_scene)
 
-func on_run_failed() -> void:
-	carryover_units.clear()
-	clear_all_upgrades()
-	unit_special.clear()
-	current_level = 1
-	max_enemy_units = 2
-	map_difficulty = 1
-	next_unit_id = 1
-	await get_tree().create_timer(3).timeout
-	get_tree().change_scene_to_file(title_scene)
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Resets / settings
 # ─────────────────────────────────────────────────────────────────────────────

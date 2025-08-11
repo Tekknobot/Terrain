@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://d1nrabrws4fy2"]
+[gd_scene load_steps=8 format=3 uid="uid://d1nrabrws4fy2"]
 
 [ext_resource type="Script" uid="uid://cd7g02if5u8vc" path="res://Scripts/Conclusion.gd" id="1_twcm3"]
 [ext_resource type="AudioStream" uid="uid://deqv1i3mx4h3b" path="res://Audio/SFX/victorymale-version-230553.mp3" id="2_owpg0"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="2_ww6bq"]
 [ext_resource type="AudioStream" uid="uid://c5nuhu5prbrn1" path="res://Audio/SFX/8-bit-logo-291104.mp3" id="3_lt44g"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://Fonts/magofonts/mago2.ttf" id="5_rdiyk"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4pobx"]
 bg_color = Color(0, 0, 0, 1)
@@ -12,6 +13,10 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="Theme" id="Theme_rdiyk"]
+default_font = ExtResource("5_rdiyk")
+default_font_size = 32
 
 [node name="GameOver" type="Node2D"]
 script = ExtResource("1_twcm3")
@@ -29,14 +34,43 @@ offset_bottom = 6.0
 
 [node name="ResultLabel" type="Label" parent="CanvasLayer/Control"]
 layout_mode = 2
-offset_left = 451.0
-offset_top = 240.0
-offset_right = 712.0
-offset_bottom = 293.0
+offset_left = 355.0
+offset_top = 246.0
+offset_right = 825.0
+offset_bottom = 376.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("2_ww6bq")
 theme_override_font_sizes/font_size = 64
 theme_override_styles/normal = SubResource("StyleBoxFlat_4pobx")
+text = "Defeat!"
 horizontal_alignment = 1
 
+[node name="Continue" type="Button" parent="CanvasLayer/Control"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 0
+offset_left = 375.0
+offset_top = 321.0
+offset_right = 535.0
+offset_bottom = 355.0
+theme = SubResource("Theme_rdiyk")
+theme_override_fonts/font = ExtResource("5_rdiyk")
+theme_override_font_sizes/font_size = 32
+text = "Continue
+"
+
+[node name="Quit" type="Button" parent="CanvasLayer/Control"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 0
+offset_left = 635.0
+offset_top = 320.0
+offset_right = 795.0
+offset_bottom = 354.0
+theme = SubResource("Theme_rdiyk")
+theme_override_fonts/font = ExtResource("5_rdiyk")
+theme_override_font_sizes/font_size = 32
+text = "Quit"
+
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
+
+[connection signal="pressed" from="CanvasLayer/Control/Continue" to="." method="_on_continue_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/Quit" to="." method="_on_quit_pressed"]

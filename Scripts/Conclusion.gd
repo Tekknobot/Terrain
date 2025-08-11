@@ -39,9 +39,6 @@ func set_result(result: String, stats: Dictionary, rewards: Dictionary) -> void:
 		else:
 			push_warning("Defeat sound not assigned!")
 			
-		await get_tree().create_timer(2).timeout	
-		_on_ContinueButton_pressed()
-			
 	# Optionally, play an animation or sound here.
 	show()  # Ensure the screen is visible.
 
@@ -49,6 +46,10 @@ func _on_RetryButton_pressed():
 	# Reload the current scene to try again.
 	get_tree().reload_current_scene()
 
-func _on_ContinueButton_pressed():
+func _on_quit_pressed() -> void:
 	# Change to the main game scene (battle) instead of resetting entire game
 	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
+
+
+func _on_continue_pressed() -> void:
+	get_tree().reload_current_scene()

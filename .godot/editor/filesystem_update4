@@ -21,3 +21,5 @@ res://Scenes/RewardUpgrade.tscn
 res://Prefabs/SpiderBlastMissile.tscn
 res://Scripts/SpiderBlastMissile.gd
 res://Scripts/Unit.gd
+res://Scripts/GameData.gd
+res://Scripts/Conclusion.gd
