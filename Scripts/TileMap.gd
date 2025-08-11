@@ -590,21 +590,17 @@ func _apply_enemy_upgrades_by_level(level: int) -> void:
 func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var tries := 100
 	while tries > 0:
+		tries -= 1
 		var x = randi_range(zone.position.x, zone.position.x + zone.size.x - 1)
 		var y = randi_range(zone.position.y, zone.position.y + zone.size.y - 1)
 		var tile = Vector2i(x, y)
 
-		if not is_within_bounds(tile):
-			continue
-		if is_water_tile(tile):
-			continue
-		if is_tile_occupied(tile):
-			continue
-		if used_tiles.has(tile):
-			continue
+		if not is_within_bounds(tile): continue
+		if is_water_tile(tile): continue
+		if is_tile_occupied(tile): continue
+		if used_tiles.has(tile): continue
 
 		return tile
-		tries -= 1
 
 	push_warning("⚠ Could not find valid spawn in zone.")
 	return Vector2i(-1, -1)
@@ -1196,19 +1192,22 @@ func _input(event):
 
 			# --- RANGED ATTACK (requires attack mode) ---
 			if not_tinted and can_act and showing_attack and selected_unit.unit_type in ["Ranged", "Support"]:
+				# Targeting enemy unit
 				if enemy and enemy != selected_unit and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 					auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
 					selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 					_clear_highlights()
 					return
 
-				if structure and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
+				# Targeting structure — make sure it’s not on our own tile
+				if structure and structure.tile_pos != selected_unit.tile_pos and manhattan_distance(selected_unit.tile_pos, structure.tile_pos) <= selected_unit.attack_range:
 					auto_attack_ranged_structure(selected_unit.unit_id, structure.tile_pos)
 					selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 					_clear_highlights()
 					return
 
-				if not enemy and not structure and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
+				# Empty tile — not our own tile
+				if not enemy and not structure and mouse_tile != selected_unit.tile_pos and manhattan_distance(selected_unit.tile_pos, mouse_tile) <= selected_unit.attack_range:
 					auto_attack_ranged_empty(selected_unit.unit_id, mouse_tile)
 					selected_unit.get_node("AnimatedSprite2D").self_modulate = Color(0.4, 0.4, 0.4, 1)
 					_clear_highlights()
@@ -2218,11 +2217,9 @@ func _spawn_reinforcement_internal(is_player_team: bool) -> void:
 
 func _spawn_reinforcement_from_info(info: Dictionary) -> void:
 	var scene_path: String = info.get("scene_path","")
-	if scene_path == "":
-		return
+	if scene_path == "": return
 	var packed: PackedScene = load(scene_path)
-	if packed == null:
-		return
+	if packed == null: return
 
 	var u: Node2D = packed.instantiate()
 	var id = info.get("unit_id", -1)
@@ -2233,31 +2230,53 @@ func _spawn_reinforcement_from_info(info: Dictionary) -> void:
 	u.set_meta("unit_id", id)
 	u.set_meta("scene_path", scene_path)
 
-	# mirror any upgrades if you store them per-id
+	# Reapply upgrades for players (unchanged)
 	if is_player_team:
 		for upg in GameData.get_upgrades(id):
 			if u.has_method("apply_upgrade"):
 				u.apply_upgrade(upg)
 
-	# Store ownership as meta only (avoid assigning unknown property)
-	u.set_meta("peer_id", get_tree().get_multiplayer().get_unique_id())
+	# ✅ If the requested pos is occupied, pick a free one in the team zone
+	if is_tile_occupied(pos) or not is_within_bounds(pos) or is_water_tile(pos):
+		var zone: Rect2i
+		if is_player_team:
+			zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+		else:
+			zone = Rect2i(0, 0, grid_width, int(grid_height / 3))
+
+		var fallback := get_random_valid_tile_in_zone(zone, [])
+		if fallback == Vector2i(-1, -1):
+			push_warning("Reinforcement skipped: no free tile available in zone.")
+			return
+		pos = fallback
+
 
 	_finalize_spawn(u, pos, is_player_team, true)
 
 func _finalize_spawn(u: Node2D, pos: Vector2i, is_player_team: bool, do_drop_in := true) -> void:
-	# Add to scene & common setup
+	# ✅ Last-second safety: if tile got taken, pick another free tile now
+	if is_tile_occupied(pos) or is_water_tile(pos) or not is_within_bounds(pos):
+		var zone: Rect2i
+		if is_player_team:
+			zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+		else:
+			zone = Rect2i(0, 0, grid_width, int(grid_height / 3))
+
+		var alt := get_random_valid_tile_in_zone(zone, [])
+		if alt == Vector2i(-1, -1):
+			push_warning("Reinforcement aborted: no alternative free tile.")
+			u.queue_free()
+			return
+		pos = alt
+
 	add_child(u)
 	u.add_to_group("Units")
 	u.set_team(is_player_team)
 	u.tile_pos = pos
-
-	# 🔸 Ensure the reinforcement has a special ability
 	_assign_special_for_unit(u)
-	
-	# World position (target)
-	var target_pos = to_global(map_to_local(pos)) + Vector2(0, u.Y_OFFSET)
 
-	# Optional drop-in tween (match spawn_new_enemy_units)
+	# world pos & drop-in (unchanged)...
+	var target_pos = to_global(map_to_local(pos)) + Vector2(0, u.Y_OFFSET)
 	if do_drop_in:
 		u.global_position = target_pos - Vector2(0, 100)
 		var tween = u.create_tween()
@@ -2266,31 +2285,26 @@ func _finalize_spawn(u: Node2D, pos: Vector2i, is_player_team: bool, do_drop_in 
 	else:
 		u.global_position = target_pos
 
-	# Cosmetics
+	# cosmetics (unchanged)...
 	if is_player_team:
 		var sp = u.get_node_or_null("AnimatedSprite2D")
-		if sp:
-			sp.flip_h = true
+		if sp: sp.flip_h = true
 	else:
 		if u.get_child_count() > 0:
 			u.get_child(0).modulate = Color8(255, 110, 255)
 
-	# Fresh turn state
 	u.has_moved = false
 	u.has_attacked = false
-	var spr = u.get_node_or_null("AnimatedSprite2D")
-	if spr:
-		spr.self_modulate = Color(1,1,1,1)
+	var spr = u.get_node_or_null("AnimatedSprite2D"); if spr: spr.self_modulate = Color(1,1,1,1)
 
-	# Rebuild pathfinding so tile becomes blocked immediately
+	# ✅ Mark grid immediately to reserve the tile
+	astar.set_point_solid(pos, true)
 	update_astar_grid()
 
-	# Let TurnManager include this new unit in its list
+	# sync TurnManager (unchanged)...
 	var tm = get_node("/root/TurnManager")
 	if tm and tm.has_method("_populate_units"):
 		tm._populate_units()
-
-	# Optional: emit a local signal if you want other systems to react
 	emit_signal("units_spawned")
 
 # ===============================
