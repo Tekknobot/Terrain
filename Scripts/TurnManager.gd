@@ -155,8 +155,7 @@ func _start_unit_action(team):
 						"spider_blast": # (your chooser’s label for thread/web? adjust if needed)
 							tilemap.do_thread_attack(unit.unit_id, special.target)
 
-					unit.has_moved  = true
-					unit.has_attacked = true	
+
 					# ── WAIT FOR SPECIAL TO FINISH ──
 					while is_instance_valid(unit) and not (unit.has_moved and unit.has_attacked):
 						await get_tree().process_frame
@@ -216,8 +215,7 @@ func _start_unit_action(team):
 						"spider_blast":
 							tilemap.do_thread_attack(unit.unit_id, special2.target)
 
-					unit.has_moved  = true
-					unit.has_attacked = true	
+
 					while is_instance_valid(unit) and not unit.has_attacked:
 						await get_tree().process_frame
 					if not is_instance_valid(unit):

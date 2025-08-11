@@ -1079,7 +1079,7 @@ func guardian_halo(target_tile: Vector2i) -> void:
 				break
 
 	if is_instance_valid(unit):
-		unit.shield_duration = 3
+		unit.shield_duration = 1
 		unit._shield_just_applied = true
 
 		var halo = unit.get_node_or_null("Halo") as CPUParticles2D
@@ -1126,13 +1126,6 @@ func _on_turn_ended(ended_team: int) -> void:
 	var ended_is_player = (ended_team == TurnManager.Team.PLAYER)
 	if ended_is_player == is_player:
 		return
-
-	if shield_duration > 0:
-		shield_duration -= 1
-		if shield_duration == 0:
-			var halo = get_node_or_null("Halo") as CPUParticles2D
-			if halo:
-				halo.emitting = false
 
 	if is_fortified:
 		is_fortified = false
