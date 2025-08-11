@@ -288,9 +288,9 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -792.0
+offset_left = -902.0
 offset_top = -91.0
-offset_right = -752.0
+offset_right = -862.0
 offset_bottom = -51.0
 grow_horizontal = 0
 grow_vertical = 0
@@ -327,20 +327,19 @@ theme_override_fonts/font = ExtResource("39_jffjd")
 theme_override_font_sizes/font_size = 32
 text = "MAP"
 
-[node name="Menu" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
-visible = false
-custom_minimum_size = Vector2(100, 32)
-layout_mode = 2
-theme_override_fonts/font = ExtResource("39_jffjd")
-theme_override_font_sizes/font_size = 32
-text = "Menu"
-
 [node name="Full" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
 custom_minimum_size = Vector2(100, 32)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("39_jffjd")
 theme_override_font_sizes/font_size = 32
 text = "Screen"
+
+[node name="Menu" type="Button" parent="CanvasLayer/Control/HBoxContainer"]
+custom_minimum_size = Vector2(100, 32)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("39_jffjd")
+theme_override_font_sizes/font_size = 32
+text = "Menu"
 
 [node name="TutorialLabel" type="Label" parent="CanvasLayer"]
 offset_left = 16.0
@@ -514,6 +513,6 @@ transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
 
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/EndTurn" to="TileMap" method="_on_end_turn_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Reset" to="TileMap" method="_on_reset_pressed"]
-[connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Menu" to="TileMap" method="_on_back_pressed"]
 [connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Full" to="TileMap" method="_on_full_pressed"]
+[connection signal="pressed" from="CanvasLayer/Control/HBoxContainer/Menu" to="TileMap" method="_on_back_pressed"]
 [connection signal="pressed" from="HUDLayer/Control/Ability" to="TileMap" method="_on_ability_pressed"]

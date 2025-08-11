@@ -1280,31 +1280,35 @@ func suppressive_fire(_unused: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 	gain_xp(25)
 
-	var neighbors := [
-		tile_pos + Vector2i( 1,  0),
-		tile_pos + Vector2i(-1,  0),
-		tile_pos + Vector2i( 0,  1),
-		tile_pos + Vector2i( 0, -1)
+	# 4-adjacent directions
+	var dirs = [
+		Vector2i( 1,  0),
+		Vector2i(-1,  0),
+		Vector2i( 0,  1),
+		Vector2i( 0, -1)
 	]
 
-	var tiles_to_hit := []
-	for n in neighbors:
-		if tilemap.is_within_bounds(n):
-			tiles_to_hit.append(n)
+	# Collect 3 tiles along each direction -> 12 total
+	var tiles_to_hit: Array = []
+	for d in dirs:
+		for step in range(1, 4): # 1..3
+			var n = tile_pos + d * step
+			if tilemap.is_within_bounds(n):
+				tiles_to_hit.append(n)
 
 	_fire_projectiles_along(tiles_to_hit)
 
 	has_attacked = true
 	has_moved   = true
-	$AnimatedSprite2D.self_modulate = Color(0.4,0.4,0.4,1)
+	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 func _fire_projectiles_along(tiles: Array) -> void:
+	var delay_step := 0.05
 	for i in range(tiles.size()):
-		var tile = tiles[i]
-		var delay_time = 0.01
-		var t = Timer.new()
+		var tile: Vector2i = tiles[i]
+		var t := Timer.new()
 		t.one_shot = true
-		t.wait_time = delay_time
+		t.wait_time = 0.01 + i * delay_step
 		add_child(t)
 		t.start()
 		t.connect("timeout", Callable(self, "_on_fire_timer_timeout").bind(tile))
