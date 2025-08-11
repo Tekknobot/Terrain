@@ -445,32 +445,40 @@ func _post_map_generation():
 
 	var used_tiles: Array[Vector2i] = []
 
-	# in _post_map_generation(), BEFORE _use_selected_squad_from_gamedata()
+	# keep a snapshot of all playables for reinforcements later
 	if all_player_prefabs.is_empty():
 		all_player_prefabs = player_units.duplicate(true)
-		
-	# 🔸 Use the exact squad the picker saved
+
+	# use the exact squad selected in the picker (if any)
 	_use_selected_squad_from_gamedata()
 
+	# structures
 	spawn_structures()
 	fade_in_structures()
 
+	# spawn players (carryovers if present)
 	if not GameData.carryover_units.is_empty():
 		_spawn_player_carryovers(used_tiles)
 	else:
 		_spawn_side(player_units, grid_height - 1, true, used_tiles)
 
+	# spawn enemies scaled by level (and capped by GameData.max_enemy_units)
 	next_spawn_index = 0
 	_spawn_side(enemy_units, 0, false, used_tiles)
 
+	# fade & nav
 	fade_in_units()
 	update_astar_grid()
 
+	# ensure every unit has a special stored in GameData
 	for u in get_tree().get_nodes_in_group("Units"):
 		if u is Node2D:
 			var existing = GameData.get_unit_special(u.unit_id)
 			if typeof(existing) != TYPE_STRING or existing == "":
 				_assign_special_for_unit(u)
+
+	# ✅ apply level-based upgrades to every enemy now on the map
+	_apply_enemy_upgrades_by_level(GameData.current_level)
 
 	TurnManager.start_turn()
 
@@ -488,35 +496,41 @@ func _spawn_teams():
 	_spawn_side(enemy_units, 0, false, used_tiles)
 
 func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tiles: Array[Vector2i]) -> void:
-	# ─────────────────────────────────────────────────────────
-	# OVERRIDE for player: use EXACT picked prefabs from GameData
-	# ─────────────────────────────────────────────────────────
 	var chosen_scenes: Array[PackedScene] = []
+
+	# Players: if a squad was chosen, spawn exactly that; otherwise fall back
 	if is_player and not GameData.selected_squad.is_empty():
 		for it in GameData.selected_squad:
 			if it is PackedScene:
 				chosen_scenes.append(it)
 			elif typeof(it) == TYPE_STRING:
 				var p: PackedScene = load(it)
-				if p: chosen_scenes.append(p)
+				if p:
+					chosen_scenes.append(p)
 			elif typeof(it) == TYPE_DICTIONARY and it.has("scene_path"):
 				var p2: PackedScene = load(String(it["scene_path"]))
-				if p2: chosen_scenes.append(p2)
+				if p2:
+					chosen_scenes.append(p2)
 	else:
-		# original behavior for enemies (or fallback if no squad set)
-		var base := 3
-		var raw_spawn = base + max(GameData.current_level - 1, 0)
-		var total_to_spawn: int
-		if is_player:
-			total_to_spawn = min(raw_spawn, 8)
-		else:
-			total_to_spawn = raw_spawn
+		# Enemies (and fallback for players): scale by current_level and cap by max_enemy_units
+		if units.is_empty():
+			return
 
-		if units.is_empty(): return
-		for i in range(total_to_spawn):
+		var base := 3                                # minimum baseline pressure
+		var per_level := 1                           # +1 per map level
+		var want := base + (GameData.current_level - 1) * per_level
+		if is_player:
+			# players still hard-capped to a small squad (comfort)
+			var max_players := 8
+			want = min(want, max_players)
+		else:
+			# enemies capped by the run's max_enemy_units
+			want = min(want, GameData.max_enemy_units)
+
+		for i in range(want):
 			var idx := (next_spawn_index + i) % units.size()
 			chosen_scenes.append(units[idx])
-		next_spawn_index = (next_spawn_index + total_to_spawn) % units.size()
+		next_spawn_index = (next_spawn_index + want) % units.size()
 
 	# define spawn zone
 	var zone := Rect2i()
@@ -525,7 +539,7 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 	else:
 		zone = Rect2i(0, 0, grid_width, int(grid_height / 3))
 
-	# spawn exactly what’s in chosen_scenes
+	# spawn scenes
 	for scene_to_spawn in chosen_scenes:
 		var spawn_tile = get_random_valid_tile_in_zone(zone, used_tiles)
 		if spawn_tile == Vector2i(-1, -1):
@@ -539,7 +553,7 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.set_meta("unit_id", id)
 		unit_instance.set_meta("scene_path", scene_to_spawn.resource_path)
 
-		# 🔸 Ensure the meta carries the prefab’s default_special, then assign deterministically
+		# mirror default_special into GameData (stable, deterministic)
 		if not unit_instance.has_meta("default_special"):
 			if typeof(unit_instance.get("default_special")) == TYPE_STRING:
 				unit_instance.set_meta("default_special", unit_instance.default_special)
@@ -550,48 +564,79 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.add_to_group("Units")
 		unit_instance.tile_pos = spawn_tile
 		add_child(unit_instance)
-	
-		# re-apply saved upgrades
-		for upg in GameData.get_upgrades(id):
-			if unit_instance.has_method("apply_upgrade"):
-				unit_instance.apply_upgrade(upg)
+
+		# reapply saved upgrades for **players** only; enemies handled separately below
+		if is_player:
+			for upg in GameData.get_upgrades(id):
+				if unit_instance.has_method("apply_upgrade"):
+					unit_instance.apply_upgrade(upg)
 
 		if is_player:
-			var sprite := unit_instance.get_node_or_null("AnimatedSprite2D")
-			if sprite:
-				sprite.flip_h = true
+			var sprite_p := unit_instance.get_node_or_null("AnimatedSprite2D")
+			if sprite_p:
+				sprite_p.flip_h = true
+		else:
+			# enemy tint
+			if unit_instance.get_child_count() > 0:
+				unit_instance.get_child(0).modulate = Color8(255, 110, 255)
 
 		unit_instance.modulate.a = 0.0
 		used_tiles.append(spawn_tile)
-		print("Spawned unit ", unit_instance.name, " (ID=", id, ") at ", spawn_tile)
+		print("Spawned unit ", unit_instance.name, " (ID=", id, ", enemy=", not is_player, ") at ", spawn_tile)
+
+	# If we just spawned enemies, make sure they have the correct upgrade count right away
+	if not is_player:
+		_apply_enemy_upgrades_by_level(GameData.current_level)
 	
 func _apply_enemy_upgrades_by_level(level: int) -> void:
+	if level < 1:
+		return
+
+	var desired = level - 1                    # e.g. L1 → 0 upgrades, L3 → 2 upgrades
 	var possible_upgrades := [
 		"hp_boost",
 		"damage_boost",
 		"range_boost",
 		"move_boost"
 	]
-	
+
 	for unit in get_tree().get_nodes_in_group("Units"):
-		if unit.is_player or not unit.has_method("apply_upgrade") or not is_instance_valid(unit):
+		if not is_instance_valid(unit):
+			continue
+		if unit.is_player:
+			continue
+		if not unit.has_method("apply_upgrade"):
 			continue
 
 		var uid = unit.unit_id
-		# ensure we record all upgrades in an array
+
+		# ensure an array exists in GameData for this unit
 		if not GameData.unit_upgrades.has(uid) or typeof(GameData.unit_upgrades[uid]) != TYPE_ARRAY:
 			GameData.unit_upgrades[uid] = []
 
-		# give exactly `level` upgrades to each enemy
-		for i in range(level - 1):
-			var pool = possible_upgrades.duplicate()
-			# melee units shouldn't get range_boost
-			if unit.unit_type == "Melee":
-				pool.erase("range_boost")
+		var already: Array = GameData.get_upgrades(uid)
+		var have = already.size()
+		var missing = desired - have
+		if missing <= 0:
+			continue
 
-			var upg = pool[randi() % pool.size()]
+		for i in range(missing):
+			# build a valid pool each iteration (to respect melee constraint)
+			var pool = possible_upgrades.duplicate(true)
+			if String(unit.unit_type) == "Melee":
+				pool.erase("range_boost")
+			if pool.is_empty():
+				break
+
+			var pick_index = randi() % pool.size()
+			var upg = String(pool[pick_index])
+
 			unit.apply_upgrade(upg)
-			GameData.unit_upgrades[uid].append(upg)	
+			GameData.add_upgrade(uid, upg)
+			print("⬆ Enemy", unit.name, "(ID=", uid, ") got upgrade:", upg)
+
+	# track the highest upgrade level applied this map (optional; used by other systems)
+	GameData.last_enemy_upgrade_level = max(GameData.last_enemy_upgrade_level, level)
 
 func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:
 	var tries := 100
@@ -766,47 +811,46 @@ func fade_in_units():
 			units.get_child(0).modulate = Color8(255, 110, 255)
 		
 func spawn_new_enemy_units():
-	# 1) How many enemies are already on the board?
+	# how many are already on the board?
 	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)
 	var current_count = enemy_units_on_board.size()
-	
-	# 2) If we've already reached (or exceeded) the cap, bail out.
+
+	# cap by max_enemy_units
 	if current_count >= GameData.max_enemy_units:
 		print("Max enemy units reached:", current_count)
 		update_astar_grid()
 		return
-	
-	# 3) Compute “raw” spawn based on current_level, but much slower than (level - 1).
-	#    ‣ spawn_rate of 0.5 means “half a unit per level,” floored.
-	#    ‣ Guarantee at least 1 spawn until you hit the cap.
+
+	# scale additional spawns by level, slower than map start
 	var level = GameData.current_level
 	var spawn_rate := 0.5
 	var base_spawn := int(floor(level * spawn_rate))
-	base_spawn = max(base_spawn, 1)  # always spawn at least 1 enemy, early on
-	
-	# 4) But do not exceed the remaining slots (max_enemy_units – current_count)
+	if base_spawn < 1:
+		base_spawn = 1
+
 	var slots_left = GameData.max_enemy_units - current_count
 	var units_to_spawn = min(base_spawn, slots_left)
-	
-	# Debug print for clarity:
-	print("🆕 Level", level, "→ trying to spawn", base_spawn,
-		  "(capped to", units_to_spawn, "by max_enemy_units).")
-	
-	# 5) Gather every valid X on row 0
+
+	print("🆕 Level", level, "→ trying to spawn", base_spawn, "(capped to", units_to_spawn, "by max_enemy_units).")
+
+	# gather valid tiles on row 0
 	var spawn_row = 0
 	var valid_tiles := []
 	for x in range(grid_width):
 		var t = Vector2i(x, spawn_row)
-		if is_within_bounds(t) \
-		   and not is_tile_occupied(t) \
-		   and not is_water_tile(t):
+		var ok = true
+		if not is_within_bounds(t):
+			ok = false
+		if ok and is_tile_occupied(t):
+			ok = false
+		if ok and is_water_tile(t):
+			ok = false
+		if ok:
 			valid_tiles.append(t)
 
-	# 6) Shuffle them and take exactly as many as we need
 	valid_tiles.shuffle()
 	var chosen_tiles = valid_tiles.slice(0, units_to_spawn)
-	
-	# 7) Spawn one enemy per chosen tile
+
 	for spawn_tile in chosen_tiles:
 		if enemy_units.is_empty():
 			break
@@ -823,22 +867,24 @@ func spawn_new_enemy_units():
 		var id = GameData.next_unit_id
 		enemy_unit.unit_id = id
 		GameData.next_unit_id = id + 1
-		enemy_unit.set_meta("unit_id", id)  # ✅ add this
-		enemy_unit.set_meta("peer_id", 1)     # ✅ tag it instead
+		enemy_unit.set_meta("unit_id", id)
+		enemy_unit.set_meta("peer_id", 1)
 		enemy_unit.set_meta("scene_path", enemy_scene.resource_path)
 
-		# drop‐in effect
+		# drop-in effect
 		var target_pos = to_global(map_to_local(spawn_tile)) + Vector2(0, enemy_unit.Y_OFFSET)
 		enemy_unit.global_position = target_pos - Vector2(0, 100)
 		var tween = enemy_unit.create_tween()
-		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5) \
-			 .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 		await get_tree().create_timer(0.3).timeout
 
-		# 8) Rebuild pathfinding
-		await get_tree().process_frame
-		update_astar_grid()
+	# rebuild pathfinding
+	await get_tree().process_frame
+	update_astar_grid()
+
+	# ✅ ensure every enemy on board has the correct upgrade count for the current level
+	_apply_enemy_upgrades_by_level(GameData.current_level)
 
 # ———————————————————————————————————————————————————————————————
 # CAMERA SETUP

@@ -950,6 +950,9 @@ func ground_slam(target_tile: Vector2i) -> void:
 		Vector2i(-1,  1), Vector2i(-1, -1),
 	]
 
+	var dmg_units := scaled_dmg(1.0)
+	var dmg_struct := scaled_dmg(1.0)
+
 	for dir in directions:
 		var adj_tile = tile_pos + dir
 		if not tilemap.is_within_bounds(adj_tile):
@@ -976,12 +979,12 @@ func ground_slam(target_tile: Vector2i) -> void:
 		get_tree().get_current_scene().add_child(explosion_instance)
 
 		if adj_unit and adj_unit != self:
-			adj_unit.take_damage(30)
+			adj_unit.take_damage(dmg_units)
 			adj_unit.shake()
 
 		if adj_structure:
 			if adj_structure.has_method("take_damage"):
-				adj_structure.take_damage(50)
+				adj_structure.take_damage(dmg_struct)
 			else:
 				var anim_player = adj_structure.get_child(0)
 				if anim_player and anim_player.has_method("play"):
@@ -1033,7 +1036,6 @@ func mark_and_pounce(target_unit: Node) -> void:
 	tween.tween_callback(Callable(self, "_on_pounce_finished"))
 
 func _on_pounce_arrived(target_unit: Node) -> void:
-	# Store a weak reference so we can safely re-check later
 	var target_ref = weakref(target_unit)
 
 	var hit_pos: Vector2
@@ -1049,11 +1051,11 @@ func _on_pounce_arrived(target_unit: Node) -> void:
 	$AnimatedSprite2D.play("attack")
 	await $AnimatedSprite2D.animation_finished
 
-	# Re-resolve after the await in case the target was freed
 	var u = target_ref.get_ref()
 	if is_instance_valid(u):
+		var dmg_now = scaled_dmg(1.0)
 		if u.has_method("take_damage"):
-			u.take_damage(damage)
+			u.take_damage(dmg_now)
 		if u.has_method("flash_white"):
 			u.flash_white()
 		if u.has_method("shake"):
@@ -1229,7 +1231,10 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 	if is_instance_valid(line):
 		line.queue_free()
 
+	var dmg_center = scaled_dmg(1.0)
+	var dmg_splash = scaled_dmg(0.8)
 	var ExplosionScene := preload("res://Scenes/VFX/Explosion.tscn")
+
 	for dx in [-1, 0, 1]:
 		for dy in [-1, 0, 1]:
 			var tile := Vector2i(target_tile.x + dx, target_tile.y + dy)
@@ -1238,9 +1243,9 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 
 			var damage_val: int
 			if dx == 0 and dy == 0:
-				damage_val = 40
+				damage_val = dmg_center
 			else:
-				damage_val = 30
+				damage_val = dmg_splash
 
 			var u = tilemap.get_unit_at_tile(tile)
 			if u:
@@ -1273,7 +1278,6 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 # 5) Multi Turret – Suppressive Fire (local)
 func suppressive_fire(_unused: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
-
 	gain_xp(25)
 
 	var neighbors := [
@@ -1317,7 +1321,6 @@ func _on_fire_timer_timeout(target_tile: Vector2i) -> void:
 	var proj_scene = preload("res://Scenes/Projectile_Scenes/Projectile.tscn")
 	var proj = proj_scene.instantiate()
 	get_tree().get_current_scene().add_child(proj)
-
 	proj.set_target(start_pos, end_pos)
 	proj.connect("reached_target", Callable(self, "_on_projectile_impact").bind(target_tile))
 
@@ -1333,7 +1336,8 @@ func _on_projectile_impact(target_tile: Vector2i) -> void:
 
 	var enemy = tilemap.get_unit_at_tile(target_tile)
 	if enemy and enemy.is_player != is_player:
-		enemy.take_damage(30)
+		var dmg_now = scaled_dmg(1.0)
+		enemy.take_damage(dmg_now)
 		enemy.flash_white()
 		enemy.is_suppressed = true
 		print("Multi Turret suppressed ", enemy.name, "at ", target_tile)
@@ -1341,7 +1345,7 @@ func _on_projectile_impact(target_tile: Vector2i) -> void:
 	var st = tilemap.get_structure_at_tile(target_tile)
 	if st:
 		if st.has_method("take_damage"):
-			st.take_damage(50)
+			st.take_damage(scaled_dmg(1.0))
 		else:
 			var st_sprite = st.get_node_or_null("AnimatedSprite2D")
 			if st_sprite:
@@ -1460,6 +1464,7 @@ func _get_adjacent_tile(tilemap: TileMap, base: Vector2i) -> Vector2i:
 			return n
 	return Vector2i(-1, -1)
 
+#Heavy Rain
 func spider_blast(target_tile: Vector2i) -> void:
 	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 	var du: Vector2i = target_tile - tile_pos
@@ -1467,18 +1472,15 @@ func spider_blast(target_tile: Vector2i) -> void:
 	if dist > 5:
 		return
 
-	# Lock input for the whole sequence
 	tilemap.input_locked = true
 	gain_xp(25)
 
-	# SFX + anim
 	$AudioStreamPlayer2D.stream = missile_sfx
 	$AudioStreamPlayer2D.play()
 	var sprite: AnimatedSprite2D = $AnimatedSprite2D as AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
 
-	# Trajectory/visual params (match High Arching Shot)
 	var ExplosionScene: PackedScene = preload("res://Scenes/VFX/Explosion.tscn")
 	var point_count: int = 64
 	var step_time: float = 2.0 / float(point_count)
@@ -1493,15 +1495,16 @@ func spider_blast(target_tile: Vector2i) -> void:
 		Vector2i(-1,  1), Vector2i( 0,  1), Vector2i( 1,  1)
 	]
 
+	var dmg_center = scaled_dmg(1.0)
+	var dmg_splash = scaled_dmg(0.8)
+
 	var launched := 0
 	var completed := 0
 
-	# Temporary handler we can disconnect later
 	var on_arc := func() -> void:
 		completed += 1
 	self.spider_arc_done.connect(on_arc)
 
-	# Ensure we always clean up, even if something goes wrong
 	var _cleanup := func() -> void:
 		if sprite:
 			sprite.self_modulate = Color(0.4, 0.4, 0.4, 1.0)
@@ -1512,50 +1515,42 @@ func spider_blast(target_tile: Vector2i) -> void:
 		if self.spider_arc_done.is_connected(on_arc):
 			self.spider_arc_done.disconnect(on_arc)
 
-	# Launch arcs (staggered)
 	for i in range(pattern.size()):
 		var offset: Vector2i = pattern[i]
 		var tile: Vector2i = target_tile + offset
 		if not tilemap.is_within_bounds(tile):
 			continue
 
-		var damage_val := 30
+		var damage_val = dmg_splash
 		if offset == Vector2i.ZERO:
-			damage_val = 40
+			damage_val = dmg_center
 
 		call_deferred("_fire_arc_to_tile_impl", tile, damage_val, point_count, step_time, arc_height, trail_color, ExplosionScene)
 		launched += 1
 		if i < pattern.size() - 1:
 			await get_tree().create_timer(launch_interval).timeout
 
-	# If somehow nothing launched, just clean up and return
 	if launched == 0:
 		_cleanup.call()
 		return
 
-	# Wait until all arcs complete, but POLL with a timeout so we never hang
 	var timeout_ms := 500
 	var start_ms := Time.get_ticks_msec()
 	var tick := 0.1
 	while completed < launched and (Time.get_ticks_msec() - start_ms) < timeout_ms:
 		await get_tree().create_timer(tick).timeout
-		# 'completed' is bumped asynchronously by on_arc
 
-	# Wrap up (even if we timed out)
 	has_attacked = true
 	has_moved = true
 	_cleanup.call()
 
-# Helper runs as its own coroutine (we never call it with await directly)
 func _fire_arc_to_tile_impl(tile: Vector2i, damage_val: int, point_count: int, step_time: float, arc_height: float, trail_color: Color, ExplosionScene: PackedScene) -> void:
 	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 
-	# Start/end world positions (same math as High Arching Shot)
 	var start_world: Vector2 = global_position
 	var end_world: Vector2 = tilemap.to_global(tilemap.map_to_local(tile))
 	end_world.y += Y_OFFSET
 
-	# Precompute curve points
 	var points: PackedVector2Array = PackedVector2Array()
 	for i in range(point_count + 1):
 		var t: float = float(i) / float(point_count)
@@ -1564,7 +1559,6 @@ func _fire_arc_to_tile_impl(tile: Vector2i, damage_val: int, point_count: int, s
 		var height_offset: float = -arc_height * sin(PI * t)
 		points.append(Vector2(x, base_y + height_offset))
 
-	# Draw the arc progressively
 	var line: Line2D = Line2D.new()
 	line.width = 1
 	line.z_index = 4000
@@ -1578,7 +1572,6 @@ func _fire_arc_to_tile_impl(tile: Vector2i, damage_val: int, point_count: int, s
 	if is_instance_valid(line):
 		line.queue_free()
 
-	# Damage only the landing tile
 	var u = tilemap.get_unit_at_tile(tile)
 	if u:
 		u.take_damage(damage_val)
@@ -1592,12 +1585,10 @@ func _fire_arc_to_tile_impl(tile: Vector2i, damage_val: int, point_count: int, s
 			st_sprite.play("demolished")
 			st_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 
-	# Explosion VFX at impact
 	var vfx = ExplosionScene.instantiate()
 	vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 	get_tree().get_current_scene().add_child(vfx)
 
-	# Tell the caller this arc is done
 	emit_signal("spider_arc_done")
 
 # 9) Spider – Thread Attack (local)
@@ -1686,23 +1677,30 @@ func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+
+	var dmg_center = scaled_dmg(1.0)
+	var dmg_splash = scaled_dmg(0.8)
+
 	for x in range(-1, 2):
 		for y in range(-1, 2):
 			var tile = target_tile + Vector2i(x, y)
 			var explosion = explosion_scene.instantiate()
 			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 			get_tree().get_current_scene().add_child(explosion)
+
 			var dmg: int
 			if x == 0 and y == 0:
-				dmg = 40
+				dmg = dmg_center
 			else:
-				dmg = 25
+				dmg = dmg_splash
+
 			var unit = tilemap.get_unit_at_tile(tile)
 			if unit:
 				unit.take_damage(dmg)
 				unit.flash_white()
 				unit.shake()
 		await get_tree().create_timer(0.2).timeout
+
 	print("Explosions spawned at and around tile: ", target_tile)
 
 # Compute push direction for melee if needed
@@ -1877,3 +1875,7 @@ func _assign_special_for_unit(u: Node2D) -> void:
 
 	GameData.set_unit_special(uid, special)
 	print("⭐ Assigned special '%s' → unit_id:%d" % [special, uid])
+
+# Handy scaler so we always pull from the live damage stat
+func scaled_dmg(mult: float = 1.0) -> int:
+	return int(round(max(1, damage * mult)))

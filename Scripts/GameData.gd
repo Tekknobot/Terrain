@@ -7,7 +7,7 @@ extends Node
 var coins: int = 0
 var xp: int = 0
 var current_level: int = 1
-var max_enemy_units: int = 2
+var max_enemy_units: int = 3
 
 var last_enemy_upgrade_level: int = 1
 var completed_maps: Array[int] = []
@@ -205,7 +205,7 @@ func full_reset() -> void:
 
 func play_reset() -> void:
 	current_level = 1
-	max_enemy_units = 1
+	max_enemy_units = 3
 	map_difficulty = 1
 	unit_upgrades.clear()
 	first_enemy_spawn_done = false

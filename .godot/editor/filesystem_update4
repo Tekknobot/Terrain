@@ -8,7 +8,7 @@ res://Textures/in_water.gdshader
 res://Textures/in_water.tres
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
-res://Scripts/TileMap.gd
+res://Scripts/Unit.gd
 res://Scenes/TitleScreen.tscn
 res://Prefabs/UpgradeWindow.tscn
 res://Scenes/GameOver.tscn
@@ -17,3 +17,5 @@ res://Scenes/SquadSelect.tscn
 res://Scenes/UnitCard.tscn
 res://Scenes/RewardUpgrade.tscn
 res://Prefabs/SpiderBlastMissile.tscn
+res://Scripts/TileMap.gd
+res://Scripts/GameData.gd
