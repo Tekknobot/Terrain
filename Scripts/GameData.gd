@@ -6,8 +6,8 @@ extends Node
 # ─────────────────────────────────────────────────────────────────────────────
 var coins: int = 0
 var xp: int = 0
-var current_level: int = 1
-var max_enemy_units: int = 3
+var current_level: int = 6
+var max_enemy_units: int = 8
 
 var last_enemy_upgrade_level: int = 1
 var completed_maps: Array[int] = []
@@ -16,7 +16,7 @@ var carryover_units: Array = []  # cleared after being consumed
 # ─────────────────────────────────────────────────────────────────────────────
 # Map settings
 # ─────────────────────────────────────────────────────────────────────────────
-var map_difficulty: int = 1
+var map_difficulty: int = 6
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Track which upgrades and special ability each unit has received

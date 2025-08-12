@@ -595,7 +595,7 @@ func _apply_enemy_upgrades_by_level(level: int) -> void:
 	if level < 1:
 		return
 
-	var desired = level - 1                    # e.g. L1 → 0 upgrades, L3 → 2 upgrades
+	var desired = level - 1
 	var possible_upgrades := [
 		"hp_boost",
 		"damage_boost",
@@ -604,16 +604,12 @@ func _apply_enemy_upgrades_by_level(level: int) -> void:
 	]
 
 	for unit in get_tree().get_nodes_in_group("Units"):
-		if not is_instance_valid(unit):
-			continue
-		if unit.is_player:
-			continue
-		if not unit.has_method("apply_upgrade"):
-			continue
+		if not is_instance_valid(unit): continue
+		if unit.is_player: continue
+		if not unit.has_method("apply_upgrade"): continue
 
 		var uid = unit.unit_id
 
-		# ensure an array exists in GameData for this unit
 		if not GameData.unit_upgrades.has(uid) or typeof(GameData.unit_upgrades[uid]) != TYPE_ARRAY:
 			GameData.unit_upgrades[uid] = []
 
@@ -623,22 +619,23 @@ func _apply_enemy_upgrades_by_level(level: int) -> void:
 		if missing <= 0:
 			continue
 
+		# ---- IMPORTANT: no attack range for Infantry/melee enemies ----
+		var unit_type_lc := String(unit.unit_type).to_lower()
+		var is_melee := unit_type_lc == "infantry" or unit_type_lc == "melee"
+
 		for i in range(missing):
-			# build a valid pool each iteration (to respect melee constraint)
 			var pool = possible_upgrades.duplicate(true)
-			if String(unit.unit_type) == "Melee":
-				pool.erase("range_boost")
+			if is_melee:
+				pool.erase("range_boost")   # 👈 prevent ranged upgrade on Infantry
+
 			if pool.is_empty():
 				break
 
-			var pick_index = randi() % pool.size()
-			var upg = String(pool[pick_index])
-
+			var upg = String(pool[randi() % pool.size()])
 			unit.apply_upgrade(upg)
 			GameData.add_upgrade(uid, upg)
 			print("⬆ Enemy", unit.name, "(ID=", uid, ") got upgrade:", upg)
 
-	# track the highest upgrade level applied this map (optional; used by other systems)
 	GameData.last_enemy_upgrade_level = max(GameData.last_enemy_upgrade_level, level)
 
 func get_random_valid_tile_in_zone(zone: Rect2i, used_tiles: Array[Vector2i]) -> Vector2i:

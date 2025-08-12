@@ -238,7 +238,7 @@ func _start_unit_action(team):
 				return
 
 			# c) Ranged/melee fallback
-			if is_instance_valid(unit) and unit.unit_type in ["Ranged","Support"]:
+			if is_instance_valid(unit) and unit.unit_type in ["Artillery","Support"]:
 				var rt = _find_ranged_target(unit)
 				if rt:
 					tilemap.auto_attack_ranged_unit(unit.unit_id, rt.unit_id)
