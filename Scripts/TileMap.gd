@@ -149,9 +149,9 @@ var ability_ranges: Dictionary = {
 	"Ground Slam":         1,
 	"Mark & Pounce":       3,
 	"Guardian Halo":       5,
-	"High Arching Shot":    5,
+	"High Arching Shot":   5,
 	"Suppressive Fire":    0,
-	"Fortify":             0,  # “Fortify” might not highlight anything; adjust as needed
+	"Fortify":             5,  # “Fortify” might not highlight anything; adjust as needed
 	"Heavy Rain":          5,
 	"Web Field":           0
 }
@@ -464,6 +464,7 @@ func _post_map_generation():
 
 	# spawn enemies scaled by level (and capped by GameData.max_enemy_units)
 	next_spawn_index = 0
+	enemy_units.shuffle()
 	_spawn_side(enemy_units, 0, false, used_tiles)
 
 	# fade & nav
@@ -715,7 +716,7 @@ func spawn_structures():
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5
 	
-	max_structures = randi_range(3, 5)
+	max_structures = randi_range(4, 8)
 	
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
@@ -724,6 +725,8 @@ func spawn_structures():
 		var pos = Vector2i(x, y)
 		var tile_id = get_cell_source_id(0, pos)
 
+		if not _zones_connected_with_block(pos):
+			continue
 		if tile_id in [water_tile_id, INTERSECTION, DOWN_RIGHT_ROAD, DOWN_LEFT_ROAD]:
 			continue
 		if is_tile_occupied(pos):
@@ -2696,3 +2699,94 @@ func _assign_special_for_unit(u: Node2D) -> void:
 		ds = String(u.get_meta("default_special"))
 	# Mirror to GameData (single source of truth other systems already read)
 	GameData.set_unit_special(u.unit_id, ds)
+
+# Is this tile usable for pathing (bounds + terrain + no structures/units)?
+func _is_walkable_for_path(tile: Vector2i) -> bool:
+	return is_within_bounds(tile) \
+		and _is_tile_walkable(tile) \
+		and not is_tile_occupied(tile) \
+		and get_structure_at_tile(tile) == null
+
+# Simple BFS to check if `start` can reach ANY tile in `goals`
+func _has_path_to_any(start: Vector2i, goals: Array[Vector2i]) -> bool:
+	if goals.is_empty():
+		return true  # no specific goal → treat as reachable
+	var q := [start]
+	var seen := { start: true }
+	while q.size() > 0:
+		var cur: Vector2i = q.pop_front()
+		if goals.has(cur):
+			return true
+		for n in get_neighbors(cur):
+			if not seen.has(n) and _is_walkable_for_path(n):
+				seen[n] = true
+				q.append(n)
+	return false
+
+# Collect reasonable goal tiles for a team:
+# - Prefer current positions of *opposing* units
+# - If none, fall back to any walkable tile in the opposing spawn zone
+func _collect_goal_tiles(for_player_team: bool) -> Array[Vector2i]:
+	var goals: Array[Vector2i] = []
+
+	# 1) live enemy units
+	for u in get_tree().get_nodes_in_group("Units"):
+		if is_instance_valid(u) and (u.is_player != for_player_team):
+			goals.append(u.tile_pos)
+
+	# 2) fallback: opposing spawn zone
+	if goals.is_empty():
+		var zone := Rect2i()
+		if for_player_team:
+			zone = Rect2i(0, 0, grid_width, int(grid_height / 3))  # enemy zone
+		else:
+			zone = Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))  # player zone
+
+		for y in range(zone.position.y, zone.position.y + zone.size.y):
+			for x in range(zone.position.x, zone.position.x + zone.size.x):
+				var t := Vector2i(x, y)
+				if _is_walkable_for_path(t):
+					goals.append(t)
+
+	return goals
+
+func _zones_connected_with_block(extra_block: Vector2i = Vector2i(-9999, -9999)) -> bool:
+	# Pick any walkable start in the player zone
+	var start := Vector2i(-1, -1)
+	var player_zone := Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+	var enemy_zone  := Rect2i(0, 0, grid_width, int(grid_height / 3))
+
+	var enemy_targets: Array[Vector2i] = []
+	for y in range(enemy_zone.position.y, enemy_zone.position.y + enemy_zone.size.y):
+		for x in range(enemy_zone.position.x, enemy_zone.position.x + enemy_zone.size.x):
+			var t := Vector2i(x, y)
+			if t == extra_block: continue
+			if _is_walkable_for_path(t):
+				enemy_targets.append(t)
+
+	for y in range(player_zone.position.y, player_zone.position.y + player_zone.size.y):
+		for x in range(player_zone.position.x, player_zone.position.x + player_zone.size.x):
+			var t := Vector2i(x, y)
+			if t == extra_block: continue
+			if _is_walkable_for_path(t):
+				start = t
+				break
+		if start != Vector2i(-1, -1):
+			break
+
+	if start == Vector2i(-1, -1) or enemy_targets.is_empty():
+		return true  # nothing to connect, treat as OK
+
+	# BFS treating extra_block as blocked
+	var q := [start]
+	var seen := { start: true }
+	while q.size() > 0:
+		var cur: Vector2i = q.pop_front()
+		if enemy_targets.has(cur):
+			return true
+		for n in get_neighbors(cur):
+			if n == extra_block: continue
+			if not seen.has(n) and _is_walkable_for_path(n):
+				seen[n] = true
+				q.append(n)
+	return false

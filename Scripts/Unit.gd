@@ -1401,24 +1401,115 @@ func fortify() -> void:
 	is_fortified = true
 	print("Brute ", name, " is now fortified.")
 
-	var sprite = $AnimatedSprite2D
+	# Little attack pose to “cast” the fortify
+	var sprite := $AnimatedSprite2D
 	if sprite:
 		sprite.play("attack")
 		$AudioStreamPlayer2D.play()
 		await sprite.animation_finished
 		sprite.play("default")
 
+	# Optional aura VFX (unchanged from your version)
+	# NEW – attach to the unit so it follows
 	if fortify_effect_scene:
-		if _fortify_aura:
+		if _fortify_aura and is_instance_valid(_fortify_aura):
 			_fortify_aura.queue_free()
 			_fortify_aura = null
-		_fortify_aura = fortify_effect_scene.instantiate()
-		_fortify_aura.global_position = global_position
-		get_tree().get_current_scene().add_child(_fortify_aura)
 
+		_fortify_aura = fortify_effect_scene.instantiate()
+		add_child(_fortify_aura)                    # <— parented to the unit
+		_fortify_aura.position = Vector2.ZERO       # center on the unit
+		_fortify_aura.z_index = -1                  # under the sprite (optional)
+
+		# If your effect is a Particles2D/CPUParticles2D:
+		var p := _fortify_aura as Node
+		if p and p.has_method("set_emitting"):
+			p.set("emitting", true)
+		# If it has a `top_level` flag, ensure local coords:
+		if _fortify_aura.has_method("set_top_level"):
+			_fortify_aura.set("top_level", false)
+
+	# === NEW: Fire a 3-shot arc barrage, Spider-Blast style ===
+	await _fortify_barrage(3)
+
+	# End-of-action flags & tint (same as before)
 	has_attacked = true
-	has_moved = true
-	$AnimatedSprite2D.self_modulate = Color(0.4,0.4,0.4,1)
+	has_moved   = true
+	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+# Pick up to `count` target tiles, ONLY enemies within `radius`.
+# If not enough enemies in range, fill with random OPEN tiles within same radius.
+func _select_barrage_targets(count: int, radius: int = 5) -> Array:
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+
+	var enemy_tiles: Array[Vector2i] = []
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(u): continue
+		if u.is_player == is_player: continue  # opposing side only
+		if u.health <= 0: continue
+		var d = abs(u.tile_pos.x - tile_pos.x) + abs(u.tile_pos.y - tile_pos.y)
+		if d <= radius:
+			enemy_tiles.append(u.tile_pos)
+
+	enemy_tiles.shuffle()
+	return enemy_tiles.slice(0, min(count, enemy_tiles.size()))
+	
+# Fire N arcs; only shoot tiles that STILL have a valid enemy at fire time.
+func _fortify_barrage(count: int = 3) -> void:
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null: return
+
+	var point_count := 64
+	var step_time := 2.0 / float(point_count)
+	var arc_height := 100.0
+	var trail_color := Color(0.85, 0.85, 0.85, 1.0)
+	var ExplosionScene: PackedScene = preload("res://Scenes/VFX/Explosion.tscn")
+
+	# ✅ limit to Manhattan 5
+	var targets: Array = _select_barrage_targets(count, 5)
+	if targets.is_empty(): return
+
+	var launched := 0
+	var completed := 0
+	var on_arc := func() -> void: completed += 1
+	self.spider_arc_done.connect(on_arc)
+
+	tilemap.input_locked = true
+
+	for i in range(targets.size()):
+		var tile: Vector2i = targets[i]
+
+		# 🔒 Fire only if a valid opposing unit is still on that tile *now*
+		var u = tilemap.get_unit_at_tile(tile)
+		if u and is_instance_valid(u) and u.is_player != is_player and u.health > 0:
+			call_deferred("_fire_arc_to_tile_impl",
+				tile,
+				scaled_dmg(0.9),
+				point_count,
+				step_time,
+				arc_height,
+				trail_color,
+				ExplosionScene
+			)
+			launched += 1
+			if i < targets.size() - 1:
+				await get_tree().create_timer(0.12).timeout
+
+	# If nothing actually launched, just unlock and bail
+	if launched == 0:
+		if self.spider_arc_done.is_connected(on_arc):
+			self.spider_arc_done.disconnect(on_arc)
+		tilemap.input_locked = false
+		return
+
+	var timeout_ms := 600
+	var start_ms := Time.get_ticks_msec()
+	while completed < launched and (Time.get_ticks_msec() - start_ms) < timeout_ms:
+		await get_tree().create_timer(0.08).timeout
+
+	if self.spider_arc_done.is_connected(on_arc):
+		self.spider_arc_done.disconnect(on_arc)
+	tilemap.input_locked = false
 
 # 7) Helicopter – Airlift (local)
 func airlift_pick(ally: Node) -> void:

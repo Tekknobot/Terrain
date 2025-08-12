@@ -47,7 +47,7 @@ const ABILITIES := {
 	"High Arcing Shot": "lands in 3x3 zone strong damage in center",
 	"Suppressive Fire": "fire in line up to 3 tiles damaging all in path",
 	"Guardian Halo": "give ally one round shield lost if missed",
-	"Fortify": "halve all damage taken until next turn",
+	"Fortify": "halve all damage taken until next turn and fire up to 3 missiles from range",
 	"Heavy Rain": "missile barrage over wide area damage - Passive healing",
 	"Web Field": "zone in and damage all enemies 3x3 - Passive healing"
 }
