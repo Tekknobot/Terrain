@@ -75,6 +75,12 @@ var tier_colors := {
 
 var _hover_tweens := {}   # btn_id -> SceneTreeTween
 
+var _edge_lines: Dictionary = {}   # "min_max" -> Line2D
+
+@export var node_locked_color: Color    = Color(0.28, 0.28, 0.28, 1.0)  # default/locked
+@export var node_available_color: Color = Color(0.95, 0.95, 0.95, 1.0)  # selectable
+@export var node_cleared_color: Color   = Color(0.95, 0.35, 0.35, 1.0)  # completed
+
 func _ready():
 	# Create a session seed once, then reuse it for the rest of the run.
 	if GameData.overworld_seed == 0:
@@ -122,6 +128,8 @@ func _make_circle_texture(radius: int, color: Color) -> Texture2D:
 # Top-level generation
 # ─────────────────────────────────────────────────────────────────────────────
 func _generate_world() -> void:
+	_edge_lines.clear()
+	
 	# Clear any prior children if regenerating
 	for c in get_children():
 		remove_child(c); c.queue_free()
@@ -162,17 +170,150 @@ func _generate_world() -> void:
 	# Bridges between islands (closest pairs)
 	_connect_islands()
 
-	# Assign tiers with a clean backbone (Novice → … → 6) + cul-de-sacs
-	var spine := _assign_tiers_backbone()
+	# Assign tiers…
+	var spine := _assign_tiers_to_six()
 
-	# Redraw region visuals (colors/labels) now that tiers are known
+	# Redraw region visuals now that tiers are known
 	for i in range(regions.size()):
 		_update_region_visuals(i)
 
-	# Optional: subtle highlight for the main spine
+	_ensure_tier_six(spine)
+
+	# Optional: highlight spine…
 	for n in spine:
 		if n >= 0 and n < regions.size():
 			regions[n]["button"].modulate = regions[n]["button"].modulate.lightened(0.12)
+
+	# NEW: prune Tier 1 ↔ Tier 6 shortcuts, then refresh interactivity/labels
+	_remove_disallowed_edges()
+	_update_region_interactivity()
+	_update_region_labels()
+
+func _ensure_tier_six(seed_chain: Array) -> void:
+	# If a Tier 6 already exists, done.
+	for i in range(regions.size()):
+		if regions[i]["tier"] == MAX_TIER:
+			return
+
+	# Prefer the node farthest from the chain by BFS distance.
+	var seeds := []
+	if seed_chain.is_empty():
+		seeds = [0]
+	else:
+		seeds = seed_chain
+	var dist := _multi_source_bfs(seeds)
+	var best := -1
+	var best_d := -1
+	for k in dist.keys():
+		var d = dist[k]
+		if d > best_d:
+			best_d = d
+			best = k
+
+	# Fallback if graph is weirdly empty
+	if best == -1 and regions.size() > 0:
+		best = 0
+
+	# Promote that node to Tier 6.
+	if best != -1:
+		regions[best]["tier"] = MAX_TIER
+
+func _assign_tiers_to_six() -> Array:
+	if regions.is_empty():
+		return []
+
+	# 1) HQ = closest to viewport center
+	var center := get_viewport_rect().size * 0.5
+	var hq := 0
+	var dmin := INF
+	for i in range(regions.size()):
+		var d = regions[i]["pos"].distance_to(center)
+		if d < dmin:
+			dmin = d; hq = i
+
+	# 2) Start a chain at HQ and extend greedily until length = MAX_TIER
+	var chain: Array = [hq]
+	_greedy_extend_chain(chain, MAX_TIER)  # ensures at least 6 if we have enough nodes
+
+	# 3) Assign tiers 1..6 along the chain (or up to chain length if fewer nodes exist)
+	for i in range(chain.size()):
+		var node = chain[i]
+		regions[node]["tier"] = min(i + 1, MAX_TIER)
+
+	# 4) For every other node, set tier by graph-distance to the chain (capped at 6)
+	#    This makes areas near HQ easier and farther areas harder, naturally.
+	var dist_to_chain := _multi_source_bfs(chain)
+	for i in range(regions.size()):
+		if chain.has(i):
+			continue
+		var d = dist_to_chain.get(i, 0)      # 0 if isolated (shouldn’t happen)
+		regions[i]["tier"] = min(1 + d, MAX_TIER)
+
+	return chain
+
+
+func _greedy_extend_chain(chain: Array, needed_len: int) -> void:
+	# Extends 'chain' by selecting an unvisited neighbor with the largest “spread”
+	# Repeats from the newest tail until the chain reaches needed_len or no moves remain.
+	var visited := {}
+	for n in chain:
+		visited[n] = true
+
+	while chain.size() < needed_len:
+		var tail = chain.back()
+		var best := -1
+		var best_score := -INF
+		for nb in _adj.get(tail, []):
+			if visited.has(nb):
+				continue
+			# pick the neighbor that spreads us out (far from center and far from chain head)
+			var score = regions[nb]["pos"].distance_to(regions[chain[0]]["pos"]) \
+				+ regions[nb]["pos"].distance_to(get_viewport_rect().size * 0.5) * 0.25
+			if score > best_score:
+				best_score = score
+				best = nb
+		if best == -1:
+			# If tail is stuck, try to branch from any node in the chain
+			var extended := false
+			for base in chain:
+				for nb2 in _adj.get(base, []):
+					if visited.has(nb2):
+						continue
+					chain.append(nb2)
+					visited[nb2] = true
+					extended = true
+					break
+				if extended:
+					break
+			if not extended:
+				break  # No more nodes to extend
+		else:
+			chain.append(best)
+			visited[best] = true
+
+
+func _multi_source_bfs(seeds: Array) -> Dictionary:
+	# Returns graph distance from the nearest seed for all reachable nodes.
+	var dist := {}
+	var q := []
+	for s in seeds:
+		dist[s] = 0
+		q.append(s)
+	while not q.is_empty():
+		var u = q.pop_front()
+		for v in _adj.get(u, []):
+			if not dist.has(v):
+				dist[v] = dist[u] + 1
+				q.append(v)
+	return dist
+
+func _tiers_can_connect(a: int, b: int) -> bool:
+	# Disallow if one node is tier 1 and the other is tier 6
+	var ta = regions[a]["tier"]
+	var tb = regions[b]["tier"]
+	if (ta == 1 and tb == MAX_TIER) or (tb == 1 and ta == MAX_TIER):
+		return false
+	return true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Island placement & polygons
@@ -230,10 +371,8 @@ func _draw_island(poly: PackedVector2Array) -> void:
 # Region nodes
 # ─────────────────────────────────────────────────────────────────────────────
 func _create_region_node(index: int, pos: Vector2, _depth_stub: int, parent_index: int, name_idx: int) -> void:
-	var tier := 1
-	var tier_name = difficulty_tiers[tier]
-	var hue := float(tier) / difficulty_tiers.size()
-	var base_tint := Color.from_hsv(hue, 0.35, 0.9)
+	var tier := 1  # keep for unlock logic, but visuals won't use it
+	var base_tint := node_locked_color
 
 	var circle_tex := _make_circle_texture(int(region_radius), Color.WHITE) # white, tint via modulate
 
@@ -288,19 +427,17 @@ func _create_region_node(index: int, pos: Vector2, _depth_stub: int, parent_inde
 
 func _update_region_visuals(i: int) -> void:
 	var e = regions[i]
-	var tier: int = e["tier"]
-	var tier_name: String = difficulty_tiers.get(tier, "???")
+	var completed := GameData.is_region_completed(i)
+	var unlocked  := GameData.is_region_unlocked(i, e["tier"], e["parents"])
 
-	var tint: Color
-	if tier_colors.has(tier):
-		tint = tier_colors[tier]
-	else:
-		tint = Color.WHITE
+	var tint: Color = node_locked_color
+	if completed:
+		tint = node_cleared_color
+	elif unlocked:
+		tint = node_available_color
 
-	e["button"].modulate = tint
-
-	var lbl: Label = e["label"]
-	lbl.text = e["name"]
+	(e["button"] as TextureButton).modulate = tint
+	(e["label"] as Label).text = e["name"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Roads & bridges
@@ -396,12 +533,11 @@ func _nearest_different(a: int, pool: Array) -> int:
 func _add_edge(u: int, v: int) -> void:
 	if u == v:
 		return
-
-	# If adjacency already exists, do nothing (prevents duplicate roads)
+	# If adjacency already exists, do nothing
 	if _adj.has(u) and _adj[u].has(v):
 		return
 
-	# Store parent link (non-linear unlocks keep both directions)
+	# Store parent link (both directions)
 	if not regions[v]["parents"].has(u):
 		regions[v]["parents"].append(u)
 	if not regions[u]["parents"].has(v):
@@ -415,17 +551,51 @@ func _add_edge(u: int, v: int) -> void:
 	_adj[u].append(v)
 	_adj[v].append(u)
 
-	# Draw the road once
-	_draw_road(regions[u]["pos"], regions[v]["pos"])
+	# Draw and remember the road line
+	var key := _edge_key(u, v)
+	if not _edge_lines.has(key):
+		var line := _draw_road(regions[u]["pos"], regions[v]["pos"])
+		_edge_lines[key] = line
 
-func _draw_road(a: Vector2, b: Vector2) -> void:
+func _remove_disallowed_edges() -> void:
+	var to_remove: Array[String] = []
+
+	# Collect forbidden edges once (u < v to avoid duplicates)
+	for u in _adj.keys():
+		for v in _adj[u]:
+			if u < v and not _tiers_can_connect(u, v):
+				to_remove.append(_edge_key(u, v))
+
+	# Remove from graph, parents, and scene
+	for key in to_remove:
+		var parts := key.split("_")
+		var u := int(parts[0])
+		var v := int(parts[1])
+
+		# Adjacency
+		if _adj.has(u): _adj[u].erase(v)
+		if _adj.has(v): _adj[v].erase(u)
+
+		# Parents used for unlock logic
+		if regions[v]["parents"].has(u): regions[v]["parents"].erase(u)
+		if regions[u]["parents"].has(v): regions[u]["parents"].erase(v)
+
+		# Visual
+		if _edge_lines.has(key):
+			var line: Line2D = _edge_lines[key]
+			if is_instance_valid(line):
+				remove_child(line)
+				line.queue_free()
+			_edge_lines.erase(key)
+
+func _draw_road(a: Vector2, b: Vector2) -> Line2D:
 	var mid := (a + b) * 0.5
 	var dir := (b - a)
 	var perp := Vector2(-dir.y, dir.x).normalized()
-	var bulge = 0.0
+	var bulge := 0.0
 
 	var p0 := a
-	var p1 = mid + perp * bulge
+	var p1 := mid + perp * bulge
 	var p2 := b
 
 	var pts: Array[Vector2] = []
@@ -433,7 +603,7 @@ func _draw_road(a: Vector2, b: Vector2) -> void:
 	for i in range(steps + 1):
 		var t := float(i) / float(steps)
 		var q0 := p0.lerp(p1, t)
-		var q1 = p1.lerp(p2, t)
+		var q1 := p1.lerp(p2, t)
 		var p  := q0.lerp(q1, t)
 		pts.append(p)
 
@@ -443,6 +613,7 @@ func _draw_road(a: Vector2, b: Vector2) -> void:
 	line.points = pts
 	line.z_index = 2
 	add_child(line)
+	return line
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tier assignment (Backbone + cul-de-sacs)
@@ -672,3 +843,6 @@ func _tween_button_scale(btn: TextureButton, target: float) -> void:
 	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_hover_tweens[id] = tw
 	tw.tween_property(btn, "scale", Vector2(target, target), hover_time)
+
+func _edge_key(u: int, v: int) -> String:
+	return "%d_%d" % [min(u, v), max(u, v)]
