@@ -44,3 +44,4 @@ res://Scripts/OverworldController.gd
 res://Scenes/OverworldController.tscn
 res://Scenes/Overworld.tscn
 res://Scripts/OverworldMap.gd
+res://Scripts/MusicManager.gd

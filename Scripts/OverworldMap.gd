@@ -70,7 +70,7 @@ var tier_colors := {
 @export var deterministic: bool = true
 @export var fixed_seed: int = 123456   # change this to get a different but repeatable map
 
-@export var hover_scale: float = 1.5   # how big on hover
+@export var hover_scale: float = 1.12   # how big on hover
 @export var hover_time: float = 0.12    # seconds for tween
 
 var _hover_tweens := {}   # btn_id -> SceneTreeTween
@@ -80,6 +80,15 @@ var _edge_lines: Dictionary = {}   # "min_max" -> Line2D
 @export var node_locked_color: Color    = Color(0.28, 0.28, 0.28, 1.0)  # default/locked
 @export var node_available_color: Color = Color(0.95, 0.95, 0.95, 1.0)  # selectable
 @export var node_cleared_color: Color   = Color(0.95, 0.35, 0.35, 1.0)  # completed
+
+@export var pulse_time: float = 0.9
+@export var pulse_scale_available: float = 1.12
+@export var pulse_scale_current: float = 1.22
+@export var pulse_thickness: int = 4
+@export var pulse_color_available: Color = Color(1, 1, 1, 0.55)
+@export var pulse_color_current: Color = Color(1.0, 0.8, 0.2, 0.85)
+
+var _pulse_tweens := {}   # region_id -> SceneTreeTween
 
 func _ready():
 	# Create a session seed once, then reuse it for the rest of the run.
@@ -188,6 +197,9 @@ func _generate_world() -> void:
 	_remove_disallowed_edges()
 	_update_region_interactivity()
 	_update_region_labels()
+	
+	_refresh_available_animations()
+
 
 func _ensure_tier_six(seed_chain: Array) -> void:
 	# If a Tier 6 already exists, done.
@@ -750,6 +762,8 @@ func _update_region_interactivity() -> void:
 
 		# Completed regions are never selectable again.
 		e["button"].disabled = completed or (not unlocked)
+	
+	_refresh_available_animations()	
 
 func _update_region_labels() -> void:
 	for i in range(regions.size()):
@@ -846,3 +860,114 @@ func _tween_button_scale(btn: TextureButton, target: float) -> void:
 
 func _edge_key(u: int, v: int) -> String:
 	return "%d_%d" % [min(u, v), max(u, v)]
+
+func _make_ring_texture(radius: int, thickness: int) -> Texture2D:
+	var size := radius * 2 + thickness * 2
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0,0,0,0))
+	var r_outer := float(radius) + thickness * 0.5
+	var r_inner := float(radius) - thickness * 0.5
+	var r2_outer := r_outer * r_outer
+	var r2_inner := r_inner * r_inner
+	for y in range(size):
+		for x in range(size):
+			var dx := x - size * 0.5 + 0.5
+			var dy := y - size * 0.5 + 0.5
+			var d2 := dx*dx + dy*dy
+			if d2 <= r2_outer and d2 >= r2_inner:
+				img.set_pixel(x, y, Color(1,1,1,1)) # white; we’ll tint via modulate
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+func _apply_pulse(i: int, is_current: bool) -> void:
+	var e = regions[i]
+	var btn: TextureButton = e["button"]
+	var key := "pulse_node"
+
+	# Create the ring once
+	if not e.has(key) or e[key] == null:
+		var ring_tex := _make_ring_texture(int(region_radius * 1.2), pulse_thickness)
+		var ring := TextureRect.new()
+		ring.texture = ring_tex
+		ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+
+		# Make the ring the same rect size as the button
+		ring.size = btn.size
+		ring.pivot_offset = ring.size * 0.5
+
+		# ✅ Center the ring on the button
+		var center := btn.position + btn.size * 0.5
+		ring.position = center - ring.size * 0.5
+
+		ring.z_index = btn.z_index + 1
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(ring)
+		e[key] = ring
+		regions[i] = e
+
+
+	# Configure color & base scale
+	var ring: TextureRect = e[key]
+	if is_current:
+		ring.modulate = pulse_color_current
+	else:
+		ring.modulate = pulse_color_available
+	ring.scale = Vector2.ONE
+
+	# Kill old tween (if any), then pulse forever
+	var old = _pulse_tweens.get(i, null)
+	if old and old.is_valid():
+		old.kill()
+	
+	var target_scale := pulse_scale_available
+	if is_current:
+		target_scale = pulse_scale_current
+
+	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_pulse_tweens[i] = tw
+	# scale and alpha pulse (yoyo, loop)
+	tw.tween_property(ring, "scale", Vector2(target_scale, target_scale), pulse_time * 0.5)
+	tw.parallel().tween_property(ring, "modulate:a", ring.modulate.a * 0.35, pulse_time * 0.5)
+	tw.tween_property(ring, "scale", Vector2(1, 1), pulse_time * 0.5)
+	tw.parallel().tween_property(ring, "modulate:a", ring.modulate.a, pulse_time * 0.5)
+	tw.set_loops()  # infinite
+	
+func _remove_pulse(i: int) -> void:
+	var e = regions[i]
+	var key := "pulse_node"
+	var old = _pulse_tweens.get(i, null)
+	if old and old.is_valid():
+		old.kill()
+		_pulse_tweens.erase(i)
+
+	if e.has(key) and e[key] != null:
+		var ring: TextureRect = e[key]
+		if is_instance_valid(ring):
+			remove_child(ring)
+			ring.queue_free()
+		e[key] = null
+		regions[i] = e
+
+func _pick_current_available() -> int:
+	var vp_center := get_viewport_rect().size * 0.5
+	var best := -1
+	var best_d := INF
+	for i in range(regions.size()):
+		var completed := GameData.is_region_completed(i)
+		var unlocked  := GameData.is_region_unlocked(i, regions[i]["tier"], regions[i]["parents"])
+		if completed or not unlocked:
+			continue
+		var d = regions[i]["pos"].distance_to(vp_center)
+		if d < best_d:
+			best_d = d; best = i
+	return best
+
+func _refresh_available_animations() -> void:
+	var current := _pick_current_available()
+	for i in range(regions.size()):
+		var completed := GameData.is_region_completed(i)
+		var unlocked  := GameData.is_region_unlocked(i, regions[i]["tier"], regions[i]["parents"])
+		if completed or not unlocked:
+			_remove_pulse(i)
+		else:
+			_apply_pulse(i, i == current)
