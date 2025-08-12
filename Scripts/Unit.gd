@@ -1932,7 +1932,6 @@ func scaled_dmg(mult: float = 1.0) -> int:
 var _aura_hint_nodes: Array = []
 
 # Call this from _on_round_ended (you already do)
-# Call this from _on_round_ended (you already do)
 func _flash_medic_aura_hint() -> void:
 	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap == null:
@@ -1942,13 +1941,17 @@ func _flash_medic_aura_hint() -> void:
 	if tilemap.has_method("_highlight_range"):
 		tilemap._highlight_range(tile_pos, medic_aura_radius, 5)
 
+	# Pulse the SUPPORT (caster) faster
+	_pulse_green(self, medic_aura_hint_duration / 2)  # ~3x faster
+
+	# Pulse allies at normal speed
 	for ally in _collect_allies_in_aura(tilemap):
-		_pulse_green(ally, medic_aura_hint_duration)
+		if ally != self:  # avoid double-pulsing the caster
+			_pulse_green(ally, medic_aura_hint_duration)
 
 	await get_tree().create_timer(medic_aura_hint_duration).timeout
 	if tilemap and tilemap.has_method("_clear_highlights"):
 		tilemap._clear_highlights()
-
 
 func _collect_allies_in_aura(tilemap: TileMap) -> Array:
 	var found: Array = []
@@ -1963,7 +1966,6 @@ func _collect_allies_in_aura(tilemap: TileMap) -> Array:
 			if ally and ally.is_player == is_player and ally.health > 0:
 				found.append(ally)
 	return found
-
 
 func _pulse_green(ally: Node, duration: float = 0.6) -> void:
 	if ally == null or not ally.is_inside_tree():
@@ -1999,7 +2001,7 @@ func _pulse_green(ally: Node, duration: float = 0.6) -> void:
 	sprite.set_meta("aura_original_mod", original)
 
 	# Dark → light green values (fast, high-contrast)
-	var dark_green := Color(0.0, 0.4, 0.0, original.a)
+	var dark_green := Color(0.0, 0.3, 0.0, original.a)
 	var light_green := Color(0.7, 1.0, 0.7, original.a)
 
 	# Very quick cycle steps
