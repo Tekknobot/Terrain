@@ -161,7 +161,7 @@ func on_run_failed() -> void:
 	clear_all_upgrades()
 	unit_special.clear()
 	current_level = 1
-	max_enemy_units = 2
+	max_enemy_units = 3
 	map_difficulty = 1
 	next_unit_id = 1
 

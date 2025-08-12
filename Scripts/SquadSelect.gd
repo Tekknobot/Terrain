@@ -26,7 +26,7 @@ const HEADLINES := [
 	"Civil defense drones map safe corridors in real time",
 	"Factory recall: faulty gyro in Series-3 walkers",
 	"Urban heatwave slows non-cooled units by 12%",
-	"Test range closed after plasma vent incident—no injuries reported",
+	"Test range closed after plasma vent incident -- no injuries reported",
 	"Harbor cranes converted to emergency mech gantries",
 	"Rogue AI disables dock winches before being sandboxed",
 	"Blackout avoided as fusion plant spins up reserve coils",

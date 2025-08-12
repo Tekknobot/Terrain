@@ -136,7 +136,7 @@ func _start_unit_action(team):
 			# a) Only try a special if we haven't yet moved or attacked
 			if not unit.has_moved and not unit.has_attacked:
 				var special = _choose_special_ability(unit)
-				if special and (randi() % 100) < AI_SPECIAL_CHANCE:
+				if special and (randi() % 60) < AI_SPECIAL_CHANCE:
 					match special.ability:
 						"ground_slam":
 							tilemap.do_ground_slam(unit.unit_id, special.target)
