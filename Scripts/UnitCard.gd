@@ -165,15 +165,14 @@ func set_from_prefab(prefab: PackedScene) -> void:
 	if special != "":
 		var desc := _ability_desc(special)
 		if desc != "":
-			spec_part = " - %s: %s" % [special, desc]
+			spec_part = "\n%s: %s" % [special, desc]   # added line break here
 		else:
-			spec_part = " - %s" % special
+			spec_part = "\n%s" % special               # and here
 
 	# Final text used for the HOVER INFO (emitted in _on_mouse_entered)
-	info_text = "%s - %s [%s]\nHP %d/%d  ATK %d  RNG %d  MOV %d%s%s" % [
+	info_text = "%s - %s [%s]\nHP %d/%d  DMG %d  ATK %d  MOV %d%s%s" % [
 		u_name, u_type, combat_class, hp, hp_max, atk, rng, mov, def_part, spec_part
 	]
-
 
 func _pressed() -> void:
 	emit_signal("picked", self)

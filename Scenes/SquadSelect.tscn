@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://c8w6423geib2d"]
+[gd_scene load_steps=20 format=3 uid="uid://c8w6423geib2d"]
 
 [ext_resource type="Script" uid="uid://cvmosgnv83yw4" path="res://Scripts/SquadSelect.gd" id="1_7j665"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="2_ccg3s"]
@@ -17,6 +17,7 @@
 [ext_resource type="Texture2D" uid="uid://d1vnyhhkriimy" path="res://Sprites/TitleScreen/Mek_Logotype1.png" id="12_yhcsf"]
 [ext_resource type="Texture2D" uid="uid://dj4fnoch5vla4" path="res://Sprites/TitleScreen/Mek_Logotype2.png" id="13_wkifx"]
 [ext_resource type="Texture2D" uid="uid://gxe16nmoq2wg" path="res://Sprites/TitleScreen/Mek_Logotype3.png" id="14_vmrk5"]
+[ext_resource type="Script" uid="uid://d4gso7kwyd8vn" path="res://Scripts/BodyScroll.gd" id="18_yhcsf"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_v0lh4"]
 animations = [{
@@ -53,10 +54,10 @@ ranged_units = Array[PackedScene]([ExtResource("5_mbtl8"), ExtResource("6_c3q6l"
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 custom_minimum_size = Vector2(475, 0)
 layout_mode = 0
-offset_left = 223.0
+offset_left = 90.0
 offset_top = 158.0
-offset_right = 723.0
-offset_bottom = 325.0
+offset_right = 590.0
+offset_bottom = 385.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="VBoxContainer"]
 visible = false
@@ -100,9 +101,9 @@ autowrap_mode = 2
 
 [node name="ConfirmButton" type="Button" parent="."]
 layout_mode = 2
-offset_left = 525.0
+offset_left = 392.0
 offset_top = 154.0
-offset_right = 655.0
+offset_right = 522.0
 offset_bottom = 188.0
 theme_override_fonts/font = ExtResource("3_bjpxf")
 theme_override_font_sizes/font_size = 32
@@ -115,6 +116,26 @@ offset_right = 1162.0
 offset_bottom = 40.0
 theme_override_fonts/normal_font = ExtResource("2_ccg3s")
 theme_override_font_sizes/normal_font_size = 32
+
+[node name="Body" type="RichTextLabel" parent="."]
+layout_mode = 0
+offset_left = 604.0
+offset_top = 542.0
+offset_right = 1112.0
+offset_bottom = 1323.0
+theme_override_fonts/normal_font = ExtResource("2_ccg3s")
+theme_override_font_sizes/normal_font_size = 32
+text = "There are three unit types in the game. Infantry use melee attacks at close range. Artillery use ranged attacks from a distance. Support also attacks at range and provides healing benefits to nearby allies.
+
+The game is turn-based and played on a grid. Each unit can move and attack on its turn. Positioning is important for both offense and defense. Units have special abilities that can change the course of a battle. Loot drops appear during combat and can grant special attacks or call in reinforcements, giving you powerful tactical advantages. Victory comes from eliminating the enemy team or completing mission objectives.
+
+Terrain Effects:
+Grass restores 5 HP when standing on it.
+Snow reduces attack range by 1.
+Ice reduces attack range by 2.
+Road allows moving 1 extra tile diagonally down-left or down-right.
+Intersection allows moving 2 extra tiles."
+script = ExtResource("18_yhcsf")
 
 [node name="LogoType" type="Label" parent="."]
 layout_mode = 0
