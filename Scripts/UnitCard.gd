@@ -48,8 +48,8 @@ const ABILITIES := {
 	"Suppressive Fire": "fire in line up to 3 tiles damaging all in path",
 	"Guardian Halo": "give ally one round shield lost if missed",
 	"Fortify": "halve all damage taken until next turn",
-	"Heavy Rain": "missile barrage over wide area damage",
-	"Web Field": "zone in and damage all enemies 3x3"
+	"Heavy Rain": "missile barrage over wide area damage - Passive healing",
+	"Web Field": "zone in and damage all enemies 3x3 - Passive healing"
 }
 
 func _layout_overlay(pilot_tx: Texture2D, mek_tx: Texture2D) -> void:

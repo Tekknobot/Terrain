@@ -19,10 +19,10 @@ script = ExtResource("1_u3yf7")
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 0
-offset_left = -4.0
-offset_top = 20.0
-offset_right = 208.0
-offset_bottom = 321.0
+offset_left = 31.0
+offset_top = 27.0
+offset_right = 231.0
+offset_bottom = 328.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
 layout_mode = 2
@@ -32,7 +32,7 @@ theme_override_constants/separation = 16
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_pge7u")
 theme_override_font_sizes/font_size = 64
-text = "Info."
+text = "Sections"
 
 [node name="ControlsBtn" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
@@ -68,7 +68,7 @@ text = "Back"
 [node name="InfoPanel" type="PanelContainer" parent="."]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 0
-offset_left = 198.0
+offset_left = 255.0
 offset_top = 96.0
 offset_right = 1128.0
 offset_bottom = 631.0
