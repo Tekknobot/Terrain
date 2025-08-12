@@ -23,7 +23,7 @@ var mek_rect: TextureRect
 
 # Selected visuals still use your existing grey modulate;
 # you can change that here if you want.
-@export var selected_modulate := Color(0.5, 0.5, 0.5)
+@export var selected_modulate := Color(0.1, 0.1, 0.1)
 @export var normal_modulate := Color(1, 1, 1)
 
 # At top with other exports/vars

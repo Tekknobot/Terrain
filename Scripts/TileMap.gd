@@ -241,12 +241,15 @@ func clear_map() -> void:
 	print("Map cleared – waiting for host data.")
 
 func _generate_map():
-	_setup_camera()
-
+	# 1) Apply difficulty sizing first
 	if GameData.map_difficulty >= 6:
-		grid_width = 10
+		grid_width  = 10
 		grid_height = 10
 
+	# 2) Now set up camera (it will read the new size)
+	_setup_camera()
+
+	# 3) Generate tiles with the new dimensions
 	var max_wave = grid_width + grid_height - 2
 	for wave in range(max_wave + 1):
 		for x in range(grid_width):
@@ -259,7 +262,6 @@ func _generate_map():
 
 	_generate_roads()
 	map_details.text = difficulty_tiers[GameData.map_difficulty]
-	
 	tilemap.modulate = Color(1, 1, 1, 0)
 
 func _drop_tile(x: int, y: int, tile_id: int) -> void:
