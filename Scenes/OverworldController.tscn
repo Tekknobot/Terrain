@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://48d8tkhp3xh0"]
+[gd_scene load_steps=9 format=3 uid="uid://48d8tkhp3xh0"]
 
 [ext_resource type="Texture2D" uid="uid://dqmlt3bpfxcqb" path="res://Sprites/Portraits/pilots/mek_portraits/novice_group.png" id="2_iq2g5"]
 [ext_resource type="PackedScene" uid="uid://dyvg1q4u48f01" path="res://Scenes/Overworld.tscn" id="2_k221l"]
@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://bygvhthawhht8" path="res://Sprites/Portraits/pilots/mek_portraits/r4.png" id="5_re4jv"]
 [ext_resource type="Texture2D" uid="uid://beu8s26b4wob0" path="res://Sprites/Portraits/pilots/mek_portraits/s2.png" id="6_qpboe"]
 [ext_resource type="Texture2D" uid="uid://b4xbvy5vgjg60" path="res://Sprites/Portraits/pilots/mek_portraits/s3.png" id="7_2ftuw"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="8_is437"]
 
 [node name="OverworldNode" type="Node2D"]
 
@@ -18,3 +19,12 @@ region_textures = Array[Texture2D]([ExtResource("2_iq2g5"), ExtResource("3_net20
 [node name="OverlayLayer" type="CanvasLayer" parent="."]
 scale = Vector2(0.5, 0.5)
 transform = Transform2D(0.5, 0, 0, 0.5, 0, 0)
+
+[node name="Label" type="Label" parent="OverlayLayer"]
+offset_left = 990.0
+offset_top = 56.0
+offset_right = 1238.0
+offset_bottom = 107.0
+theme_override_fonts/font = ExtResource("8_is437")
+theme_override_font_sizes/font_size = 64
+text = "OVERWORLD"
