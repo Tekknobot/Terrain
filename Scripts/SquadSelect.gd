@@ -10,6 +10,7 @@ extends Control
 @onready var selection_label: Label = $VBoxContainer/SelectionLabel
 @onready var confirm_button: Button = $ConfirmButton
 @onready var info_label: Label = $VBoxContainer/Info
+@onready var name_label: Label = $Name   # NEW: label that shows the unit's name on hover
 
 var selected_cards: Array[UnitCard] = []
 
@@ -19,7 +20,7 @@ const HEADLINES := [
 	"Godzilla sighting off Tokyo Bay; coastal sirens tested successfully",
 	"City Council approves new anti-kaiju barrier funding",
 	"Weather alert: lightning storms power up solar mechs downtown",
-	"Random crime spree foiled by patrol unit ‘Aegis-2’",
+	"Random crime spree foiled by patrol unit Aegis-2",
 	"R&D leaks: experimental railgun achieves record muzzle velocity",
 	"Evac drill scores improve across six districts",
 	"Civil defense drones map safe corridors in real time",
@@ -36,7 +37,7 @@ const HEADLINES := [
 	"Microquakes near tunnel network under Old Town",
 	"Public beta: citywide kaiju alert app adds shelter routing",
 	"Port authority unveils amphibious heavy lifter ‘Pelican’",
-	"Skunkworks denies rumors of stealth-chassis ‘Wisp’",
+	"Skunkworks denies rumors of stealth-chassis Wisp",
 	"Weather drones recover missing cargo pod over bay",
 	"Neighborhood watch deploys noise decoys to deter vandals",
 	"Trial run: autonomous med-mech completes triage in 3 min"
@@ -62,6 +63,8 @@ func _ready() -> void:
 		confirm_button.pressed.connect(_on_ConfirmButton_pressed)
 	if info_label:
 		info_label.text = ""
+	if name_label:
+		name_label.text = ""  # start empty
 
 	# --- Marquee setup ---
 	_rng.randomize()
@@ -78,7 +81,7 @@ func _ready() -> void:
 		# Timer to reshuffle/rebuild every ~12–24s (randomized each cycle)
 		_marquee_timer = Timer.new()
 		_marquee_timer.one_shot = false
-		_marquee_timer.wait_time = _rng.randf_range(12.0, 24.0)
+		_marquee_timer.wait_time = _rng.randf_range(60.0, 90.0)
 		add_child(_marquee_timer)
 		_marquee_timer.timeout.connect(_on_marquee_timeout)
 		_marquee_timer.start()
@@ -102,10 +105,11 @@ func _randomized_headlines_sequence() -> Array:
 
 	return seq
 
+
 func _refresh_marquee_text() -> void:
 	if not marquee:
 		return
-	var sep := "   •   "
+	var sep := "   -   "
 	var seq := _randomized_headlines_sequence()
 	var base := sep.join(seq)
 	# Duplicate so we can “wrap” seamlessly when slicing
@@ -141,9 +145,38 @@ func _populate(list: Array[PackedScene]) -> void:
 		card.toggled_selected.connect(_on_card_toggled)
 		card.hover_info.connect(_on_card_hover_info)
 
+		# Cache a reliable display name for this card now
+		var dn := _derive_unit_name(prefab)
+		if dn == "":
+			# last-ditch: try the prefab path’s basename
+			dn = prefab.resource_path.get_file().get_basename()
+		_card_name_cache[card] = dn
+
 func _on_card_hover_info(card: UnitCard, text: String, show: bool) -> void:
+	# Put the UNIT NAME in $Name, and keep the detailed hover text in Info (if you want).
+	if name_label:
+		name_label.text = _get_card_name(card) if show else ""
 	if info_label:
 		info_label.text = text if show else ""
+
+func _get_card_name(card: UnitCard) -> String:
+	# Prefer the cached name we computed from the PackedScene
+	if card in _card_name_cache:
+		return _card_name_cache[card]
+
+	# Fallbacks (in case a card was created elsewhere)
+	if card and card.has_method("get_display_name"):
+		return String(card.get_display_name())
+	if "display_name" in card:
+		return String(card.display_name)
+	if "unit_name" in card:
+		return String(card.unit_name)
+	if "title" in card:
+		return String(card.title)
+	if card and "unit_prefab" in card and card.unit_prefab:
+		return card.unit_prefab.resource_name
+	return card.name
+
 
 func _on_card_picked(card: UnitCard) -> void:
 	return
@@ -187,3 +220,40 @@ func _on_ConfirmButton_pressed() -> void:
 		push_error("Failed to change scene to %s (err=%d)" % [path, err])
 	else:
 		print("Loading %s..." % path)
+
+var _card_name_cache: Dictionary = {}  # key: UnitCard -> String
+
+func _derive_unit_name(prefab: PackedScene) -> String:
+	if prefab == null:
+		return ""
+	# 1) Try the resource name (filename without extension is often good)
+	if prefab.resource_name != "":
+		return prefab.resource_name
+
+	# 2) Instance (not added to tree, so no _ready() side effects)
+	var inst := prefab.instantiate()
+	if inst:
+		# Common fields/methods on the unit root
+		if inst.has_method("get_display_name"):
+			var n = String(inst.get_display_name())
+			inst.queue_free()
+			return n
+		if "display_name" in inst:
+			var n = String(inst.display_name)
+			inst.queue_free()
+			return n
+		if "unit_name" in inst:
+			var n = String(inst.unit_name)
+			inst.queue_free()
+			return n
+		if "title" in inst:
+			var n = String(inst.title)
+			inst.queue_free()
+			return n
+
+		# Fallback: node name of the root of the unit scene
+		var n = inst.name
+		inst.queue_free()
+		return String(n)
+
+	return ""  # ultimate fallback
