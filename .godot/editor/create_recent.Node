@@ -1,6 +1,8 @@
+Sprite2D
+Label
+RichTextLabel
 Button
 Line2D
-Label
 VBoxContainer
 TextureButton
 GridContainer
@@ -11,4 +13,3 @@ Control
 Panel
 ScrollContainer
 MarginContainer
-Container

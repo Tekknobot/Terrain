@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://batrh3n2sl8lr"]
+[gd_scene load_steps=14 format=3 uid="uid://batrh3n2sl8lr"]
 
 [ext_resource type="Script" uid="uid://c3axl4nxnkrix" path="res://Scripts/TitleScreen.gd" id="1_86o6v"]
 [ext_resource type="Texture2D" uid="uid://bkjpto3qrq0pj" path="res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer3.png" id="2_30llc"]
@@ -10,6 +10,8 @@
 [ext_resource type="Texture2D" uid="uid://bkumpbg4gebvj" path="res://Sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist./layer1.png" id="4_076cx"]
 [ext_resource type="Texture2D" uid="uid://gxe16nmoq2wg" path="res://Sprites/TitleScreen/Mek_Logotype3.png" id="4_wxl8i"]
 [ext_resource type="Material" uid="uid://bkgl5fav4fvd4" path="res://Textures/pixel_effect.tres" id="6_681ew"]
+[ext_resource type="PackedScene" uid="uid://brjibiirap01x" path="res://Scenes/Meks_Scenes/CPU/S3_Title.scn" id="7_2jiiu"]
+[ext_resource type="PackedScene" uid="uid://bsjiauo478o6m" path="res://Scenes/Meks_Scenes/CPU/M1_Title.scn" id="12_awp6w"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_70vl7"]
 animations = [{
@@ -74,22 +76,14 @@ texture = ExtResource("4_076cx")
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 0
-offset_left = -501.0
-offset_top = -139.0
-offset_right = 499.0
-offset_bottom = 148.0
+offset_left = -494.0
+offset_top = -30.0
+offset_right = 506.0
+offset_bottom = 257.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
 layout_mode = 2
 theme_override_constants/separation = 16
-
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="CenterContainer/VBoxContainer"]
-material = ExtResource("6_681ew")
-position = Vector2(105, -66)
-scale = Vector2(2, 2)
-sprite_frames = SubResource("SpriteFrames_70vl7")
-autoplay = "default"
-frame_progress = 0.651043
 
 [node name="Play" type="Button" parent="CenterContainer/VBoxContainer"]
 custom_minimum_size = Vector2(200, 40)
@@ -103,7 +97,7 @@ custom_minimum_size = Vector2(200, 40)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 32
-text = "Tutorials"
+text = "Information"
 
 [node name="Reset" type="Button" parent="CenterContainer/VBoxContainer"]
 visible = false
@@ -128,5 +122,23 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("2_gujq3")
 theme_override_font_sizes/font_size = 32
 text = "QUIT"
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+material = ExtResource("6_681ew")
+position = Vector2(4, -110)
+scale = Vector2(2, 2)
+sprite_frames = SubResource("SpriteFrames_70vl7")
+autoplay = "default"
+frame_progress = 0.651043
+
+[node name="S3" parent="." instance=ExtResource("7_2jiiu")]
+position = Vector2(-158, -18)
+scale = Vector2(3, 3)
+script = null
+
+[node name="M1" parent="." instance=ExtResource("12_awp6w")]
+position = Vector2(164, -29)
+scale = Vector2(3, 3)
+script = null
 
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Reset" to="." method="_on_reset_pressed"]

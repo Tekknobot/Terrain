@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://c8w6423geib2d"]
+[gd_scene load_steps=19 format=3 uid="uid://c8w6423geib2d"]
 
 [ext_resource type="Script" uid="uid://cvmosgnv83yw4" path="res://Scripts/SquadSelect.gd" id="1_7j665"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://Fonts/magofonts/mago1.ttf" id="2_ccg3s"]
@@ -12,7 +12,28 @@
 [ext_resource type="PackedScene" uid="uid://ct1ugkg5n215q" path="res://Scenes/Meks_Scenes/PLAYER/R4.scn" id="8_yhcsf"]
 [ext_resource type="PackedScene" uid="uid://dok7nyn6rfklj" path="res://Scenes/Meks_Scenes/PLAYER/S2.scn" id="9_wkifx"]
 [ext_resource type="PackedScene" uid="uid://f0axh6ymw2lc" path="res://Scenes/Meks_Scenes/PLAYER/S3.scn" id="10_vmrk5"]
+[ext_resource type="Material" uid="uid://bkgl5fav4fvd4" path="res://Textures/pixel_effect.tres" id="11_2lebq"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://Fonts/magofonts/mago3.ttf" id="11_b77vg"]
+[ext_resource type="Texture2D" uid="uid://d1vnyhhkriimy" path="res://Sprites/TitleScreen/Mek_Logotype1.png" id="12_yhcsf"]
+[ext_resource type="Texture2D" uid="uid://dj4fnoch5vla4" path="res://Sprites/TitleScreen/Mek_Logotype2.png" id="13_wkifx"]
+[ext_resource type="Texture2D" uid="uid://gxe16nmoq2wg" path="res://Sprites/TitleScreen/Mek_Logotype3.png" id="14_vmrk5"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_v0lh4"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("12_yhcsf")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_wkifx")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_vmrk5")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
 
 [node name="SquadSelect" type="Control"]
 layout_mode = 3
@@ -29,17 +50,32 @@ melee_units = Array[PackedScene]([ExtResource("3_b77vg"), ExtResource("4_vibpu")
 ranged_units = Array[PackedScene]([ExtResource("5_mbtl8"), ExtResource("6_c3q6l"), ExtResource("7_2lebq"), ExtResource("8_yhcsf"), ExtResource("9_wkifx"), ExtResource("10_vmrk5")])
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(475, 0)
 layout_mode = 0
-offset_left = 199.0
-offset_top = 168.0
-offset_right = 239.0
-offset_bottom = 221.0
+offset_left = 198.0
+offset_top = 212.0
+offset_right = 673.0
+offset_bottom = 319.0
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="VBoxContainer"]
+visible = false
+material = ExtResource("11_2lebq")
+position = Vector2(142, -89)
+scale = Vector2(2, 2)
+sprite_frames = SubResource("SpriteFrames_v0lh4")
+autoplay = "default"
 
 [node name="CardGrid" type="GridContainer" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_constants/h_separation = 32
 theme_override_constants/v_separation = 32
 columns = 4
+
+[node name="Info" type="Label" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_ccg3s")
+theme_override_font_sizes/font_size = 16
 
 [node name="Title" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -50,10 +86,14 @@ text = "Select Squad"
 [node name="SelectionLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_ccg3s")
+theme_override_font_sizes/font_size = 16
 
-[node name="ConfirmButton" type="Button" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 32)
+[node name="ConfirmButton" type="Button" parent="."]
 layout_mode = 2
+offset_left = 198.0
+offset_top = 513.0
+offset_right = 328.0
+offset_bottom = 547.0
 theme_override_fonts/font = ExtResource("3_bjpxf")
 theme_override_font_sizes/font_size = 32
 text = "Confirm"
