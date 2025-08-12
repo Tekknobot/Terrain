@@ -1590,15 +1590,22 @@ func _update_highlight_display():
 	_highlight_range(selected_unit.tile_pos, range, tile_id)
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
-	# ── if we're trying to show an attack range, but they've already attacked,
-	#    bail out immediately and paint nothing.
-	if showing_attack and selected_unit and selected_unit.has_attacked:
+	# Read unit state safely (selected_unit may be null during round pulses)
+	var su := selected_unit
+	var has_moved := false
+	var has_attacked := false
+	if is_instance_valid(su):
+		has_moved = su.has_moved
+		has_attacked = su.has_attacked
+
+	# If showing attack, tint differently after the unit already attacked
+	if showing_attack and has_attacked:
 		tile_id = 16
 
-	# movement-only tint after moving
-	if selected_unit.has_moved and not showing_attack:
+	# Movement-only tint after moving
+	if not showing_attack and has_moved:
 		tile_id = 15
-		
+
 	var allow_occupied = (tile_id == attack_tile_id)
 	var frontier = [start]
 	var distances = { start: 0 }
@@ -1613,10 +1620,11 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 				highlighted_tiles.append(current)
 			else:
 				if not is_water_tile(current) \
-				   and not is_tile_occupied(current) \
-				   and get_structure_at_tile(current) == null:
+				and not is_tile_occupied(current) \
+				and get_structure_at_tile(current) == null:
 					set_cell(1, current, tile_id, Vector2i.ZERO)
 					highlighted_tiles.append(current)
+
 		if dist == max_dist:
 			continue
 
@@ -1624,8 +1632,8 @@ func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 			var neighbor = current + dir
 			if is_within_bounds(neighbor) and not distances.has(neighbor):
 				if allow_occupied or (_is_tile_walkable(neighbor)
-									 and not is_tile_occupied(neighbor)
-									 and get_structure_at_tile(neighbor) == null):
+				and not is_tile_occupied(neighbor)
+				and get_structure_at_tile(neighbor) == null):
 					distances[neighbor] = dist + 1
 					frontier.append(neighbor)
 

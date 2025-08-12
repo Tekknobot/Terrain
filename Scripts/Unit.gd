@@ -110,6 +110,8 @@ const SHIELD_ROUNDS := 1
 @export var medic_aura_enabled: bool = true     # toggle in editor
 @export var medic_aura_radius: int = 2          # Manhattan radius
 @export var medic_aura_heal: int = 35           # HP per full round
+const AURA_HEART_TSCN := preload("res://Scenes/VFX/popup_text.tscn") # will show text instead
+@export var medic_aura_hint_duration: float = 0.9  # how long to show the cue each round
 
 func _ready():
 	prev_tile_pos = tile_pos
@@ -1138,6 +1140,9 @@ func _on_round_ended(_ended_team: int) -> void:
 
 	# Passive Medic Aura (Support units only, alive)
 	if medic_aura_enabled and unit_type == "Support" and health > 0:
+		# show the “you’re in range” cue briefly
+		_flash_medic_aura_hint()
+		# then apply the actual round heal
 		await _tick_medic_aura()
 
 func _tick_medic_aura() -> void:
@@ -1856,6 +1861,13 @@ func play_heal_sound():
 	add_child(player)
 	player.play()
 
+func play_aura_sound():
+	var sfx = preload("res://Audio/SFX/aura.wav")
+	var player = AudioStreamPlayer.new()
+	player.stream = sfx
+	add_child(player)
+	player.play()
+
 func spawn_floating_text(amount: int):
 	var floating_text_scene = preload("res://Scenes/VFX/floating_text.tscn")
 	var text_instance = floating_text_scene.instantiate()
@@ -1916,3 +1928,98 @@ func _assign_special_for_unit(u: Node2D) -> void:
 # Handy scaler so we always pull from the live damage stat
 func scaled_dmg(mult: float = 1.0) -> int:
 	return int(round(max(1, damage * mult)))
+
+var _aura_hint_nodes: Array = []
+
+# Call this from _on_round_ended (you already do)
+# Call this from _on_round_ended (you already do)
+func _flash_medic_aura_hint() -> void:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return
+
+	# Optional ring
+	if tilemap.has_method("_highlight_range"):
+		tilemap._highlight_range(tile_pos, medic_aura_radius, 5)
+
+	for ally in _collect_allies_in_aura(tilemap):
+		_pulse_green(ally, medic_aura_hint_duration)
+
+	await get_tree().create_timer(medic_aura_hint_duration).timeout
+	if tilemap and tilemap.has_method("_clear_highlights"):
+		tilemap._clear_highlights()
+
+
+func _collect_allies_in_aura(tilemap: TileMap) -> Array:
+	var found: Array = []
+	for dx in range(-medic_aura_radius, medic_aura_radius + 1):
+		for dy in range(-medic_aura_radius, medic_aura_radius + 1):
+			if abs(dx) + abs(dy) > medic_aura_radius:
+				continue
+			var t := tile_pos + Vector2i(dx, dy)
+			if not tilemap.is_within_bounds(t):
+				continue
+			var ally = tilemap.get_unit_at_tile(t)
+			if ally and ally.is_player == is_player and ally.health > 0:
+				found.append(ally)
+	return found
+
+
+func _pulse_green(ally: Node, duration: float = 0.6) -> void:
+	if ally == null or not ally.is_inside_tree():
+		return
+
+	var sprite := ally.get_node_or_null("AnimatedSprite2D")
+	if sprite == null:
+		sprite = ally as CanvasItem
+	if sprite == null:
+		return
+
+	# Prevent overlapping pulses
+	if sprite.has_meta("aura_pulsing") and sprite.get_meta("aura_pulsing") == true:
+		return
+	sprite.set_meta("aura_pulsing", true)
+
+	# --- Play your existing audio once per ally (with a short cooldown) ---
+	if not ally.has_meta("aura_chime_cd"):
+		if ally.has_method("play_aura_sound"):
+			ally.play_aura_sound()
+		elif has_method("play_aura_sound"):
+			play_aura_sound()
+		ally.set_meta("aura_chime_cd", true)
+
+		# create the timer and connect separately
+		var timer := get_tree().create_timer(0.4)
+		timer.timeout.connect(func():
+			if is_instance_valid(ally) and ally.has_meta("aura_chime_cd"):
+				ally.remove_meta("aura_chime_cd")
+		)
+
+	var original: Color = sprite.self_modulate
+	sprite.set_meta("aura_original_mod", original)
+
+	# Dark → light green values (fast, high-contrast)
+	var dark_green := Color(0.0, 0.4, 0.0, original.a)
+	var light_green := Color(0.7, 1.0, 0.7, original.a)
+
+	# Very quick cycle steps
+	var wave_time = max(0.05, duration * 0.25)
+
+	var tw := sprite.create_tween()
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	# 2 quick pulses
+	tw.tween_property(sprite, "self_modulate", light_green, wave_time)
+	tw.tween_property(sprite, "self_modulate", dark_green,  wave_time)
+	tw.tween_property(sprite, "self_modulate", light_green, wave_time)
+	tw.tween_property(sprite, "self_modulate", original,    wave_time)
+
+	tw.tween_callback(func():
+		if is_instance_valid(sprite):
+			var orig := original
+			if sprite.has_meta("aura_original_mod"):
+				orig = sprite.get_meta("aura_original_mod")
+				sprite.remove_meta("aura_original_mod")
+			sprite.self_modulate = orig
+			sprite.remove_meta("aura_pulsing")
+	)
