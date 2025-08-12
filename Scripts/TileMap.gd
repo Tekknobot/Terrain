@@ -18,11 +18,11 @@ const MOVE_SPEED := 100.0  # pixels/sec
 
 @export var tilemap : TileMap
 
-@export var water_threshold   := -0.825    # was -0.65
+@export var water_threshold   := -0.65    # was -0.65
 @export var sandstone_threshold := -0.2    # unchanged
 @export var dirt_threshold      :=  0.1    # unchanged
-@export var grass_threshold     :=  0.70   # was 0.4
-@export var snow_threshold      :=  0.85   # was 0.7
+@export var grass_threshold     :=  0.4   # was 0.4
+@export var snow_threshold      :=  0.7   # was 0.7
 
 @export var water_tile_id := 6
 @export var sandstone_tile_id := 10
@@ -1701,7 +1701,7 @@ func _execute_all_player_units():
 
 func _on_end_turn_button_pressed() -> void:
 	_do_end_turn()
-	menu_button.visible = false
+	#menu_button.visible = false
 
 func _do_end_turn() -> void:
 	print("🛑 Ending turn locally")

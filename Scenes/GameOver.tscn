@@ -48,9 +48,9 @@ horizontal_alignment = 1
 [node name="Continue" type="Button" parent="CanvasLayer/Control"]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 0
-offset_left = 375.0
+offset_left = 402.0
 offset_top = 321.0
-offset_right = 535.0
+offset_right = 562.0
 offset_bottom = 355.0
 theme = SubResource("Theme_rdiyk")
 theme_override_fonts/font = ExtResource("5_rdiyk")
@@ -61,9 +61,9 @@ text = "Continue
 [node name="Quit" type="Button" parent="CanvasLayer/Control"]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 0
-offset_left = 635.0
+offset_left = 613.0
 offset_top = 320.0
-offset_right = 795.0
+offset_right = 773.0
 offset_bottom = 354.0
 theme = SubResource("Theme_rdiyk")
 theme_override_fonts/font = ExtResource("5_rdiyk")

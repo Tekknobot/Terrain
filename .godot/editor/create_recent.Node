@@ -1,6 +1,6 @@
-Sprite2D
 Label
 RichTextLabel
+Sprite2D
 Button
 Line2D
 VBoxContainer
@@ -12,4 +12,3 @@ TextureRect
 Control
 Panel
 ScrollContainer
-MarginContainer
