@@ -53,10 +53,10 @@ ranged_units = Array[PackedScene]([ExtResource("5_mbtl8"), ExtResource("6_c3q6l"
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 custom_minimum_size = Vector2(475, 0)
 layout_mode = 0
-offset_left = 198.0
-offset_top = 212.0
-offset_right = 673.0
-offset_bottom = 319.0
+offset_left = 223.0
+offset_top = 158.0
+offset_right = 723.0
+offset_bottom = 325.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="VBoxContainer"]
 visible = false
@@ -65,18 +65,6 @@ position = Vector2(142, -89)
 scale = Vector2(2, 2)
 sprite_frames = SubResource("SpriteFrames_v0lh4")
 autoplay = "default"
-
-[node name="CardGrid" type="GridContainer" parent="VBoxContainer"]
-layout_mode = 2
-theme_override_constants/h_separation = 32
-theme_override_constants/v_separation = 32
-columns = 4
-
-[node name="Info" type="Label" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_ccg3s")
-theme_override_font_sizes/font_size = 16
 
 [node name="Title" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -89,12 +77,33 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("2_ccg3s")
 theme_override_font_sizes/font_size = 16
 
+[node name="Label" type="Label" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+
+[node name="CardGrid" type="GridContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/h_separation = 32
+theme_override_constants/v_separation = 32
+columns = 4
+
+[node name="Label2" type="Label" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+
+[node name="Info" type="Label" parent="VBoxContainer"]
+custom_minimum_size = Vector2(500, 56)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_ccg3s")
+theme_override_font_sizes/font_size = 32
+autowrap_mode = 2
+
 [node name="ConfirmButton" type="Button" parent="."]
 layout_mode = 2
-offset_left = 198.0
-offset_top = 513.0
-offset_right = 328.0
-offset_bottom = 547.0
+offset_left = 525.0
+offset_top = 154.0
+offset_right = 655.0
+offset_bottom = 188.0
 theme_override_fonts/font = ExtResource("3_bjpxf")
 theme_override_font_sizes/font_size = 32
 text = "Confirm"

@@ -36,7 +36,7 @@ const HEADLINES := [
 	"Insurance rates drop in districts with patrol beacons",
 	"Microquakes near tunnel network under Old Town",
 	"Public beta: citywide kaiju alert app adds shelter routing",
-	"Port authority unveils amphibious heavy lifter ‘Pelican’",
+	"Port authority unveils amphibious heavy lifter Pelican",
 	"Skunkworks denies rumors of stealth-chassis Wisp",
 	"Weather drones recover missing cargo pod over bay",
 	"Neighborhood watch deploys noise decoys to deter vandals",
