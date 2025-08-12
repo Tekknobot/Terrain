@@ -6,17 +6,19 @@ extends Node
 # ─────────────────────────────────────────────────────────────────────────────
 var coins: int = 0
 var xp: int = 0
-var current_level: int = 6
-var max_enemy_units: int = 8
+var current_level: int = 1
+var max_enemy_units: int = 3
 
 var last_enemy_upgrade_level: int = 1
 var completed_maps: Array[int] = []
 var carryover_units: Array = []  # cleared after being consumed
 
+var overworld_seed: int = 0   # 0 means “not set yet this session”
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Map settings
 # ─────────────────────────────────────────────────────────────────────────────
-var map_difficulty: int = 6
+var map_difficulty: int = 1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Track which upgrades and special ability each unit has received
@@ -58,6 +60,49 @@ var roster_portraits: Array = [
 ]
 # ▶ NEW: exact prefabs chosen on SquadSelect, stored as scene paths
 var selected_squad_paths: Array[String] = []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Non-linear region progression (tier-capped)
+# ─────────────────────────────────────────────────────────────────────────────
+var goal_tier: int = 6                             # cap at “Grandmaster”
+var completed_regions: Dictionary = {}             # { region_index: true }
+
+# Optional: if you want per-run record of last played region/tier
+var last_region_index: int = -1
+var last_region_tier: int = 1
+
+func is_region_completed(region_index: int) -> bool:
+	return completed_regions.has(region_index)
+
+# Overworld decides parents; pass in a list of parent indices (may be empty)
+func is_region_unlocked(region_index: int, tier: int, parent_indices: Array) -> bool:
+	# Always respect tier cap
+	if tier > goal_tier:
+		return false
+	# Tier 1 is always available (root)
+	if tier <= 1:
+		return true
+	# Otherwise, unlocked if ANY parent is completed
+	for p in parent_indices:
+		if is_region_completed(int(p)):
+			return true
+	return false
+
+func mark_region_completed(region_index: int, tier: int) -> void:
+	completed_regions[region_index] = true
+	last_region_index = region_index
+	last_region_tier  = tier
+	# Advance the gate, but never beyond goal_tier
+	if tier < goal_tier:
+		current_level = max(current_level, tier + 1)
+	else:
+		current_level = goal_tier
+
+func clear_region_progression() -> void:
+	completed_regions.clear()
+	last_region_index = -1
+	last_region_tier  = 1
+	current_level = 1
 
 func set_selected_squad_from_prefabs(prefabs: Array[PackedScene]) -> void:
 	selected_squad_paths.clear()
@@ -210,6 +255,8 @@ func play_reset() -> void:
 	unit_upgrades.clear()
 	first_enemy_spawn_done = false
 	next_unit_id = 1
+	# NEW: reset non-linear graph progression
+	clear_region_progression()
 
 func advance_level() -> void:
 	current_level += 1

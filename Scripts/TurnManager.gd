@@ -331,15 +331,19 @@ func end_turn(game_over: bool = false):
 		return
 	elif not enemy_units_exist:
 		print("✅ Game Over - You Won!")
+
+		# NEW: mark the Overworld node as completed
+		# (You need to know the current region index & tier — pass them from scene load)
+		GameData.mark_region_completed(GameData.last_region_index, GameData.last_region_tier)
+
 		hide_end_turn_button()
 		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
 		TurnManager.save_player_survivors_to_gamedata()
 		match_done = true
-		
+
 		# Hide reset button
 		var reset_button = get_tree().get_nodes_in_group("Reset_Button")
 		reset_button[0].visible = false
-				
 		return
 
 	# 🔁 Emit turn-end signals

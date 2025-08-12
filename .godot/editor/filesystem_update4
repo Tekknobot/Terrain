@@ -40,3 +40,7 @@ res://Scenes/Meks_Scenes/CPU/R2.scn
 res://Scenes/Meks_Scenes/CPU/R3.scn
 res://Scripts/RewardsUpgrades.gd
 res://Scripts/BodyScroll.gd
+res://Scripts/OverworldController.gd
+res://Scenes/OverworldController.tscn
+res://Scenes/Overworld.tscn
+res://Scripts/OverworldMap.gd

@@ -8,6 +8,18 @@
 [node name="Overworld" type="Node2D"]
 script = ExtResource("1_hfkso")
 region_font = ExtResource("2_xydvu")
+region_radius = 8.0
+island_count = 3
+nodes_per_island_max = 5
+coast_points = 34
+island_base_radius = 130.0
+island_radius_jitter = 35.0
+coast_noise_strength = 0.13
+min_node_spacing = 60.0
+bridge_extra_links = 2
+land_fill = Color(0.101961, 0.203922, 0.141176, 1)
+coast_line = Color(0.0509804, 0.462745, 0.0509804, 1)
+road_color = Color(0.0748453, 0.0748453, 0.0748453, 1)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(579, 324)
