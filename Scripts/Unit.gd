@@ -106,12 +106,24 @@ var queued_airlift_origin: Vector2i = Vector2i(-1, -1)
 
 const SHIELD_ROUNDS := 1
 
+# --- Medic Aura (passive) ---
+@export var medic_aura_enabled: bool = true     # toggle in editor
+@export var medic_aura_radius: int = 2          # Manhattan radius
+@export var medic_aura_heal: int = 35           # HP per full round
+
 func _ready():
 	prev_tile_pos = tile_pos
 	connect("movement_finished", Callable(self, "_on_movement_finished"))
 	TurnManager.connect("round_ended", Callable(self, "_on_round_ended"))
-	#TurnManager.connect("turn_ended", Callable(self, "_on_turn_ended"))
+	
+	# Connect once to the autoload
+	if TurnManager and not TurnManager.is_connected("round_ended", Callable(self, "_on_round_ended")):
+		TurnManager.connect("round_ended", Callable(self, "_on_round_ended"), CONNECT_DEFERRED)
 
+	# (Optional) only Support units keep the aura on by default
+	if unit_type == "Support":
+		medic_aura_enabled = true
+		
 	# Assign a local unique id if not set
 	if unit_id == 0 and has_meta("unit_id"):
 		unit_id = get_meta("unit_id")
@@ -132,10 +144,6 @@ func _ready():
 	base_movement_range = movement_range
 	base_attack_range   = attack_range
 	base_defense        = defense
-
-	var tm = get_node("/root/TurnManager")
-	if tm:
-		tm.connect("round_ended", Callable(self, "_on_round_ended"))
 
 	if step_player and step_sfx:
 		step_player.stream = step_sfx
@@ -1128,6 +1136,31 @@ func _on_round_ended(_ended_team: int) -> void:
 			_fortify_aura.queue_free()
 			_fortify_aura = null
 
+	# Passive Medic Aura (Support units only, alive)
+	if medic_aura_enabled and unit_type == "Support" and health > 0:
+		await _tick_medic_aura()
+
+func _tick_medic_aura() -> void:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null: return
+
+	for dx in range(-medic_aura_radius, medic_aura_radius + 1):
+		for dy in range(-medic_aura_radius, medic_aura_radius + 1):
+			if abs(dx) + abs(dy) > medic_aura_radius:
+				continue  # Manhattan ring
+
+			var t := tile_pos + Vector2i(dx, dy)
+			if not tilemap.is_within_bounds(t): continue
+
+			var ally = tilemap.get_unit_at_tile(t)
+			if ally and ally.is_player == is_player and ally.health > 0:
+				var before = ally.health
+				ally.health = min(ally.max_health, ally.health + medic_aura_heal)
+				if ally.health != before:
+					if ally.has_method("update_health_bar"):
+						ally.update_health_bar()
+					if ally.has_method("spawn_text_popup"):
+						ally.spawn_text_popup("+" + str(medic_aura_heal) + " HP", Color(0,1,0))
 
 func _on_turn_ended(ended_team: int) -> void:
 	var ended_is_player = (ended_team == TurnManager.Team.PLAYER)

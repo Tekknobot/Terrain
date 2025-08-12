@@ -22,3 +22,10 @@ res://Scenes/Meks_Scenes/CPU/S3_Title.scn
 res://Scripts/TileMap.gd
 res://Scripts/TurnManager.gd
 res://Scripts/GameData.gd
+res://Scenes/Meks_Scenes/PLAYER/S3.scn
+res://Scenes/Meks_Scenes/CPU/M1.scn
+res://Scenes/Meks_Scenes/CPU/S2.scn
+res://Scenes/Meks_Scenes/CPU/S3.scn
+res://Scenes/Meks_Scenes/PLAYER/S2.scn
+res://Scenes/Meks_Scenes/PLAYER/R4.scn
+res://Scenes/Meks_Scenes/CPU/R4.scn
