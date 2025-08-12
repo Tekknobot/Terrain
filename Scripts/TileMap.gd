@@ -1251,7 +1251,7 @@ func _input(event):
 			var structure = get_structure_at_tile(mouse_tile)
 
 			# --- RANGED ATTACK (requires attack mode) ---
-			if not_tinted and can_act and showing_attack and selected_unit.unit_type in ["Ranged", "Support"]:
+			if not_tinted and can_act and showing_attack and selected_unit.unit_type in ["Artillery", "Support"]:
 				# Targeting enemy unit
 				if enemy and enemy != selected_unit and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) <= selected_unit.attack_range:
 					auto_attack_ranged_unit(selected_unit.unit_id, enemy.unit_id)
@@ -1274,7 +1274,7 @@ func _input(event):
 					return
 
 			# --- MELEE ATTACK (no attack mode required) ---
-			if not_tinted and can_act and selected_unit.unit_type == "Melee":
+			if not_tinted and can_act and selected_unit.unit_type == "Infantry":
 				if enemy and manhattan_distance(selected_unit.tile_pos, enemy.tile_pos) == 1:
 					selected_unit.auto_attack_adjacent()
 					var anim = selected_unit.get_node("AnimatedSprite2D")

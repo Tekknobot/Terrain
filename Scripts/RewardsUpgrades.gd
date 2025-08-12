@@ -87,7 +87,7 @@ func _display_unit_choices():
 		
 		# Prepare and shuffle options
 		var options = upgrade_options.duplicate()
-		if unit.unit_type == "Melee":
+		if unit.unit_type == "Infantry":
 			options.erase("range_boost")
 		options.shuffle()
 
