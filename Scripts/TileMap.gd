@@ -18,15 +18,12 @@ const MOVE_SPEED := 100.0  # pixels/sec
 
 @export var tilemap : TileMap
 
-@export var water_threshold     := -0.65
+@export var water_threshold     := -0.77  # reduced water
 @export var sandstone_threshold := -0.2
 @export var dirt_threshold      :=  0.1
 @export var grass_threshold     :=  0.4
-@export var snow_threshold      :=  0.35   # ↓ was 0.55
-
-# How much of the original ice to keep: 
-# 1.0 = original amount, 0.5 = half as much, 0.0 = no ice
-@export var ice_fraction: float = 0.5
+@export var snow_threshold      :=  0.35
+@export var ice_fraction: float = 0.3     # ↓ less ice
 
 @export var water_tile_id := 6
 @export var sandstone_tile_id := 10
@@ -1778,7 +1775,7 @@ func _move_selected_to(target: Vector2i) -> void:
 # TURN MANAGEMENT
 # ———————————————————————————————————————————————————————————————
 func start_player_turn():
-	set_end_turn_button_enabled(true)
+	#set_end_turn_button_enabled(true)
 	all_player_units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
 	finished_player_units.clear()
 	_ensure_player_parity()   # 👈 auto top-up here
@@ -1814,7 +1811,7 @@ func on_player_unit_done(unit: Node2D):
 		var turn_manager = get_node("/root/TurnManager")
 		if turn_manager:
 			turn_manager.end_turn()
-			set_end_turn_button_enabled(false)
+			#set_end_turn_button_enabled(false)
 
 func _execute_all_player_units():
 	for unit in all_units:
@@ -2281,35 +2278,37 @@ func _on_ability_pressed() -> void:
 # HELPER FUNCTIONS FOR TURN FLOW
 # ———————————————————————————————————————————————————————————————
 func _on_reset_pressed() -> void:
-	# Keep survivors (carryovers) just like Continue
 	_build_carryover_snapshot()
-
-	# Reset run stats + advance to next level (your existing behavior)
 	TurnManager.reset_match_stats()
 	TurnManager.transition_to_next_level()
 
 	GameData.last_enemy_upgrade_level = 0
 	GameData.clear_enemy_upgrades()
 
-	endturn_button.visible = false
+	# Leave End Turn visible
+	# endturn_button.visible = false   # ← remove this line
+
 	menu_button.visible   = false
 	reset_button.visible  = false
 
 func _on_continue_button_pressed() -> void:
 	GameData.in_upgrade_phase = false
-
-	# 🔒 unlock input
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap.input_locked = false
 
-	# ✅ NEW: rebuild carryover snapshot *after* upgrades were chosen/applied
-	if tilemap and tilemap.has_method("_build_carryover_snapshot"):
-		tilemap._build_carryover_snapshot()
+	# ✅ Mark the actual region as completed
+	if GameData.has_method("mark_region_completed"):
+		GameData.mark_region_completed(GameData.last_region_index)
+	else:
+		# fallback: mark in dictionary directly
+		if typeof(GameData.completed_regions) == TYPE_DICTIONARY:
+			GameData.completed_regions[GameData.last_region_index] = true
 
-	GameData.mark_map_completed(GameData.current_level)
+	# progress stats
 	GameData.current_level += 1
 	GameData.max_enemy_units += 1
 	GameData.map_difficulty += 1
+
 	get_tree().change_scene_to_file("res://Scenes/OverworldController.tscn")
 
 func _build_carryover_snapshot() -> void:

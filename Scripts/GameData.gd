@@ -88,15 +88,16 @@ func is_region_unlocked(region_index: int, tier: int, parent_indices: Array) -> 
 			return true
 	return false
 
-func mark_region_completed(region_index: int, tier: int) -> void:
-	completed_regions[region_index] = true
-	last_region_index = region_index
-	last_region_tier  = tier
-	# Advance the gate, but never beyond goal_tier
-	if tier < goal_tier:
-		current_level = max(current_level, tier + 1)
-	else:
-		current_level = goal_tier
+func mark_map_completed(_ignored_level: int) -> void:
+	if last_region_index >= 0:
+		completed_regions[last_region_index] = true
+
+func is_map_completed(map_id: int) -> bool:
+	return map_id in completed_maps
+
+func mark_region_completed(region_id: int) -> void:
+	if typeof(completed_regions) == TYPE_DICTIONARY:
+		completed_regions[region_id] = true
 
 func clear_region_progression() -> void:
 	completed_regions.clear()
@@ -309,11 +310,3 @@ func clear_enemy_upgrades() -> void:
 	for u in get_tree().get_nodes_in_group("Units"):
 		if not u.is_player and u.has_meta("unit_id"):
 			clear_unit_upgrades(u.get_meta("unit_id"))
-
-func mark_map_completed(map_id: int) -> void:
-	if map_id in completed_maps:
-		return
-	completed_maps.append(map_id)
-
-func is_map_completed(map_id: int) -> bool:
-	return map_id in completed_maps

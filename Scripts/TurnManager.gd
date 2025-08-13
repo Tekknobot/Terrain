@@ -131,8 +131,6 @@ func _start_unit_action(team):
 
 		# ─── ENEMY TURN ─────────────────────────────────────────
 		if team == Team.ENEMY and not unit.is_player:
-			hide_end_turn_button()
-
 			# a) Only try a special if we haven't yet moved or attacked
 			if not unit.has_moved and not unit.has_attacked:
 				var special = _choose_special_ability(unit)
@@ -326,12 +324,10 @@ func end_turn(game_over: bool = false):
 	if not player_units_exist:
 		print("❌ Game Over - You Lost!")
 		_show_game_over_screen("lose", stats, rewards)
-		hide_end_turn_button()
 		match_done = true
 		return
 	elif not enemy_units_exist:
 		print("✅ Game Over - You Won!")
-		hide_end_turn_button()
 		_launch_reward_phase(rewards)  # 🔥 Show upgrade screen
 		TurnManager.save_player_survivors_to_gamedata()
 		match_done = true

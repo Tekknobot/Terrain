@@ -351,8 +351,8 @@ func auto_attack_adjacent():
 
 				tilemap.play_splash_sound(target_pos)
 				if is_instance_valid(unit) and unit.has_method("apply_water_effect"):
-					unit.apply_water_effect()  # or tilemap.apply_water_effect(unit) if that's where it lives
-
+					unit.apply_water_effect(push_pos)  # pass the water tile the unit was pushed into
+					
 				# Check collisions on water tile
 				if tilemap.is_tile_occupied(push_pos):
 					var occupants = get_occupants_at(push_pos, unit)
