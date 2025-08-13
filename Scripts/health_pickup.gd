@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var heal_amount: int = 15
+@export var heal_amount: int = 40
 @export var wiggle_amplitude: float = 4.0
 @export var wiggle_speed: float = 3.0
 @export var rotate_speed: float = 1.5
@@ -53,7 +53,7 @@ func _on_trigger_entered(other):
 	var tilemap := get_node_or_null("/root/BattleGrid/TileMap")
 	if tilemap:
 		var is_player_team = unit.is_player
-		tilemap.spawn_reinforcement(is_player_team)
+		#tilemap.spawn_reinforcement(is_player_team)
 
 	if has_node("AudioStreamPlayer2D"):
 		$AudioStreamPlayer2D.play()

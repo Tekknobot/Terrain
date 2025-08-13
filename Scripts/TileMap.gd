@@ -18,11 +18,11 @@ const MOVE_SPEED := 100.0  # pixels/sec
 
 @export var tilemap : TileMap
 
-@export var water_threshold   := -0.65    # was -0.65
-@export var sandstone_threshold := -0.2    # unchanged
-@export var dirt_threshold      :=  0.1    # unchanged
-@export var grass_threshold     :=  0.4   # was 0.4
-@export var snow_threshold      :=  0.7   # was 0.7
+@export var water_threshold     := -0.65
+@export var sandstone_threshold := -0.2
+@export var dirt_threshold      :=  0.1
+@export var grass_threshold     :=  0.4
+@export var snow_threshold      :=  0.55
 
 @export var water_tile_id := 6
 @export var sandstone_tile_id := 10
@@ -171,6 +171,10 @@ var input_locked: bool = false
 const DROP_OFFSET := 100.0  # how far above the target to start
 
 var spawn_wave: int = 1
+
+@export var min_player_board_target := 4      # floor so they don't play 2v10
+@export var max_player_board_cap    := 8      # never exceed this (you already use 8 elsewhere)
+@export var free_topup_each_turn    := 1      # how many autos we allow per player turn
 
 # ———————————————————————————————————————————————————————————————
 # LIFECYCLE CALLBACKS
@@ -715,9 +719,9 @@ func spawn_structures():
 	var count = 0
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5
-	
+
 	max_structures = randi_range(4, 8)
-	
+
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
 		var x = randi() % grid_width
@@ -725,13 +729,39 @@ func spawn_structures():
 		var pos = Vector2i(x, y)
 		var tile_id = get_cell_source_id(0, pos)
 
-		if not _zones_connected_with_block(pos):
-			continue
+		# --- Terrain / road rules ---
 		if tile_id in [water_tile_id, INTERSECTION, DOWN_RIGHT_ROAD, DOWN_LEFT_ROAD]:
 			continue
+
+		# --- Keep a clear perimeter ring (no edge spawns) ---
+		if _is_edge(pos, 1):
+			continue
+
+		# --- Keep at least 1 tile of spacing between structures (no diagonal touching) ---
+		if _has_nearby_structure(pos, 1):
+			continue
+
+		# --- Don’t sit on occupied tiles ---
 		if is_tile_occupied(pos):
 			continue
 
+		# Strong connectivity: pretend we block pos and its 4-neighbors (a "fat" structure)
+		var fat_blocks: Array[Vector2i] = [
+			pos,
+			pos + Vector2i(1, 0),
+			pos + Vector2i(-1, 0),
+			pos + Vector2i(0, 1),
+			pos + Vector2i(0, -1),
+		]
+
+		# 1) still globally connected?
+		if not _zones_connected_with_block_area(fat_blocks):
+			continue
+		# 2) won’t produce a full wall across a row/column?
+		if _would_create_wall(pos):
+			continue
+
+		# If we get here, this placement is safe.
 		var random_index = randi() % structure_scenes.size()
 		var structure_scene = structure_scenes[random_index]
 		var structure = structure_scene.instantiate()
@@ -739,7 +769,6 @@ func spawn_structures():
 		structure.structure_id = next_structure_id
 		structure.set_meta("structure_id", next_structure_id)
 		next_structure_id += 1
-
 		structure.set_meta("scene_path", structure_scene.resource_path)
 
 		structure.global_position = to_global(map_to_local(pos))
@@ -752,11 +781,12 @@ func spawn_structures():
 		var g_val = randf_range(0.4, 0.8)
 		var b_val = randf_range(0.4, 0.8)
 		structure.modulate = Color(r_val, g_val, b_val, 1)
-
 		structure.modulate.a = 0
 
 		structure.add_to_group("Structures")
 		add_child(structure)
+
+		# Reserve tile in nav; full rebuild happens after loop elsewhere
 		astar.set_point_solid(pos, true)
 
 		count += 1
@@ -922,7 +952,9 @@ func spawn_new_enemy_units() -> void:
 
 	# Next wave will scale a bit more (bounded by the caps above)
 	spawn_wave += 1
-
+	# After pressure increases, keep things fair:
+	_ensure_player_parity()   # 👈 also here
+	
 # ———————————————————————————————————————————————————————————————
 # CAMERA SETUP
 # ———————————————————————————————————————————————————————————————
@@ -1683,6 +1715,7 @@ func start_player_turn():
 	set_end_turn_button_enabled(true)
 	all_player_units = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player)
 	finished_player_units.clear()
+	_ensure_player_parity()   # 👈 auto top-up here
 	print("🎮 Player turn started. Units:", all_player_units.size())
 
 func allow_player_to_plan_next():
@@ -2837,3 +2870,98 @@ func is_tile_free_for_spawn(t: Vector2i) -> bool:
 	return is_within_bounds(t) \
 		and not is_water_tile(t) \
 		and not is_tile_occupied(t)
+
+# ---- Edge / spacing helpers -----------------------------------------------
+
+func _is_edge(t: Vector2i, margin: int = 1) -> bool:
+	return t.x < margin or t.y < margin or t.x >= grid_width - margin or t.y >= grid_height - margin
+
+func _has_nearby_structure(center: Vector2i, radius: int = 1) -> bool:
+	for s in get_tree().get_nodes_in_group("Structures"):
+		if not is_instance_valid(s): continue
+		if center.distance_to(s.tile_pos) <= float(radius):  # Chebyshev-like via small radius works too
+			# Use Chebyshev distance explicitly to forbid diagonal touching:
+			var dx = abs(center.x - s.tile_pos.x)
+			var dy = abs(center.y - s.tile_pos.y)
+			if max(dx, dy) <= radius:
+				return true
+	return false
+
+# ---- Stronger connectivity checks -----------------------------------------
+
+# Treat an arbitrary set of tiles as "extra blocked" when validating connectivity.
+func _zones_connected_with_block_area(extra_blocks: Array[Vector2i]) -> bool:
+	var extra := {}
+	for b in extra_blocks:
+		extra[b] = true
+
+	var start := Vector2i(-1, -1)
+	var player_zone := Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
+	var enemy_zone  := Rect2i(0, 0, grid_width, int(grid_height / 3))
+
+	var enemy_targets: Array[Vector2i] = []
+	for y in range(enemy_zone.position.y, enemy_zone.position.y + enemy_zone.size.y):
+		for x in range(enemy_zone.position.x, enemy_zone.position.x + enemy_zone.size.x):
+			var t := Vector2i(x, y)
+			if extra.has(t): continue
+			if _is_walkable_for_path(t):
+				enemy_targets.append(t)
+
+	for y in range(player_zone.position.y, player_zone.position.y + player_zone.size.y):
+		for x in range(player_zone.position.x, player_zone.position.x + player_zone.size.x):
+			var t := Vector2i(x, y)
+			if extra.has(t): continue
+			if _is_walkable_for_path(t):
+				start = t
+				break
+		if start != Vector2i(-1, -1):
+			break
+
+	if start == Vector2i(-1, -1) or enemy_targets.is_empty():
+		return true
+
+	var q := [start]
+	var seen := { start: true }
+	while q.size() > 0:
+		var cur: Vector2i = q.pop_front()
+		if enemy_targets.has(cur):
+			return true
+		for n in get_neighbors(cur):
+			if extra.has(n): continue
+			if not seen.has(n) and _is_walkable_for_path(n):
+				seen[n] = true
+				q.append(n)
+	return false
+
+# Does adding a block at pos complete a full wall across a row/column?
+func _would_create_wall(pos: Vector2i) -> bool:
+	# Row check
+	var row_blocked := true
+	for x in range(grid_width):
+		var t := Vector2i(x, pos.y)
+		if t == pos:
+			continue
+		if _is_walkable_for_path(t):
+			row_blocked = false
+			break
+	# Column check
+	var col_blocked := true
+	for y in range(grid_height):
+		var t2 := Vector2i(pos.x, y)
+		if t2 == pos:
+			continue
+		if _is_walkable_for_path(t2):
+			col_blocked = false
+			break
+	return row_blocked or col_blocked
+
+func _ensure_player_parity():
+	var alive := get_tree().get_nodes_in_group("Units").filter(
+		func(u): return is_instance_valid(u) and u.is_player and u.health > 0
+	).size()
+	var want = clamp(min_player_board_target, 1, max_player_board_cap)
+	var needed = max(0, want - alive)
+	needed = min(needed, free_topup_each_turn)
+
+	for i in range(needed):
+		_spawn_reinforcement_internal(true)

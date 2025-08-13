@@ -45,3 +45,4 @@ res://Scenes/OverworldController.tscn
 res://Scenes/Overworld.tscn
 res://Scripts/OverworldMap.gd
 res://Scripts/MusicManager.gd
+res://Scripts/health_pickup.gd
