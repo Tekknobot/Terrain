@@ -1,8 +1,9 @@
-[gd_scene load_steps=13 format=3 uid="uid://ta73ff7u5b2i"]
+[gd_scene load_steps=14 format=3 uid="uid://ta73ff7u5b2i"]
 
 [ext_resource type="Script" uid="uid://s03kmbrhawch" path="res://Scripts/Structure.gd" id="1_6u3fb"]
 [ext_resource type="PackedScene" uid="uid://b1pqdj3slcrhv" path="res://Scenes/Human_Scenes/Soldier.scn" id="2_ssk8o"]
 [ext_resource type="Texture2D" uid="uid://dmia2elyrfyc8" path="res://Sprites/Structures/building_A_B/building_c2.png" id="3_h2364"]
+[ext_resource type="PackedScene" uid="uid://bwwl3fmdd44pg" path="res://Scenes/Human_Scenes/Merc.scn" id="3_iu02p"]
 [ext_resource type="Texture2D" uid="uid://b3da8oin1ipjh" path="res://Sprites/Structures/building_A_B/c2/building_demolished_c2.png" id="4_oi8t2"]
 [ext_resource type="Texture2D" uid="uid://gx8j6kw31yt5" path="res://Sprites/Structures/building_A_B/c2/building_demolished_c3.png" id="5_kdha2"]
 [ext_resource type="Texture2D" uid="uid://cj0b1uqh6lf4p" path="res://Sprites/Structures/building_A_B/c2/building_demolished_c4.png" id="6_mntfx"]
@@ -54,8 +55,8 @@ animations = [{
 
 [node name="Building_C_Area2D" type="Area2D" groups=["structure"]]
 script = ExtResource("1_6u3fb")
-tile_pos = null
 soldier_scene = ExtResource("2_ssk8o")
+merc_scene = ExtResource("3_iu02p")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_fh453")

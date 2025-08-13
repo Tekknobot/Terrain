@@ -24,6 +24,10 @@ const MOVE_SPEED := 100.0  # pixels/sec
 @export var grass_threshold     :=  0.4
 @export var snow_threshold      :=  0.55
 
+# How much of the original ice to keep: 
+# 1.0 = original amount, 0.5 = half as much, 0.0 = no ice
+@export var ice_fraction: float = 0.5
+
 @export var water_tile_id := 6
 @export var sandstone_tile_id := 10
 @export var dirt_tile_id := 7
@@ -189,6 +193,16 @@ var ENEMY_PALETTE := [
 
 var ENEMY_TEAM_TINT: Color
 var _enemy_tint_picked := false
+
+# --- Crowd slots for tiny NPCs (not path-blocking) ---
+var _crowd_slots := {}  # { Vector2i: {count:int} }
+
+# where each new arrival stands, in pixels, relative to the tile’s world center
+var _crowd_offsets := [
+	Vector2(-6, -4), Vector2(6, -4),
+	Vector2(-6,  2), Vector2(6,  2),
+	Vector2( 0, -8), Vector2(0,  6),
+]
 
 func _pick_enemy_tint() -> void:
 	if _enemy_tint_picked:
@@ -360,7 +374,12 @@ func _get_tile_id_from_noise(n: float) -> int:
 		return dirt_tile_id
 	elif n < grass_threshold:
 		return grass_tile_id
-	elif n < snow_threshold:
+
+	# Shrink the "ice band" [snow_threshold..1] by ice_fraction
+	# s_eff = lerp(1.0, snow_threshold, ice_fraction)
+	var effective_snow_threshold := 1.0 - ice_fraction * (1.0 - snow_threshold)
+
+	if n < effective_snow_threshold:
 		return snow_tile_id
 	return ice_tile_id
 
@@ -3002,3 +3021,20 @@ func _ensure_player_parity():
 
 	for i in range(needed):
 		_spawn_reinforcement_internal(true)
+
+# at top you already have:
+# var _crowd_slots := {}   # { Vector2i: int }
+
+func crowd_claim(tile: Vector2i) -> Vector2:
+	var c: int = int(_crowd_slots.get(tile, 0))
+	var idx: int = c % _crowd_offsets.size()
+	_crowd_slots[tile] = c + 1
+	return _crowd_offsets[idx]
+
+func crowd_release(tile: Vector2i) -> void:
+	if not _crowd_slots.has(tile): return
+	var c: int = int(_crowd_slots[tile]) - 1
+	if c <= 0:
+		_crowd_slots.erase(tile)
+	else:
+		_crowd_slots[tile] = c

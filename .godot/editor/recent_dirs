@@ -1,8 +1,10 @@
+/Users/machome/Godot/_Builds/Mek VS Mek/WEB
+res://Sprites/Humans/merc
+res://Sprites/Humans/merc/idle
 res://Scripts
 res://Sprites/Humans/soldier/attack
 res://Sprites/Humans/soldier
 res://Sprites/Humans/soldier/idle
-/Users/machome/Godot/_Builds/Mek VS Mek/WEB
 res://Sprites/Portraits/pilots/mek_portraits
 res://Scenes/Meks_Scenes/PLAYER
 res://Sprites/Portraits/pilots
@@ -18,5 +20,3 @@ res://Sprites/Portraits
 res://Sprites/Thumbnails/Mek_hover
 res://Sprites/Meks/M1
 res://Sprites/Meks/R4
-res://Sprites/Meks/R2
-res://Sprites/Meks/S3
