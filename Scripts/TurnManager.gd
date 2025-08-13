@@ -30,6 +30,7 @@ func _ready():
 	# Wait one frame so TileMap can spawn units first
 	await get_tree().create_timer(0.5).timeout
 	call_deferred("_initialize_turns")
+	
 	#_test_launch_reward_phase()
 
 func _initialize_turns():

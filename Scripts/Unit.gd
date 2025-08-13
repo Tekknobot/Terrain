@@ -1205,7 +1205,7 @@ func _on_round_ended(_ended_team: int) -> void:
 		_flash_medic_aura_hint()
 		# then apply the actual round heal
 		await _tick_medic_aura()
-
+	
 func _tick_medic_aura() -> void:
 	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap == null: return

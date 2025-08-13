@@ -47,6 +47,19 @@ const Y_OFFSET := -8.0
 @export var eviction_speed_multiplier: float = 10.0   # run faster when evicted
 @export var post_evade_cooldown: float = 0.25        # brief ignore window to avoid re-trigger spam
 
+@export var attack_enabled: bool = true
+@export var attack_damage: int = 25
+@export var attack_animation: String = "attack"
+@export var target_players: bool = false  # false = shoot AI/enemy units (non-player). true = shoot player units.
+
+var _attack_loop_running: bool = false
+@export var attack_interval: float = 0.35  # seconds to wait between swings if no animation is playing
+
+var CARDINAL_DIRS := [
+	Vector2i( 1,  0), Vector2i(-1,  0),
+	Vector2i( 0,  1), Vector2i( 0, -1)
+]
+
 # --- STATE --------------------------------------------------------------------
 
 var tile_pos: Vector2i
@@ -100,7 +113,150 @@ func _ready() -> void:
 		if not is_connected("area_entered", Callable(self, "_on_area_entered")):
 			connect("area_entered", Callable(self, "_on_area_entered"))
 
+	# Make sure this node is in the Civilians group (optional if you add via editor)
+	if not is_in_group("Civilians"):
+		add_to_group("Civilians")
+
+	# ✅ Connect once to the autoloaded TurnManager
+	if TurnManager and not TurnManager.is_connected("round_ended", Callable(self, "_on_round_ended")):
+		TurnManager.connect("round_ended", Callable(self, "_on_round_ended"), CONNECT_DEFERRED)
+
 	_update_z()
+
+func _on_round_ended(ended_team: int) -> void:
+	# Only civilians do this
+	if not is_in_group("Civilians"):
+		return
+	# Act when the ENEMY just finished (i.e., once per full round)
+	if ended_team == TurnManager.Team.ENEMY:
+		await perform_round_action()
+
+# Replace your current perform_round_action() with this:
+func perform_round_action() -> void:
+	if _dying or _is_evacuating or not attack_enabled:
+		return
+	await attack_rapid_taps_4way(5, 2)  # or (25,1) if you want the full burst
+
+func attack_rapid_taps_8way(burst_count: int = 25, per_hit_damage: int = 1) -> void:
+	if _attack_loop_running or _dying or _is_evacuating or not attack_enabled:
+		return
+	_attack_loop_running = true
+
+	var taps_done := 0
+	while taps_done < burst_count:
+		# find current adjacent targets (8-way)
+		var targets := _collect_enemies_8way()
+		if targets.is_empty():
+			break  # nothing to hit, stop early
+
+		# face first target
+		var first = targets[0]
+		if _sprite and first is Node2D:
+			_sprite.flip_h = (first.global_position.x > global_position.x)
+
+		# play attack once per tap
+		var played_sprites := _play_anim_on_all_sprites(self, attack_animation)
+		var played := played_sprites.size() > 0
+
+		# apply tiny damage to everything adjacent this tap
+		for e in targets:
+			if is_instance_valid(e):
+				_apply_damage(e, per_hit_damage)
+				if e.has_method("flash_white"): e.flash_white()
+				if e.has_method("shake"): e.shake()
+
+		# wait until the swing finishes (or a tiny fallback delay)
+		if played:
+			# If you want to wait roughly one swing worth of time,
+			# waiting on the main sprite is usually fine:
+			if _sprite and _sprite.is_playing():
+				await _sprite.animation_finished
+			_restore_default_on_sprites(played_sprites)
+
+		else:
+			await get_tree().create_timer(max(0.05, attack_interval * 0.4)).timeout
+
+		taps_done += 1
+
+		# bail if interrupted mid-burst
+		if _dying or _is_evacuating:
+			break
+
+		# let frees/deaths settle
+		await get_tree().process_frame
+
+	_attack_loop_running = false
+
+func _attack_adjacent_enemies_8way() -> void:
+	if not _tilemap:
+		return
+
+	var dirs := [
+		Vector2i( 1,  0), Vector2i(-1,  0), Vector2i( 0,  1), Vector2i( 0, -1),
+		Vector2i( 1,  1), Vector2i( 1, -1), Vector2i(-1,  1), Vector2i(-1, -1)
+	]
+
+	var targets: Array = []
+	var first_target: Node = null
+	for d in dirs:
+		var n = tile_pos + d
+		if not _tilemap.is_within_bounds(n): continue
+		var enemy = _get_enemy_at(n)        # uses your adapter/meta checks
+		if enemy:
+			if first_target == null:
+				first_target = enemy
+			targets.append(enemy)
+
+	if targets.is_empty():
+		return
+
+	# Face the first target and play attack anim once
+	if _sprite and first_target and first_target is Node2D:
+		_sprite.flip_h = (first_target.global_position.x > global_position.x)
+
+	var played := false
+	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(attack_animation):
+		_sprite.play(attack_animation)
+		played = true
+
+	for e in targets:
+		if is_instance_valid(e):
+			_apply_damage(e, 1)  # or attack_damage / 1 etc.
+			_play_target_hurt(e)              # ← NEW: make the target animate too
+			if e.has_method("flash_white"): e.flash_white()
+			if e.has_method("shake"): e.shake()
+
+	if played:
+		await _sprite.animation_finished
+		if _sprite.sprite_frames.has_animation("default"):
+			_sprite.play("default")
+
+func _get_enemy_at(t: Vector2i) -> Node:
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
+
+	# Preferred: use TileMap API if it exists
+	if tilemap and tilemap.has_method("get_unit_at_tile"):
+		var who = tilemap.get_unit_at_tile(t)
+		return who if _is_valid_enemy(who) else null
+
+	# Fallback: scan groups
+	for u in get_tree().get_nodes_in_group("Units"):
+		if is_instance_valid(u) and u.tile_pos == t and _is_valid_enemy(u):
+			return u
+	for s in get_tree().get_nodes_in_group("Enemies"):
+		if not target_players and is_instance_valid(s) and s.has_method("tile_pos") and s.tile_pos == t:
+			return s
+	return null
+
+func _apply_damage(target: Object, amount: int) -> void:
+	# Try common damage method names
+	for n in ["take_damage", "apply_damage", "damage", "receive_damage", "hit"]:
+		if target.has_method(n):
+			target.call(n, amount)
+			return
+	# Last-ditch: a generic signal
+	if target.has_signal("damaged"):
+		target.emit_signal("damaged", amount)
 
 func _process(_dt: float) -> void:
 	# Polling fallback so it still reacts without signals
@@ -561,3 +717,246 @@ func _disable_all_collisions() -> void:
 	# Area2D specific
 	monitoring = false
 	monitorable = false
+
+func _is_valid_enemy(node: Node) -> bool:
+	# Units set meta("is_player", true/false). We compare that to our target.
+	if node == null: 
+		return false
+	# Prefer Units group + metadata
+	if node.is_in_group("Units") and node.has_meta("is_player"):
+		var is_player_unit := bool(node.get_meta("is_player"))
+		return (is_player_unit == target_players)
+	# Also treat anything in an "Enemies" group as enemy when we’re set to target AI
+	if not target_players and node.is_in_group("Enemies"):
+		return true
+	return false
+
+func _collect_enemies_8way() -> Array:
+	if not _tilemap: 
+		return []
+	var dirs := [
+		Vector2i( 1,  0), Vector2i(-1,  0), Vector2i( 0,  1), Vector2i( 0, -1),
+		Vector2i( 1,  1), Vector2i( 1, -1), Vector2i(-1,  1), Vector2i(-1, -1)
+	]
+	var out: Array = []
+	for d in dirs:
+		var n = tile_pos + d
+		if _tilemap.is_within_bounds(n):
+			var e := _get_enemy_at(n)
+			if e: out.append(e)
+	return out
+
+func attack_until_clear_8way() -> void:
+	if _attack_loop_running or _dying or _is_evacuating or not attack_enabled:
+		return
+	_attack_loop_running = true
+
+	while true:
+		# re-scan each cycle
+		var targets := _collect_enemies_8way()
+		if targets.is_empty():
+			break
+
+		# face first target
+		var first = targets[0]
+		if _sprite and first is Node2D:
+			_sprite.flip_h = (first.global_position.x > global_position.x)
+
+		# play attack once
+		var played := false
+		if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation(attack_animation):
+			_sprite.play(attack_animation)
+			played = true
+
+		# apply damage this cycle
+		for e in targets:
+			if is_instance_valid(e):
+				_apply_damage(e, attack_damage)
+				if e.has_method("flash_white"): e.flash_white()
+				if e.has_method("shake"): e.shake()
+
+		# wait for the anim (or a small interval) before the next scan
+		if played:
+			await _sprite.animation_finished
+			if _sprite.sprite_frames.has_animation("default"):
+				_sprite.play("default")
+		else:
+			await get_tree().create_timer(attack_interval).timeout
+
+		# optional: break if something interrupted us
+		if _dying or _is_evacuating:
+			break
+
+		# yield a frame so deaths/freeing settle
+		await get_tree().process_frame
+
+	# done
+	_attack_loop_running = false
+
+# Plays `anim` on **all** AnimatedSprite2D under `root` (recursive).
+# Returns the list of sprites that actually started that anim so we can restore them later.
+func _play_anim_on_all_sprites(root: Node, anim: String) -> Array:
+	var started: Array = []
+	if root is AnimatedSprite2D:
+		var sp: AnimatedSprite2D = root
+		if sp.sprite_frames and sp.sprite_frames.has_animation(anim):
+			sp.play(anim)
+			started.append(sp)
+
+	for c in root.get_children():
+		started.append_array(_play_anim_on_all_sprites(c, anim))
+	return started
+
+# Returns true if we set *any* sprite back to "default".
+func _restore_default_on_sprites(sprites: Array) -> bool:
+	var any := false
+	for s in sprites:
+		if is_instance_valid(s) and s is AnimatedSprite2D:
+			var sp: AnimatedSprite2D = s
+			if sp.sprite_frames and sp.sprite_frames.has_animation("default"):
+				sp.play("default")
+				any = true
+	return any
+
+# Try common “hurt” anim names on a target. Falls back to nothing if none exist.
+func _play_target_hurt(target: Node) -> void:
+	var names := ["hit", "hurt", "damaged", "flinch", "impact"]
+	# search target and all descendants for any AnimatedSprite2D that has one of these
+	var to_play: Array = []
+	for c in target.get_children():
+		to_play.append_array(_collect_sprites_recursive(c))
+	to_play.append_array(_collect_sprites_recursive(target))
+
+	for sp in to_play:
+		for n in names:
+			if sp.sprite_frames and sp.sprite_frames.has_animation(n):
+				sp.play(n)
+				break
+
+func _collect_sprites_recursive(node: Node) -> Array:
+	var out: Array = []
+	if node is AnimatedSprite2D:
+		out.append(node)
+	for c in node.get_children():
+		out.append_array(_collect_sprites_recursive(c))
+	return out
+
+func _collect_enemies_4way() -> Array:
+	if not _tilemap:
+		return []
+	var out: Array = []
+	for d in CARDINAL_DIRS:
+		var n = tile_pos + d
+		if _tilemap.is_within_bounds(n):
+			var e := _get_enemy_at(n)
+			if e:
+				out.append(e)
+	return out
+
+func attack_rapid_taps_4way(burst_count: int = 25, per_hit_damage: int = 1) -> void:
+	if _attack_loop_running or _dying or _is_evacuating or not attack_enabled:
+		return
+	_attack_loop_running = true
+
+	var taps_done := 0
+	while taps_done < burst_count:
+		var targets := _collect_enemies_4way()
+		if targets.is_empty():
+			break
+
+		var first = targets[0]
+		if _sprite and first is Node2D:
+			_sprite.flip_h = (first.global_position.x > global_position.x)
+
+		var played_sprites := _play_anim_on_all_sprites(self, attack_animation)
+		var played := played_sprites.size() > 0
+
+		for e in targets:
+			if is_instance_valid(e):
+				_apply_damage(e, per_hit_damage)
+				_play_target_hurt(e)
+				if e.has_method("flash_white"): e.flash_white()
+				if e.has_method("shake"): e.shake()
+
+		if played:
+			if _sprite and _sprite.is_playing():
+				await _sprite.animation_finished
+			_restore_default_on_sprites(played_sprites)
+		else:
+			await get_tree().create_timer(max(0.05, attack_interval * 0.4)).timeout
+
+		# Play SFX if we have one (assume AudioStreamPlayer named "SFX" exists)
+		if has_node("AttackAudio"):
+			var sfx = $AttackAudio
+			if sfx and sfx is AudioStreamPlayer2D:
+				sfx.play()
+				
+		taps_done += 1
+		if _dying or _is_evacuating:
+			break
+		await get_tree().process_frame
+
+	_attack_loop_running = false
+
+func _attack_adjacent_enemies_4way() -> void:
+	if not _tilemap:
+		return
+	var targets := _collect_enemies_4way()
+	if targets.is_empty():
+		return
+
+	var first = targets[0]
+	if _sprite and first is Node2D:
+		_sprite.flip_h = (first.global_position.x > global_position.x)
+
+	var played_sprites := _play_anim_on_all_sprites(self, attack_animation)
+	var played := played_sprites.size() > 0
+
+	for e in targets:
+		if is_instance_valid(e):
+			_apply_damage(e, 1)
+			_play_target_hurt(e)
+			if e.has_method("flash_white"): e.flash_white()
+			if e.has_method("shake"): e.shake()
+
+	if played:
+		if _sprite and _sprite.is_playing():
+			await _sprite.animation_finished
+		_restore_default_on_sprites(played_sprites)
+
+func attack_until_clear_4way() -> void:
+	if _attack_loop_running or _dying or _is_evacuating or not attack_enabled:
+		return
+	_attack_loop_running = true
+
+	while true:
+		var targets := _collect_enemies_4way()
+		if targets.is_empty():
+			break
+
+		var first = targets[0]
+		if _sprite and first is Node2D:
+			_sprite.flip_h = (first.global_position.x > global_position.x)
+
+		var played_sprites := _play_anim_on_all_sprites(self, attack_animation)
+		var played := played_sprites.size() > 0
+
+		for e in targets:
+			if is_instance_valid(e):
+				_apply_damage(e, attack_damage)
+				_play_target_hurt(e)
+				if e.has_method("flash_white"): e.flash_white()
+				if e.has_method("shake"): e.shake()
+
+		if played:
+			if _sprite and _sprite.is_playing():
+				await _sprite.animation_finished
+			_restore_default_on_sprites(played_sprites)
+		else:
+			await get_tree().create_timer(attack_interval).timeout
+
+		if _dying or _is_evacuating:
+			break
+		await get_tree().process_frame
+
+	_attack_loop_running = false

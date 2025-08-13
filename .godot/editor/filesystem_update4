@@ -22,3 +22,4 @@ res://Scripts/TurnManager.gd
 res://Scripts/Unit.gd
 res://Scripts/OverworldMap.gd
 res://Scripts/MusicManager.gd
+res://Scripts/NPCSoldier.gd
