@@ -22,7 +22,7 @@ const MOVE_SPEED := 100.0  # pixels/sec
 @export var sandstone_threshold := -0.2
 @export var dirt_threshold      :=  0.1
 @export var grass_threshold     :=  0.4
-@export var snow_threshold      :=  0.35
+@export var snow_threshold      :=  0.175
 @export var ice_fraction: float = 0.3     # ↓ less ice
 
 @export var water_tile_id := 6

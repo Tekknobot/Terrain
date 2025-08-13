@@ -195,11 +195,32 @@ func _generate_world() -> void:
 
 	# NEW: prune Tier 1 ↔ Tier 6 shortcuts, then refresh interactivity/labels
 	_remove_disallowed_edges()
+	_ensure_connected_to_spine(spine)
 	_update_region_interactivity()
 	_update_region_labels()
-	
 	_refresh_available_animations()
 
+func _ensure_connected_to_spine(spine: Array) -> void:
+	if spine.is_empty():
+		return
+	# Who can already reach the spine?
+	var reachable := _multi_source_bfs(spine)
+
+	for i in range(regions.size()):
+		if reachable.has(i):
+			continue  # already connected
+
+		# Pick nearest compatible spine node and bridge once
+		var best := -1
+		var best_d := INF
+		for s in spine:
+			if _tiers_can_connect(i, s):
+				var d = regions[i]["pos"].distance_to(regions[s]["pos"])
+				if d < best_d:
+					best_d = d
+					best = s
+		if best != -1:
+			_add_edge(i, best)
 
 func _ensure_tier_six(seed_chain: Array) -> void:
 	# If a Tier 6 already exists, done.

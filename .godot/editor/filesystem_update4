@@ -20,3 +20,5 @@ res://Scenes/SquadSelect.tscn
 res://Scenes/Human_Scenes/Merc.scn
 res://Scripts/TurnManager.gd
 res://Scripts/Unit.gd
+res://Scripts/OverworldMap.gd
+res://Scripts/MusicManager.gd
