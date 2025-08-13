@@ -9,7 +9,7 @@ signal destroyed(tile_pos: Vector2i)
 # ---- Soldier spawn settings ----
 @export var soldier_scene: PackedScene                 # assign NPC scene (with SoldierNPC.gd)
 @export var merc_scene: PackedScene  
-@export var soldiers_to_spawn: int = 7                 # how many to pop out
+@export var soldiers_to_spawn: int = 16                 # how many to pop out
 @export var spawn_on_frame: int = 1                    # frame index inside "demolished" anim to spawn
 @export var spawn_adjacent_first: bool = true          # prefer adjacent open tiles
 
