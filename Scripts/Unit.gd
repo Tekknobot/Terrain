@@ -53,6 +53,9 @@ var queued_bomb_tile: Vector2i = Vector2i(-1, -1)
 
 # 6) Spider web grid (shared 10×10). Each element is a Dictionary {"duration": int}.
 static var web_grid: Array = []
+
+var _rounds_elapsed: int = 0
+
 # Ensure web_grid is initialized once
 func _init():
 	if web_grid.size() == 0:
@@ -1176,6 +1179,7 @@ func guardian_halo(target_tile: Vector2i) -> void:
 	$AnimatedSprite2D.self_modulate = Color(0.4,0.4,0.4,1)
 
 func _on_round_ended(_ended_team: int) -> void:
+	_rounds_elapsed += 1
 	# Tick shields once per full round for ALL units
 	if shield_duration > 0:
 		if _shield_just_applied:
@@ -2013,6 +2017,7 @@ func play_aura_sound():
 	var sfx = preload("res://Audio/SFX/aura.wav")
 	var player = AudioStreamPlayer.new()
 	player.stream = sfx
+	player.volume_db = -6  # ≈ 50% volume
 	add_child(player)
 	player.play()
 
@@ -2131,14 +2136,15 @@ func _pulse_green(ally: Node, duration: float = 0.6) -> void:
 	sprite.set_meta("aura_pulsing", true)
 
 	# --- Play your existing audio once per ally (with a short cooldown) ---
-	if not ally.has_meta("aura_chime_cd"):
+	# Skip playing SFX during the very first round-end (match start)
+	if _rounds_elapsed > 1 and not ally.has_meta("aura_chime_cd"):
 		if ally.has_method("play_aura_sound"):
 			ally.play_aura_sound()
 		elif has_method("play_aura_sound"):
 			play_aura_sound()
 		ally.set_meta("aura_chime_cd", true)
 
-		# create the timer and connect separately
+		# cooldown timer stays the same
 		var timer := get_tree().create_timer(0.4)
 		timer.timeout.connect(func():
 			if is_instance_valid(ally) and ally.has_meta("aura_chime_cd"):
