@@ -246,11 +246,6 @@ func clear_map() -> void:
 	print("Map cleared – waiting for host data.")
 
 func _generate_map():
-	# 1) Apply difficulty sizing first
-	if GameData.map_difficulty >= 6:
-		grid_width  = 10
-		grid_height = 10
-
 	# 2) Now set up camera (it will read the new size)
 	_setup_camera()
 
@@ -845,9 +840,9 @@ func fade_in_units():
 		
 func spawn_new_enemy_units() -> void:
 	# ─────────────────────────────────────────────────────────
-	# Tier pacing knobs (1–4). You can tweak these numbers.
+	# Tier pacing knobs (1–6). You can tweak these numbers.
 	# ─────────────────────────────────────────────────────────
-	var tier = clamp(GameData.map_difficulty, 1, 4)
+	var tier = clamp(GameData.map_difficulty, 1, 6)
 	var MAX_ON_BOARD = {1: 6, 2: 8, 3: 10, 4: 12}.get(tier, 8)
 	var BASE_PER_WAVE = {1: 1, 2: 2, 3: 3, 4: 3}.get(tier, 2)
 	var GROWTH_PER_WAVE = {1: 0, 2: 1, 3: 1, 4: 2}.get(tier, 1)
