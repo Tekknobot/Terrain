@@ -176,6 +176,43 @@ var spawn_wave: int = 1
 @export var max_player_board_cap    := 8      # never exceed this (you already use 8 elsewhere)
 @export var free_topup_each_turn    := 1      # how many autos we allow per player turn
 
+var ENEMY_TINT_SHADER := preload("res://Textures/EnemyTint.gdshader")
+
+var ENEMY_PALETTE := [
+	Color8(220, 20, 60),    # Crimson
+	Color8(255, 69, 0),     # Flame Orange
+	Color8(30, 144, 255),   # Electric Blue
+	Color8(148, 0, 211),    # Violet
+	Color8(255, 215, 0),    # Gold (elite-y)
+	Color8(255, 255, 255)   # White
+]
+
+var ENEMY_TEAM_TINT: Color
+var _enemy_tint_picked := false
+
+func _pick_enemy_tint() -> void:
+	if _enemy_tint_picked:
+		return
+	ENEMY_TEAM_TINT = ENEMY_PALETTE[randi() % ENEMY_PALETTE.size()]
+	_enemy_tint_picked = true
+
+func _apply_enemy_tint(sprite: CanvasItem) -> void:
+	if sprite == null:
+		return
+	
+	var parent_unit = sprite.get_parent()
+	if parent_unit != null and parent_unit.has_meta("is_boss") and parent_unit.is_boss():
+		# Boss: use shared team tint
+		_pick_enemy_tint()
+		var mat := ShaderMaterial.new()
+		mat.shader = ENEMY_TINT_SHADER
+		mat.set_shader_parameter("tint_color", ENEMY_TEAM_TINT)
+		mat.set_shader_parameter("strength", 1.0)
+		sprite.material = mat
+	else:
+		# Regular enemy: original static tint
+		sprite.modulate = Color8(255, 110, 255)
+
 # ———————————————————————————————————————————————————————————————
 # LIFECYCLE CALLBACKS
 # ———————————————————————————————————————————————————————————————
@@ -442,6 +479,8 @@ func _use_selected_squad_from_gamedata() -> void:
 # TEAM & UNIT SPAWNING
 # ———————————————————————————————————————————————————————————————
 func _post_map_generation():
+	_pick_enemy_tint()
+	
 	TurnManager.match_done = false
 	GameData.next_unit_id = 1
 
@@ -581,7 +620,7 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		else:
 			# enemy tint
 			if unit_instance.get_child_count() > 0:
-				unit_instance.get_child(0).modulate = Color8(255, 110, 255)
+				_apply_enemy_tint(unit_instance.get_child(0))
 
 		unit_instance.modulate.a = 0.0
 		used_tiles.append(spawn_tile)
@@ -836,9 +875,11 @@ func fade_in_units():
 		else:
 			#Enemy tint
 			units.modulate.a = 1
-			units.get_child(0).modulate = Color8(255, 110, 255)
+			if units.get_child_count() > 0:
+				_apply_enemy_tint(units.get_child(0))
 		
 func spawn_new_enemy_units() -> void:
+	_pick_enemy_tint()  # ensure team tint exists
 	# ─────────────────────────────────────────────────────────
 	# Tier pacing knobs (1–6). You can tweak these numbers.
 	# ─────────────────────────────────────────────────────────
@@ -926,7 +967,7 @@ func spawn_new_enemy_units() -> void:
 
 		# Visual: enemy tint (if sprite child exists)
 		if enemy.get_child_count() > 0:
-			enemy.get_child(0).modulate = Color8(255, 110, 255)
+			_apply_enemy_tint(enemy.get_child(0))
 
 		# Drop-in
 		var target_pos := to_global(map_to_local(tile)) + Vector2(0, enemy.Y_OFFSET)
@@ -1980,7 +2021,8 @@ func import_unit_data(unit_data: Array) -> void:
 				sp.flip_h = true
 		else:
 			#Enemy tint
-			unit_instance.get_child(0).modulate = Color8(255, 110, 255)
+			if unit_instance.get_child_count() > 0:
+				_apply_enemy_tint(unit_instance.get_child(0))
 
 		print("Imported unit", unit_instance.name, "with unit_id =", uid)
 
@@ -2447,7 +2489,7 @@ func _finalize_spawn(
 			sp.flip_h = true
 	else:
 		if u.get_child_count() > 0:
-			u.get_child(0).modulate = Color8(255, 110, 255)
+			_apply_enemy_tint(u.get_child(0))
 
 	u.has_moved = false
 	u.has_attacked = false

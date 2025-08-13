@@ -55,11 +55,7 @@ func _process(delta):
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		var impact_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 
-		if tilemap.get_structure_at_tile(impact_tile):
-			var anim_sprite = tilemap.get_structure_at_tile(impact_tile).get_node_or_null("AnimatedSprite2D")
-			if anim_sprite:
-				anim_sprite.play("demolished")
-				anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+		_demolish_at(impact_tile, damage)
 
 		# Damage the unit on the impact tile using exported damage
 		var target_unit = tilemap.get_unit_at_tile(impact_tile)
@@ -153,6 +149,7 @@ func _process(delta):
 						if anim_sprite:
 							anim_sprite.play("demolished")
 							anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+							
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
 						if TurnManager.turn_order[TurnManager.current_turn_index] == TurnManager.Team.PLAYER:
@@ -196,3 +193,13 @@ func set_target(start: Vector2, target: Vector2):
 	if line_renderer:
 		line_renderer.clear_points()
 		line_renderer.visible = true
+
+func _demolish_at(tile: Vector2i, dmg: int = 0) -> void:
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
+	var st = tilemap.get_structure_at_tile(tile)
+	if st == null:
+		return
+	if st.has_method("take_damage") and dmg > 0:
+		st.take_damage(dmg)
+	elif st.has_method("demolish"):
+		st.demolish()

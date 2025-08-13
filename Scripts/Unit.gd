@@ -113,6 +113,8 @@ const SHIELD_ROUNDS := 1
 const AURA_HEART_TSCN := preload("res://Scenes/VFX/popup_text.tscn") # will show text instead
 @export var medic_aura_hint_duration: float = 0.9  # how long to show the cue each round
 
+var is_boss: bool = false
+
 func _ready():
 	prev_tile_pos = tile_pos
 	connect("movement_finished", Callable(self, "_on_movement_finished"))
@@ -869,7 +871,7 @@ func auto_attack_ranged_empty(target_tile: Vector2i, unit: Area2D) -> void:
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	if tilemap == null:
 		return
-
+ 
 	tilemap.input_locked = true
 
 	var target_pos = tilemap.to_global(tilemap.map_to_local(target_tile)) + Vector2(0, unit.Y_OFFSET)
