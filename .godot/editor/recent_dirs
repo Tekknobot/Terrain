@@ -1,4 +1,5 @@
 /Users/machome/Godot/_Builds/Mek VS Mek/WEB
+res://Sprites/Humans/death
 res://Sprites/Humans/merc
 res://Sprites/Humans/merc/idle
 res://Scripts
@@ -19,4 +20,3 @@ res://Prefabs
 res://Sprites/Portraits
 res://Sprites/Thumbnails/Mek_hover
 res://Sprites/Meks/M1
-res://Sprites/Meks/R4

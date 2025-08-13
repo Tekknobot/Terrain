@@ -26,6 +26,15 @@ const AI_SPECIAL_CHANCE := 60  # percent chance to actually fire a special when 
 # ── Add near the top with the other vars ─────────────────────
 var current_round: int = 1
 
+# Civilians are the little NPCs using your Area2D script.
+# Make sure each civilian node is in this group (e.g., add via the scene: Node > Groups > "Civilians")
+@export var civilian_group_name := "Civilians"
+
+# How far a blast should “threaten” tiles for eviction logic (tune per game feel)
+@export var default_blast_radius := 2
+
+var _last_enemy_tiles := {}   # Node -> Vector2i snapshot while enemy turn runs
+
 func _ready():
 	# Record the initial number of player units.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()
@@ -37,8 +46,7 @@ func _ready():
 
 func _initialize_turns():
 	_populate_units()
-	#print("TurnManager loaded units:", active_units.size(), active_units)
-	#start_turn()
+	_wire_enemy_step_evictions() 
 
 func _populate_units():
 	active_units = get_tree().get_nodes_in_group("Units")
@@ -62,13 +70,18 @@ func start_turn():
 	if team == Team.PLAYER:
 		team_name = "PLAYER"
 	elif team == Team.ENEMY:
+		_begin_enemy_turn_monitor()
 		team_name = "ENEMY"
 	
 	print("🔁 Starting turn for:", team_name)
-	
 	emit_signal("turn_started", team)
-	
+
+	# 👇 NEW: when ENEMY starts, shoo civilians adjacent to any enemy
+	if team == Team.ENEMY:
+		_evict_civilians_adjacent_to_all_enemies()
+
 	await _start_unit_action(team)
+
 
 # Helper to return adjacent positions (4-directional)
 func get_adjacent_tiles(tile: Vector2i) -> Array:
@@ -196,7 +209,10 @@ func _start_unit_action(team):
 
 			# execute movement
 			await unit.execute_actions()
-
+			
+			if is_instance_valid(unit):
+				_evict_civilians_adjacent_to(unit.tile_pos)
+				
 			# allow a second special if still able
 			if is_instance_valid(unit) and not unit.has_attacked:
 				var special2 = _choose_special_ability(unit)
@@ -353,6 +369,7 @@ func end_turn(game_over: bool = false):
 	emit_signal("turn_ended", turn_order[current_turn_index])
 	# end of a full round happens when the ENEMY just finished
 	if turn_order[current_turn_index] == Team.ENEMY:
+		_end_enemy_turn_monitor()     # <-- add this
 		emit_signal("round_ended", turn_order[current_turn_index])
 		current_round += 1
 
@@ -379,6 +396,7 @@ func end_turn(game_over: bool = false):
 		var tier = max(1, int(GameData.last_region_tier))
 		tilemap.spawn_new_enemy_units()
 		_populate_units()
+		_wire_enemy_step_evictions()
 
 	# 🔁 Cycle to next team
 	current_turn_index = (current_turn_index + 1) % turn_order.size()
@@ -813,3 +831,92 @@ func save_player_survivors_to_gamedata() -> void:
 		})
 	GameData.carryover_units = out
 	print("🔁 Saved", out.size(), "player survivors for next map.")
+
+func _evict_civilians_adjacent_to(tile: Vector2i) -> void:
+	for n in get_tree().get_nodes_in_group(civilian_group_name):
+		var c = _resolve_civilian_root(n)
+		if c == null or not is_instance_valid(c):
+			continue
+
+		# 4-dir adjacency check using the civilian root's tile_pos
+		if abs(c.tile_pos.x - tile.x) + abs(c.tile_pos.y - tile.y) == 1:
+			if c.has_method("start_scatter"):
+				# Temp boost: one quick step away, no fade
+				var old_steps = c.auto_evacuate_steps
+				var old_speed = c.auto_evacuate_speed
+				var old_fade  = c.auto_fade_after_scatter
+
+				c.auto_evacuate_steps = 1
+				c.auto_evacuate_speed = max(6.0, float(old_speed) * 1.5)
+				c.auto_fade_after_scatter = false
+
+				c.start_scatter(tile)
+
+				# Restore settings after the call so future evictions use defaults
+				c.call_deferred("set", "auto_evacuate_steps", old_steps)
+				c.call_deferred("set", "auto_evacuate_speed", old_speed)
+				c.call_deferred("set", "auto_fade_after_scatter", old_fade)
+
+
+# Resolve a civilian root (Area2D that has the civilian API) from any node in the group.
+func _resolve_civilian_root(n: Node) -> Node:
+	# If it's already the Area2D with the civilian script, it should have place_on_tile() and tile_pos
+	if n is Area2D and n.has_method("place_on_tile"):
+		return n
+	# Common case: the AnimatedSprite2D child is in the group; climb to parent
+	if n.get_parent() and n.get_parent() is Area2D and n.get_parent().has_method("place_on_tile"):
+		return n.get_parent()
+	# If your setup is deeper, climb one more level
+	if n.get_parent() and n.get_parent().get_parent() and n.get_parent().get_parent() is Area2D and n.get_parent().get_parent().has_method("place_on_tile"):
+		return n.get_parent().get_parent()
+	return null
+
+func _evict_civilians_in_radius(center: Vector2i, r: int) -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	for c in get_tree().get_nodes_in_group(civilian_group_name):
+		if not is_instance_valid(c): continue
+		var d = abs(c.tile_pos.x - center.x) + abs(c.tile_pos.y - center.y)
+		if d <= r:
+			if c.has_method("start_scatter"):
+				c.start_scatter(center)
+
+func _evict_civilians_adjacent_to_all_enemies() -> void:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(u): continue
+		if u.is_player: continue
+		_evict_civilians_adjacent_to(u.tile_pos)
+
+func _wire_enemy_step_evictions() -> void:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(u): continue
+		if u.is_player: continue
+		if u.has_signal("tile_changed") and not u.is_connected("tile_changed", Callable(self, "_on_enemy_tile_changed")):
+			u.connect("tile_changed", Callable(self, "_on_enemy_tile_changed"))
+
+func _on_enemy_tile_changed(unit, new_tile: Vector2i) -> void:
+	if not is_instance_valid(unit): return
+	_evict_civilians_adjacent_to(new_tile)
+
+func _begin_enemy_turn_monitor() -> void:
+	_last_enemy_tiles.clear()
+	for u in get_tree().get_nodes_in_group("Units"):
+		if is_instance_valid(u) and not u.is_player:
+			_last_enemy_tiles[u] = u.tile_pos
+	set_process(true)
+
+func _end_enemy_turn_monitor() -> void:
+	set_process(false)
+	_last_enemy_tiles.clear()
+
+func _process(_dt: float) -> void:
+	# Only active during enemy turn when _last_enemy_tiles is non-empty
+	if _last_enemy_tiles.is_empty():
+		return
+	for u in _last_enemy_tiles.keys():
+		if not is_instance_valid(u):
+			continue
+		var prev: Vector2i = _last_enemy_tiles[u]
+		var cur: Vector2i = u.tile_pos
+		if cur != prev:
+			_last_enemy_tiles[u] = cur
+			_evict_civilians_adjacent_to(cur)

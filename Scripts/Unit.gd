@@ -21,8 +21,6 @@ var level := 1
 @export var defense := 0
 @export var default_special: String = ""  # e.g. "Ground Slam", "High Arching Shot"
 
-var tile_pos: Vector2i
-
 signal movement_finished
 
 @onready var health_bar = $HealthUI
@@ -110,11 +108,25 @@ const SHIELD_ROUNDS := 1
 @export var medic_aura_enabled: bool = true     # toggle in editor
 @export var medic_aura_radius: int = 2          # Manhattan radius
 @export var medic_aura_heal: int = 35           # HP per full round
+
 const AURA_HEART_TSCN := preload("res://Scenes/VFX/popup_text.tscn") # will show text instead
+
 @export var medic_aura_hint_duration: float = 0.9  # how long to show the cue each round
 
 var is_boss: bool = false
 
+signal tile_changed(unit, tile: Vector2i)
+
+var _tile_pos: Vector2i = Vector2i.ZERO
+var tile_pos: Vector2i:
+	set(value):
+		if _tile_pos == value:
+			return
+		_tile_pos = value
+		emit_signal("tile_changed", self, _tile_pos)
+	get:
+		return _tile_pos
+		
 func _ready():
 	prev_tile_pos = tile_pos
 	connect("movement_finished", Callable(self, "_on_movement_finished"))
@@ -259,6 +271,11 @@ func take_damage(amount: int) -> bool:
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Optional small helper for safer writes
+func _safe_set_being_pushed(n: Node, v: bool) -> void:
+	if is_instance_valid(n) and n.has_method("set"):
+		n.set("being_pushed", v)
+
 func auto_attack_adjacent():
 	if attack_range < 1:
 		return
@@ -267,155 +284,192 @@ func auto_attack_adjacent():
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var raw_units = get_tree().get_nodes_in_group("Units")
-	var units = []
+	var units: Array = []
 	for u in raw_units:
 		if is_instance_valid(u):
 			units.append(u)
 
 	for dir in directions:
-		var actual_pos = tilemap.local_to_map(tilemap.to_local(global_position))
-		var check_pos = actual_pos + dir
+		# use current world position → tile
+		var actual_pos: Vector2i = tilemap.local_to_map(tilemap.to_local(global_position))
+		var check_pos: Vector2i = actual_pos + dir
 
 		for unit in units:
 			if not is_instance_valid(unit) or unit == self:
 				continue
-			if unit.tile_pos == check_pos and unit.is_player != is_player:
-				var push_pos = unit.tile_pos + dir
+			if unit.tile_pos != check_pos or unit.is_player == is_player:
+				continue
 
-				var died = unit.take_damage(damage)
+			# Deal base damage
+			var died = unit.take_damage(damage)
+			if not died and is_instance_valid(unit) and unit.has_method("flash_white"):
 				unit.flash_white()
 
-				var sprite = get_node("AnimatedSprite2D")
-				if sprite:
-					tilemap.play_attack_sound(global_position)
-					if dir.x != 0:
-						sprite.flip_h = dir.x > 0
-					elif dir.y != 0:
-						sprite.flip_h = true
-					sprite.play("attack")
-					await sprite.animation_finished
-					sprite.play("default")
+			# Play our attack anim/sfx (attacker)
+			var sprite: AnimatedSprite2D = get_node("AnimatedSprite2D")
+			if sprite:
+				tilemap.play_attack_sound(global_position)
+				# flip toward the push direction
+				if dir.x != 0:
+					sprite.flip_h = dir.x > 0
+				elif dir.y != 0:
+					sprite.flip_h = true
+				sprite.play("attack")
+				await sprite.animation_finished
+				sprite.play("default")
 
+			# Attacker XP
+			gain_xp(25)
+
+			# If target died from the hit, award bonus and NEVER touch it again
+			if died:
 				gain_xp(25)
+				continue
 
-				if died:
-					gain_xp(25)
+			# Continue with push logic (target is still alive)
+			_safe_set_being_pushed(unit, true)
+			TutorialManager.on_action("push_mechanic")
+
+			var push_pos: Vector2i = unit.tile_pos + dir
+
+			# ───────────────────────────────────────────────── WATER PUSH ─────────────────────────────────────────────
+			if tilemap.get_cell_source_id(0, push_pos) == water_tile_id:
+				var target_pos: Vector2 = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+				var push_speed := 150.0
+
+				# tweened move with validity checks
+				while is_instance_valid(unit) and unit.global_position.distance_to(target_pos) > 1.0:
+					var dt := get_process_delta_time()
+					unit.global_position = unit.global_position.move_toward(target_pos, push_speed * dt)
+					await get_tree().process_frame
+
+				if not is_instance_valid(unit):
 					continue
 
-				unit.being_pushed = true
-				TutorialManager.on_action("push_mechanic")
+				unit.global_position = target_pos
+				unit.tile_pos = push_pos
 
-				# into water
-				var tile_id = tilemap.get_cell_source_id(0, push_pos)
-				if tile_id == water_tile_id:
-					var target_pos = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
-					var push_speed = 150.0
-					while unit.global_position.distance_to(target_pos) > 1.0:
-						var delta = get_process_delta_time()
-						unit.global_position = unit.global_position.move_toward(target_pos, push_speed * delta)
-						await get_tree().process_frame
-					unit.global_position = target_pos
-					unit.tile_pos = push_pos
-					tilemap.play_splash_sound(target_pos)
-					apply_water_effect(unit)
+				tilemap.play_splash_sound(target_pos)
+				if is_instance_valid(unit) and unit.has_method("apply_water_effect"):
+					unit.apply_water_effect()  # or tilemap.apply_water_effect(unit) if that's where it lives
 
-					if tilemap.is_tile_occupied(push_pos):
-						var occupants = get_occupants_at(push_pos, unit)
-						if occupants.size() > 0:
-							for occ in occupants:
-								if occ.is_in_group("Structures"):
-									var occ_sprite = occ.get_node("AnimatedSprite2D")
-									if occ_sprite:
-										occ_sprite.play("demolished")
+				# Check collisions on water tile
+				if tilemap.is_tile_occupied(push_pos):
+					var occupants = get_occupants_at(push_pos, unit)
+					if occupants.size() > 0:
+						for occ in occupants:
+							if not is_instance_valid(occ): 
+								continue
+							if occ.is_in_group("Structures"):
+								var occ_sprite: AnimatedSprite2D = occ.get_node_or_null("AnimatedSprite2D")
+								if occ_sprite:
+									occ_sprite.play("demolished")
+									if occ_sprite.get_parent():
 										occ_sprite.get_parent().modulate = Color(1,1,1,1)
-								elif occ.is_in_group("Units"):
-									await get_tree().create_timer(0.2).timeout
+							elif occ.is_in_group("Units"):
+								await get_tree().create_timer(0.2).timeout
+								if is_instance_valid(occ):
+									# collide damage
 									occ.take_damage(damage)
-									occ.shake()
-							gain_xp(25)
-							unit.being_pushed = false
-							unit.die()
-							tilemap.update_astar_grid()
-							continue
+									if occ.has_method("shake"):
+										occ.shake()
+						gain_xp(25)
 
-					var water_damage = 25
-					died = unit.take_damage(water_damage)
-					if not died:
+						# Target sinks/dies on collision resolution
+						if is_instance_valid(unit):
+							_safe_set_being_pushed(unit, false)
+							unit.die()
+						tilemap.update_astar_grid()
+						continue  # do not touch unit afterward
+
+				# Extra water damage / shake
+				if is_instance_valid(unit):
+					var water_damage := 25
+					var died_in_water = unit.take_damage(water_damage)
+					if not died_in_water and unit.has_method("shake"):
 						unit.shake()
 
-					await get_tree().create_timer(0.2).timeout
-					tilemap.update_astar_grid()
+				await get_tree().create_timer(0.2).timeout
+				tilemap.update_astar_grid()
+				if is_instance_valid(unit):
+					_safe_set_being_pushed(unit, false)
+				continue
 
-					if is_instance_valid(unit):
-						unit.being_pushed = false
-					continue
+			# ───────────────────────────────────────────────── OFF-GRID PUSH ──────────────────────────────────────────
+			if not tilemap.is_within_bounds(push_pos):
+				var target_pos2: Vector2 = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+				var push_speed2 := 150.0
 
-				# off-grid
-				elif not tilemap.is_within_bounds(push_pos):
-					var target_pos2 = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
-					var push_speed2 = 150.0
-					while unit.global_position.distance_to(target_pos2) > 1.0:
-						var d2 = get_process_delta_time()
-						unit.global_position = unit.global_position.move_toward(target_pos2, push_speed2 * d2)
-						await get_tree().process_frame
-					await get_tree().create_timer(0.2).timeout
-					gain_xp(25)
-					unit.being_pushed = false
+				while is_instance_valid(unit) and unit.global_position.distance_to(target_pos2) > 1.0:
+					var d2 := get_process_delta_time()
+					unit.global_position = unit.global_position.move_toward(target_pos2, push_speed2 * d2)
+					await get_tree().process_frame
+
+				await get_tree().create_timer(0.2).timeout
+				gain_xp(25)
+				if is_instance_valid(unit):
+					_safe_set_being_pushed(unit, false)
 					TutorialManager.on_action("offgrid_mechanic")
 					unit.die()
-					tilemap.update_astar_grid()
+				tilemap.update_astar_grid()
+				continue
+
+			# ───────────────────────────────────────────────── NORMAL PUSH ────────────────────────────────────────────
+			if tilemap.is_within_bounds(push_pos):
+				var target_pos3: Vector2 = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
+				var push_speed3 := 150.0
+
+				while is_instance_valid(unit) and unit.global_position.distance_to(target_pos3) > 1.0:
+					var d3 := get_process_delta_time()
+					unit.global_position = unit.global_position.move_toward(target_pos3, push_speed3 * d3)
+					await get_tree().process_frame
+
+				# Validity gate before touching properties
+				if not is_instance_valid(unit):
 					continue
 
-				# normal push
-				elif tilemap.is_within_bounds(push_pos):
-					var target_pos3 = tilemap.to_global(tilemap.map_to_local(push_pos)) + Vector2(0, Y_OFFSET)
-					var push_speed3 = 150.0
+				unit.global_position = target_pos3
+				unit.tile_pos = push_pos
 
-					while true:
-						# abort if the unit was freed during the push
-						if not is_instance_valid(unit):
-							return
-						if unit.global_position.distance_to(target_pos3) <= 1.0:
-							break
-
-						var d3 = get_process_delta_time()
-						unit.global_position = unit.global_position.move_toward(target_pos3, push_speed3 * d3)
-						await get_tree().process_frame
-
-					# one last validity check before touching properties
-					if not is_instance_valid(unit):
-						return
-					unit.global_position = target_pos3
-					unit.tile_pos = push_pos
-
-					if tilemap.is_tile_occupied(push_pos):
-						var occupants2 = get_occupants_at(push_pos, unit)
-						if occupants2.size() > 0:
-							for occ2 in occupants2:
-								if occ2.is_in_group("Structures"):
-									var occ_sprite2 = occ2.get_node("AnimatedSprite2D")
-									if occ_sprite2:
-										occ_sprite2.play("demolished")
+				# Collision at destination
+				if tilemap.is_tile_occupied(push_pos):
+					var occupants2 = get_occupants_at(push_pos, unit)
+					if occupants2.size() > 0:
+						for occ2 in occupants2:
+							if not is_instance_valid(occ2):
+								continue
+							if occ2.is_in_group("Structures"):
+								var occ_sprite2: AnimatedSprite2D = occ2.get_node_or_null("AnimatedSprite2D")
+								if occ_sprite2:
+									occ_sprite2.play("demolished")
+									if occ_sprite2.get_parent():
 										occ_sprite2.get_parent().modulate = Color(1,1,1,1)
-								elif occ2.is_in_group("Units"):
-									await get_tree().create_timer(0.2).timeout
+							elif occ2.is_in_group("Units"):
+								await get_tree().create_timer(0.2).timeout
+								if is_instance_valid(occ2):
 									occ2.take_damage(damage)
-									occ2.shake()
-							gain_xp(25)
-							unit.being_pushed = false
-							TutorialManager.on_action("collide_mechanic")
+									if occ2.has_method("shake"):
+										occ2.shake()
+						gain_xp(25)
+						TutorialManager.on_action("collide_mechanic")
+						# Kill the pushed unit on collision
+						if is_instance_valid(unit):
+							_safe_set_being_pushed(unit, false)
 							unit.die()
-					tilemap.update_astar_grid()
+						tilemap.update_astar_grid()
+						continue
 
-					unit.being_pushed = false
-					continue
+				# No collision → finish safely
+				tilemap.update_astar_grid()
+				if is_instance_valid(unit):
+					_safe_set_being_pushed(unit, false)
+				continue
 
+	# We swung in some direction(s); mark our own state
 	has_moved = true
 	has_attacked = true
-
 	if is_player:
 		$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
-
 	TutorialManager.on_action("enemy_attacked")
 
 func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:

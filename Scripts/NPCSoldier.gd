@@ -21,6 +21,9 @@ extends Area2D
 @export var s_tile_occupied := "tile_occupied"   # (tile: Vector2i, by: Node)
 @export var s_tile_exploded := "tile_exploded"   # (tile: Vector2i)
 
+@export var kill_on_enemy_collision: bool = true
+var _dying: bool = false
+
 # --- BEHAVIOR TUNING ----------------------------------------------------------
 
 @export var panic_steps: int = 0
@@ -41,6 +44,8 @@ const Y_OFFSET := -8.0
 @export var m_get_occupant := ""          # e.g. "get_occupant", "actor_at", "unit_at"; returns Node or null
 @export var occupancy_method_counts_self := true  # set to true if your is_occupied counts the current NPC as occupied
 
+@export var eviction_speed_multiplier: float = 10.0   # run faster when evicted
+@export var post_evade_cooldown: float = 0.25        # brief ignore window to avoid re-trigger spam
 
 # --- STATE --------------------------------------------------------------------
 
@@ -51,6 +56,7 @@ var _sprite: AnimatedSprite2D
 var _crowd_offset: Vector2 = Vector2.ZERO
 var _claimed_tile: Vector2i = Vector2i(-999, -999)
 var _is_evacuating: bool = false
+var _cooldown_until: float = 0.0
 
 # --- READY --------------------------------------------------------------------
 
@@ -87,6 +93,13 @@ func _ready() -> void:
 		# Snap to center + offset
 		global_position = _tilemap.to_global(_tilemap.map_to_local(tile_pos)) + Vector2(0, Y_OFFSET) + _crowd_offset
 
+	# --- collision kill wiring ---
+	if kill_on_enemy_collision:
+		if not is_connected("body_entered", Callable(self, "_on_body_entered")):
+			connect("body_entered", Callable(self, "_on_body_entered"))
+		if not is_connected("area_entered", Callable(self, "_on_area_entered")):
+			connect("area_entered", Callable(self, "_on_area_entered"))
+
 	_update_z()
 
 func _process(_dt: float) -> void:
@@ -96,6 +109,12 @@ func _process(_dt: float) -> void:
 	if _is_tile_threatened(tile_pos):
 		_evict_from(tile_pos)
 
+	if _dying: return
+	if not _tilemap or _is_evacuating:
+		return
+	if _is_tile_threatened(tile_pos):
+		_evict_from(tile_pos)
+		
 # --- PUBLIC API (kept compatible) --------------------------------------------
 
 func place_on_tile(t: Vector2i) -> void:
@@ -138,6 +157,9 @@ func start_scatter(threat_tile: Vector2i) -> void:
 func _on_tile_occupied(t: Vector2i, by: Node) -> void:
 	if not react_to_mech_or_occupant:
 		return
+	# ignore if it's us
+	if by == self:
+		return
 	if t == tile_pos:
 		_evict_from(t)
 
@@ -148,13 +170,47 @@ func _on_tile_exploded(t: Vector2i) -> void:
 		_evict_from(t)
 
 func _evict_from(threat_tile: Vector2i) -> void:
+	if _dying: return
 	if _is_evacuating:
 		return
+	# brief debounce so we don't immediately re-trigger after landing
+	if Engine.get_physics_frames() < _cooldown_until:
+		return
+
 	_is_evacuating = true
-	var steps := auto_evacuate_steps if auto_evacuate_steps > 0 else panic_steps
-	var spd := auto_evacuate_speed if auto_evacuate_speed > 0.0 else panic_speed
-	await _scatter_from_threat(threat_tile, steps, spd)
+	visible = true
+	if _sprite: _sprite.play("move")
+
+	var dest = _pick_nearest_safe_step(threat_tile)
+	# If nowhere to go, bail cleanly
+	if dest == tile_pos:
+		if _sprite: _sprite.play("default")
+		_is_evacuating = false
+		return
+
+	var speed := (auto_evacuate_speed if auto_evacuate_speed > 0.0 else panic_speed) * eviction_speed_multiplier
+	await _move_one(dest, speed)
+
+	if _sprite: _sprite.play("default")
 	_is_evacuating = false
+	# tiny cooldown (~N physics frames) before we can be evicted again
+	_cooldown_until = Engine.get_physics_frames() + int(ceil(post_evade_cooldown / Engine.get_physics_ticks_per_second()))
+
+func _pick_nearest_safe_step(threat_tile: Vector2i) -> Vector2i:
+	# choose among 4-neighbors: must be in-bounds, walkable, not occupied
+	var best := tile_pos
+	var best_score := -INF
+	for d in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+		var n = tile_pos + d
+		if _is_within_bounds(n) and _is_walkable(n) and not _is_occupied(n):
+			# prefer increasing distance away from the threat and small y for nicer layering
+			var score = abs(n.x - threat_tile.x) + abs(n.y - threat_tile.y)
+			# slight bias to keep NPCs from oscillating vertically too much (optional)
+			score += 0.01 * float(-n.y)
+			if score > best_score:
+				best_score = score
+				best = n
+	return best
 
 func _scatter_from_threat(threat_tile: Vector2i, steps: int, spd: float) -> void:
 	visible = true
@@ -224,6 +280,7 @@ func _pick_flee_target(threat_tile: Vector2i, steps: int) -> Vector2i:
 	return best
 
 func _walk_path_to(dest: Vector2i, speed: float) -> void:
+	if _dying: return
 	var path: Array = []
 	if _is_within_bounds(tile_pos) and _is_within_bounds(dest):
 		path = _get_path(tile_pos, dest)
@@ -235,6 +292,7 @@ func _walk_path_to(dest: Vector2i, speed: float) -> void:
 	await get_tree().process_frame
 
 func _move_one(dest: Vector2i, speed: float) -> void:
+	if _dying: return
 	# If we’re leaving this tile, release its crowd slot
 	if dest != tile_pos and _claimed_tile == tile_pos and _tilemap and _has_method(_tilemap, m_crowd_release):
 		_tilemap.call(m_crowd_release, _claimed_tile)
@@ -271,16 +329,28 @@ func _update_z() -> void:
 
 # --- THREAT CHECKS ------------------------------------------------------------
 
+# Replace the old version with this adjacency-only check for occupants.
+# Same-tile EXPLOSIONS still count as a threat; same-tile OCCUPANTS do NOT.
 func _is_tile_threatened(t: Vector2i) -> bool:
 	if not _tilemap:
 		return false
-	var occ := false
+
+	var occ_adj := false
 	if react_to_mech_or_occupant:
-		occ = _is_occupied_by_other(t)
+		# Only check the 4 neighbors, not the tile we're standing on.
+		for d in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var n = t + d
+			if _is_occupied_by_other(n):
+				occ_adj = true
+				break
+
 	var boom := false
 	if react_to_explosions:
+		# Keep same-tile explosion as a threat (makes sense to flee).
 		boom = _has_explosion(t)
-	return occ or boom
+
+	return occ_adj or boom
+
 
 # --- ADAPTER AUTO-DETECTOR ----------------------------------------------------
 
@@ -417,3 +487,79 @@ func _is_occupied_by_other(t: Vector2i) -> bool:
 		return true
 
 	return false
+
+func _on_body_entered(body: Node) -> void:
+	_maybe_die_from_node(body)
+
+func _on_area_entered(area: Area2D) -> void:
+	_maybe_die_from_node(area)
+
+func _maybe_die_from_node(n: Node) -> void:
+	if _dying or not kill_on_enemy_collision:
+		return
+
+	# Consider “Enemy” group OR a Unit that is not player.
+	var is_enemy := n.is_in_group("Units")
+	if not is_enemy:
+		# If your enemies are in "Units" with is_player == false, try to resolve the unit root
+		var unit := n
+		if not unit.has_method("has_adjacent_enemy") and unit.get_parent():
+			unit = unit.get_parent()  # climb one level if the collider is a child
+		if unit and unit.is_in_group("Units") and unit.has_method("is_player") == false:
+			# If is_player is a property, try to read it safely
+			if unit.has_variable("is_player") and unit.is_player == false:
+				is_enemy = true
+
+	if not is_enemy:
+		return
+
+	# Kill this civilian
+	_die_now()
+
+func _die_now() -> void:
+	# Prevent any further processing or eviction
+	_dying = true
+	set_process(false)
+	set_physics_process(false)
+
+	# Disable collisions completely
+	_disable_all_collisions()
+
+	# Release crowd slot if you grabbed one
+	if _claimed_tile.x != -999 and _tilemap and _has_method(_tilemap, m_crowd_release):
+		_tilemap.call(m_crowd_release, _claimed_tile)
+		_claimed_tile = Vector2i(-999, -999)
+
+	# Play SFX if we have one (assume AudioStreamPlayer named "SFX" exists)
+	if has_node("DeathAudio"):
+		var sfx = $DeathAudio
+		if sfx and sfx is AudioStreamPlayer2D:
+			sfx.play()
+
+	# Try death animation first
+	if _sprite and _sprite.sprite_frames and _sprite.sprite_frames.has_animation("death"):
+		_sprite.play("death")
+		await _sprite.animation_finished
+		queue_free()
+		return
+
+	# Fallback: quick fade+shrink
+	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(self, "modulate:a", 0.0, 0.25)
+	tw.parallel().tween_property(self, "scale", self.scale * 0.6, 0.25)
+	await tw.finished
+	queue_free()
+
+
+func _disable_all_collisions() -> void:
+	for c in get_children():
+		if c is CollisionShape2D:
+			c.disabled = true
+		if c is CollisionPolygon2D:
+			c.disabled = true
+	# Also clear collision layers/masks so nothing else hits us
+	set_deferred("collision_layer", 0)
+	set_deferred("collision_mask", 0)
+	# Area2D specific
+	monitoring = false
+	monitorable = false

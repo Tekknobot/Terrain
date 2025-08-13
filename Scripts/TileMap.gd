@@ -278,6 +278,7 @@ func _physics_process(delta):
 			selected_unit.global_position = world_pos
 			selected_unit.tile_pos = next_tile
 			
+			notify_occupied(next_tile, selected_unit)
 			update_astar_grid()
 			
 			current_path.remove_at(0)
@@ -633,6 +634,7 @@ func _spawn_side(units: Array[PackedScene], row: int, is_player: bool, used_tile
 		unit_instance.set_team(is_player)
 		unit_instance.add_to_group("Units")
 		unit_instance.tile_pos = spawn_tile
+		notify_occupied(spawn_tile, unit_instance)
 		add_child(unit_instance)
 
 		# reapply saved upgrades for **players** only; enemies handled separately below
@@ -2605,6 +2607,7 @@ func auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 	tw.tween_callback(func():
 		if is_instance_valid(tgt):
 			tgt.tile_pos = new_tile
+			notify_occupied(new_tile, tgt)
 			tgt.being_pushed = false
 			update_astar_grid()
 	)
@@ -2689,6 +2692,7 @@ func airlift_drop(attacker_id: int, ally_id: int, click_tile: Vector2i) -> void:
 	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
 	explosion.global_position = to_global(map_to_local(final_drop))
 	get_tree().get_current_scene().add_child(explosion)
+	notify_explosion(final_drop)
 
 	heli.has_attacked = true
 	heli.has_moved = true
