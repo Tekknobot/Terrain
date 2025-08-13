@@ -498,22 +498,20 @@ func _maybe_die_from_node(n: Node) -> void:
 	if _dying or not kill_on_enemy_collision:
 		return
 
-	# Consider “Enemy” group OR a Unit that is not player.
-	var is_enemy := n.is_in_group("Units")
-	if not is_enemy:
-		# If your enemies are in "Units" with is_player == false, try to resolve the unit root
-		var unit := n
-		if not unit.has_method("has_adjacent_enemy") and unit.get_parent():
-			unit = unit.get_parent()  # climb one level if the collider is a child
-		if unit and unit.is_in_group("Units") and unit.has_method("is_player") == false:
-			# If is_player is a property, try to read it safely
-			if unit.has_variable("is_player") and unit.is_player == false:
-				is_enemy = true
+	# Find the nearest ancestor that belongs to "Units"
+	var unit := n
+	while unit and not unit.is_in_group("Units"):
+		unit = unit.get_parent()
+
+	# Enemy = in "Units" AND meta is_player is explicitly false
+	var is_enemy := false
+	if unit and unit.is_in_group("Units"):
+		if unit.has_meta("is_player") and unit.get_meta("is_player") == false:
+			is_enemy = true
 
 	if not is_enemy:
 		return
 
-	# Kill this civilian
 	_die_now()
 
 func _die_now() -> void:
