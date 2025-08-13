@@ -10,7 +10,7 @@ var tile_pos: Vector2i
 var _tilemap: TileMap
 var _sprite: AnimatedSprite2D
 
-@export var auto_fade_after_scatter: bool = true
+@export var auto_fade_after_scatter: bool = false
 @export var fade_delay_range: Vector2 = Vector2(0.25, 0.9)   # seconds to wait before fading
 @export var fade_duration_range: Vector2 = Vector2(0.7, 1.4) # seconds to fade to 0 alpha
 
