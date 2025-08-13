@@ -23,6 +23,9 @@ var match_done: bool = false
 @export var reset_button: Button
 const AI_SPECIAL_CHANCE := 60  # percent chance to actually fire a special when one is available
 
+# ── Add near the top with the other vars ─────────────────────
+var current_round: int = 1
+
 func _ready():
 	# Record the initial number of player units.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()
@@ -351,6 +354,7 @@ func end_turn(game_over: bool = false):
 	# end of a full round happens when the ENEMY just finished
 	if turn_order[current_turn_index] == Team.ENEMY:
 		emit_signal("round_ended", turn_order[current_turn_index])
+		current_round += 1
 
 	if game_over:
 		print("🏁 Game Over flag set — skipping next turn.")
@@ -372,6 +376,7 @@ func end_turn(game_over: bool = false):
 	# 🧠 Enemy turn: spawn new units
 	if turn_order[current_turn_index] == Team.ENEMY:
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
+		var tier = max(1, int(GameData.last_region_tier))
 		tilemap.spawn_new_enemy_units()
 		_populate_units()
 

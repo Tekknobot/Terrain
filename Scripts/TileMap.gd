@@ -170,6 +170,7 @@ var next_spawn_index := 0   # Tracks which index of `units[]` to take next.
 var input_locked: bool = false
 const DROP_OFFSET := 100.0  # how far above the target to start
 
+var spawn_wave: int = 1
 
 # ———————————————————————————————————————————————————————————————
 # LIFECYCLE CALLBACKS
@@ -812,81 +813,115 @@ func fade_in_units():
 			units.modulate.a = 1
 			units.get_child(0).modulate = Color8(255, 110, 255)
 		
-func spawn_new_enemy_units():
-	# how many are already on the board?
-	var enemy_units_on_board = get_tree().get_nodes_in_group("Units").filter(func(u): return not u.is_player)
-	var current_count = enemy_units_on_board.size()
+func spawn_new_enemy_units() -> void:
+	# ─────────────────────────────────────────────────────────
+	# Tier pacing knobs (1–4). You can tweak these numbers.
+	# ─────────────────────────────────────────────────────────
+	var tier = clamp(GameData.map_difficulty, 1, 4)
+	var MAX_ON_BOARD = {1: 6, 2: 8, 3: 10, 4: 12}.get(tier, 8)
+	var BASE_PER_WAVE = {1: 1, 2: 2, 3: 3, 4: 3}.get(tier, 2)
+	var GROWTH_PER_WAVE = {1: 0, 2: 1, 3: 1, 4: 2}.get(tier, 1)
+	var SOFT_CAP_PER_WAVE = {1: 2, 2: 3, 3: 4, 4: 5}.get(tier, 3)
 
-	# cap by max_enemy_units
-	if current_count >= GameData.max_enemy_units:
-		print("Max enemy units reached:", current_count)
+	# Light rubber-band: if player has lost units, slow ramp slightly
+	var rubber := 0
+	if TurnManager.player_units_lost >= 2:
+		rubber = -1  # spawn a bit less pressure
+
+	# Current enemy count
+	var enemies_on_board := get_tree().get_nodes_in_group("Units").filter(
+		func(u): return is_instance_valid(u) and not u.is_player and u.health > 0
+	).size()
+
+	# Respect both per-tier board cap and the run cap
+	var hard_cap = min(MAX_ON_BOARD, GameData.max_enemy_units)
+	if enemies_on_board >= hard_cap:
+		print("⛔ Enemy cap reached (", enemies_on_board, "/", hard_cap, ")")
 		update_astar_grid()
 		return
 
-	# scale additional spawns by level, slower than map start
-	var level = GameData.current_level
-	var spawn_rate := 0.5
-	var base_spawn := int(floor(level * spawn_rate))
-	if base_spawn < 1:
-		base_spawn = 1
+	# Spawn amount for this wave
+	var want = BASE_PER_WAVE + (spawn_wave - 1) * GROWTH_PER_WAVE + rubber
+	want = clamp(want, 1, SOFT_CAP_PER_WAVE)
 
-	var slots_left = GameData.max_enemy_units - current_count
-	var units_to_spawn = min(base_spawn, slots_left)
+	# Don’t exceed available room
+	var room_left = hard_cap - enemies_on_board
+	var to_spawn = min(want, room_left)
+	if to_spawn <= 0 or enemy_units.is_empty():
+		update_astar_grid()
+		return
 
-	print("🆕 Level", level, "→ trying to spawn", base_spawn, "(capped to", units_to_spawn, "by max_enemy_units).")
+	print("🪂 Wave", spawn_wave, " | Tier", tier, "→ spawning", to_spawn, " (cap ", hard_cap, ")")
 
-	# gather valid tiles on row 0
-	var spawn_row = 0
-	var valid_tiles := []
-	for x in range(grid_width):
-		var t = Vector2i(x, spawn_row)
-		var ok = true
-		if not is_within_bounds(t):
-			ok = false
-		if ok and is_tile_occupied(t):
-			ok = false
-		if ok and is_water_tile(t):
-			ok = false
-		if ok:
-			valid_tiles.append(t)
+	# ─────────────────────────────────────────────────────────
+	# Choose spawn tiles in ENEMY ZONE (top third), avoiding water/occupied
+	# ─────────────────────────────────────────────────────────
+	var enemy_zone := Rect2i(0, 0, grid_width, int(grid_height / 3))
+	var spawn_tiles: Array[Vector2i] = []
+	for y in range(enemy_zone.position.y, enemy_zone.position.y + enemy_zone.size.y):
+		for x in range(enemy_zone.position.x, enemy_zone.position.x + enemy_zone.size.x):
+			var t := Vector2i(x, y)
+			if is_tile_free_for_spawn(t):
+				spawn_tiles.append(t)
+	spawn_tiles.shuffle()
 
-	valid_tiles.shuffle()
-	var chosen_tiles = valid_tiles.slice(0, units_to_spawn)
+	# Safety: bail if no valid tiles
+	if spawn_tiles.is_empty():
+		print("⚠ No valid enemy spawn tiles found.")
+		update_astar_grid()
+		return
 
-	for spawn_tile in chosen_tiles:
-		if enemy_units.is_empty():
-			break
-		var random_index = randi_range(0, enemy_units.size() - 1)
-		var enemy_scene: PackedScene = enemy_units[random_index]
-		var enemy_unit: Node2D = enemy_scene.instantiate()
+	# ─────────────────────────────────────────────────────────
+	# Spawn loop — keep your drop-in animation & metadata
+	# ─────────────────────────────────────────────────────────
+	var spawned := 0
+	var idx := 0
+	while spawned < to_spawn and idx < spawn_tiles.size():
+		var tile := spawn_tiles[idx]
+		idx += 1
 
-		add_child(enemy_unit)
-		enemy_unit.set_team(false)
-		enemy_unit.tile_pos = spawn_tile
-		enemy_unit.add_to_group("Units")
+		# Tile could become occupied mid-loop; recheck
+		if not is_tile_free_for_spawn(tile):
+			continue
 
-		# id + metadata
-		var id = GameData.next_unit_id
-		enemy_unit.unit_id = id
+		var scene: PackedScene = enemy_units[randi_range(0, enemy_units.size() - 1)]
+		var enemy: Node2D = scene.instantiate()
+		add_child(enemy)
+		enemy.add_to_group("Units")
+		enemy.set_team(false)
+		enemy.tile_pos = tile
+
+		# Allocate id & mirror metadata (matches your style elsewhere)
+		var id := GameData.next_unit_id
+		enemy.unit_id = id
 		GameData.next_unit_id = id + 1
-		enemy_unit.set_meta("unit_id", id)
-		enemy_unit.set_meta("peer_id", 1)
-		enemy_unit.set_meta("scene_path", enemy_scene.resource_path)
+		enemy.set_meta("unit_id", id)
+		enemy.set_meta("peer_id", 1)
+		enemy.set_meta("scene_path", scene.resource_path)
 
-		# drop-in effect
-		var target_pos = to_global(map_to_local(spawn_tile)) + Vector2(0, enemy_unit.Y_OFFSET)
-		enemy_unit.global_position = target_pos - Vector2(0, 100)
-		var tween = enemy_unit.create_tween()
-		tween.tween_property(enemy_unit, "global_position", target_pos, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		# Visual: enemy tint (if sprite child exists)
+		if enemy.get_child_count() > 0:
+			enemy.get_child(0).modulate = Color8(255, 110, 255)
 
-		await get_tree().create_timer(0.3).timeout
+		# Drop-in
+		var target_pos := to_global(map_to_local(tile)) + Vector2(0, enemy.Y_OFFSET)
+		enemy.global_position = target_pos - Vector2(0, DROP_OFFSET)
+		var tw := enemy.create_tween()
+		tw.tween_property(enemy, "global_position", target_pos, 0.5)\
+		  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-	# rebuild pathfinding
+		spawned += 1
+		await get_tree().create_timer(0.05).timeout  # tiny stagger looks nicer
+
+	# Rebuild pathfinding after all spawns
 	await get_tree().process_frame
 	update_astar_grid()
 
-	# ✅ ensure every enemy on board has the correct upgrade count for the current level
+	# Ensure enemies have correct upgrade count for current level
 	_apply_enemy_upgrades_by_level(GameData.current_level)
+
+	# Next wave will scale a bit more (bounded by the caps above)
+	spawn_wave += 1
 
 # ———————————————————————————————————————————————————————————————
 # CAMERA SETUP
@@ -2797,3 +2832,8 @@ func _sync_unit_tile_pos(u: Node2D) -> void:
 	var computed := _current_unit_tile(u)
 	if u.tile_pos != computed:
 		u.tile_pos = computed
+
+func is_tile_free_for_spawn(t: Vector2i) -> bool:
+	return is_within_bounds(t) \
+		and not is_water_tile(t) \
+		and not is_tile_occupied(t)
