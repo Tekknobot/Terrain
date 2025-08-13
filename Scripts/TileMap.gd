@@ -22,7 +22,7 @@ const MOVE_SPEED := 100.0  # pixels/sec
 @export var sandstone_threshold := -0.2
 @export var dirt_threshold      :=  0.1
 @export var grass_threshold     :=  0.4
-@export var snow_threshold      :=  0.55
+@export var snow_threshold      :=  0.35   # ↓ was 0.55
 
 # How much of the original ice to keep: 
 # 1.0 = original amount, 0.5 = half as much, 0.0 = no ice
@@ -203,6 +203,15 @@ var _crowd_offsets := [
 	Vector2(-6,  2), Vector2(6,  2),
 	Vector2( 0, -8), Vector2(0,  6),
 ]
+
+signal tile_occupied(tile: Vector2i, by: Node)
+signal tile_exploded(tile: Vector2i)
+
+func notify_occupied(tile: Vector2i, by: Node) -> void:
+	emit_signal("tile_occupied", tile, by)
+
+func notify_explosion(tile: Vector2i) -> void:
+	emit_signal("tile_exploded", tile)
 
 func _pick_enemy_tint() -> void:
 	if _enemy_tint_picked:
