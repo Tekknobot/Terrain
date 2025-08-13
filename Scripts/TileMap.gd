@@ -948,7 +948,7 @@ func _input(event):
 
 	if event is InputEventMouseButton and event.pressed:
 		var mouse_pos = get_global_mouse_position()
-		var mouse_tile = local_to_map(to_local(Vector2(mouse_pos.x, mouse_pos.y + 16)))
+		var mouse_tile = _tile_at_mouse()
 		if mouse_tile.x < 0 or mouse_tile.x >= grid_width or mouse_tile.y < 0 or mouse_tile.y >= grid_height:
 			return
 
@@ -1422,35 +1422,16 @@ func _select_unit_at_mouse():
 	_clear_highlights()
 	_clear_ability_modes()
 
-	var hud = get_node("/root/BattleGrid/HUDLayer/Control")
-
-	# — Debug: HUD state
-	#print("[DBG] HUD node:", hud.get_path(), " visible:", hud.visible)
-
-	# Force the HUD on (we’ll hide it again if no unit)
-	#hud.visible = true
-
-	# — Debug: ability_button before anything
-	#print("[DBG] ability_button:", ability_button.get_path(),
-	#	  " visible:", ability_button.visible,
-	#	  " disabled:", ability_button.disabled,
-	#	  " text:'", ability_button.text, "'",
-	#	  " global_pos:", ability_button.get_global_position(),
-	#	  " size:", ability_button.get_size())
-
 	var mouse_pos = get_global_mouse_position()
 	mouse_pos.y += 16
-	var tile = local_to_map(to_local(mouse_pos))
+	var tile = _tile_at_mouse()
 	var unit = get_unit_at_tile(tile)
 
 	if unit and not unit.is_player:
-		# Show HUD info but don't change selection or ability button
 		_show_only_hud(unit, tile)
 		ability_button.visible = false
 		ability_button.disabled = true
 		ability_button.text = ""
-
-		# Peek tiles: attack tiles if we're showing attack, otherwise movement
 		if showing_attack:
 			_peek_show_attack_range_for(unit)
 		else:
@@ -1458,34 +1439,20 @@ func _select_unit_at_mouse():
 		return
 
 	if unit == null:
-		# No unit under cursor → hide HUD & button
 		selected_unit = null
 		showing_attack = false
-		#hud.visible = false
-
 		ability_button.visible = false
 		ability_button.disabled = true
-		ability_button.text    = ""
-		#print("[DBG] → no unit, hid ability_button; now visible:", ability_button.visible)
+		ability_button.text = ""
 		return
 
-	# We have a unit!
-	#print("[DBG] selecting unit_id =", unit.unit_id, "(", unit.unit_name, ")")
+	# ✅ NEW: make stored tile match actual world position (fix for water/push)
+	_sync_unit_tile_pos(unit)
 
 	_update_hud_with(unit)
-
-	# Show & populate the ability button
 	ability_button.visible  = true
 	ability_button.disabled = false
 	ability_button.text     = GameData.get_unit_special(unit.unit_id)
-
-	# — Debug: after setting
-	#print("[DBG] ability_button AFTER select:",
-	#	  " visible:", ability_button.visible,
-	#	  " disabled:", ability_button.disabled,
-	#	  " text:'", ability_button.text, "'",
-	#	  " global_pos:", ability_button.get_global_position(),
-	#	  " size:", ability_button.get_size())
 
 	play_beep_sound(tile)
 	emit_signal("unit_selected", unit)
@@ -1555,28 +1522,38 @@ func _show_only_hud(unit, tile):
 func _show_range_for_selected_unit():
 	if selected_unit == null:
 		return
-		
+
 	_clear_highlights()
+
+	# ✅ ensure we start from the *current* tile
+	_sync_unit_tile_pos(selected_unit)
 
 	var range: int
 	var tile_id: int
 	if showing_attack:
 		range = _get_active_attack_range()
 		tile_id = attack_tile_id
+		TutorialManager.on_action("attack_range_shown")
 	else:
 		range = selected_unit.movement_range
 		tile_id = highlight_tile_id
 
-	if showing_attack:
-		TutorialManager.on_action("attack_range_shown")	
-		
-	_highlight_range(selected_unit.tile_pos, range, tile_id)
+	# ✅ start from computed, not stale stored value
+	var start := _current_unit_tile(selected_unit)
+	_highlight_range(start, range, tile_id)
 
 func _update_highlight_display():
+	if selected_unit == null:
+		return
+
+	# clear old overlays
 	for tile in highlighted_tiles:
 		set_cell(1, tile, _get_tile_id_from_noise(noise.get_noise_2d(tile.x, tile.y)))
 	highlighted_tiles.clear()
 
+	# ✅ keep tile fresh
+	_sync_unit_tile_pos(selected_unit)
+
 	var range: int
 	if showing_attack:
 		range = _get_active_attack_range()
@@ -1589,7 +1566,9 @@ func _update_highlight_display():
 	else:
 		tile_id = highlight_tile_id
 
-	_highlight_range(selected_unit.tile_pos, range, tile_id)
+	# ✅ recompute from live position
+	var start := _current_unit_tile(selected_unit)
+	_highlight_range(start, range, tile_id)
 
 func _highlight_range(start: Vector2i, max_dist: int, tile_id: int):
 	# Read unit state safely (selected_unit may be null during round pulses)
@@ -1648,17 +1627,19 @@ func _clear_highlights():
 # MOVEMENT RPCS
 # ———————————————————————————————————————————————————————————————
 func _move_selected_to(target: Vector2i) -> void:
+	# ✅ path must begin at the actual tile we’re on
+	_sync_unit_tile_pos(selected_unit)
+
 	update_astar_grid()
 	current_path = get_weighted_path(selected_unit.tile_pos, target)
 	if current_path.is_empty():
 		selected_unit._on_movement_finished()
 		return
-
 	moving = true
 	print("DEBUG: Moving unit", selected_unit.unit_id, "→", target)
 
 	if TutorialManager.tutorial_active:
-		TutorialManager.on_action("unit_moved")		
+		TutorialManager.on_action("unit_moved")
 
 # ———————————————————————————————————————————————————————————————
 # TURN MANAGEMENT
@@ -1782,14 +1763,26 @@ func get_structure_by_id(target_id: int) -> Node:
 			return s
 	return null
 
+# TileMap.gd
 func get_unit_at_tile(tile: Vector2i) -> Node:
 	if get_tree() == null:
 		return null
 
-	var units = get_tree().get_nodes_in_group("Units")
-	for unit in units:
-		if is_instance_valid(unit) and unit.tile_pos == tile:
+	for unit in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(unit):
+			continue
+
+		# 1) what the unit *thinks* its tile is
+		var stored = unit.tile_pos
+
+		# 2) what the world position says its tile is
+		#    (compensate the unit's vertical Y_OFFSET so the map calc is accurate)
+		var computed := local_to_map(to_local(unit.global_position - Vector2(0, unit.Y_OFFSET)))
+
+		# accept either to be safe
+		if stored == tile or computed == tile:
 			return unit
+
 	return null
 
 func is_within_bounds(tile: Vector2i) -> bool:
@@ -2789,3 +2782,18 @@ func _zones_connected_with_block(extra_block: Vector2i = Vector2i(-9999, -9999))
 				seen[n] = true
 				q.append(n)
 	return false
+
+func _tile_at_mouse() -> Vector2i:
+	var p_local := to_local(get_global_mouse_position())
+	p_local.y += 16
+	return local_to_map(p_local)
+
+# TileMap.gd — add this helper near your other utils
+func _current_unit_tile(u: Node2D) -> Vector2i:
+	# Compensate the sprite Y_OFFSET you use when placing units
+	return local_to_map(to_local(u.global_position - Vector2(0, u.Y_OFFSET)))
+
+func _sync_unit_tile_pos(u: Node2D) -> void:
+	var computed := _current_unit_tile(u)
+	if u.tile_pos != computed:
+		u.tile_pos = computed

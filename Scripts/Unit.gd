@@ -820,8 +820,9 @@ func remove_water_effect(unit: Node) -> void:
 		print("Original material restored for", unit.name)
 
 func check_water_status():
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	if tilemap.get_cell_source_id(0, tile_pos) == water_tile_id:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap")
+	var water_id = tilemap.water_tile_id  # single source of truth
+	if tilemap.get_cell_source_id(0, tile_pos) == water_id:
 		apply_water_effect(self)
 	else:
 		remove_water_effect(self)
