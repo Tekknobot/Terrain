@@ -1,3 +1,5 @@
+Control
+CenterContainer
 Label
 RichTextLabel
 Sprite2D
@@ -9,6 +11,4 @@ GridContainer
 HBoxContainer
 PanelContainer
 TextureRect
-Control
 Panel
-ScrollContainer

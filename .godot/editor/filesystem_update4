@@ -13,3 +13,5 @@ res://Scripts/TitleScreen.gd
 res://Scenes/Main.tscn
 res://Scenes/Human_Scenes/Merc.scn
 res://Scenes/Human_Scenes/Soldier.scn
+res://Scenes/TutorialMenu.tscn
+res://Scripts/TutorialMenu.gd

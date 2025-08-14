@@ -11,9 +11,6 @@ extends Control
 # === NEW: we’ll build a simple settings popup in code
 var settings_window: Window
 
-func _enter_tree() -> void:
-	_apply_settings_from_cfg()  # <— load & apply saved settings at boot
-
 func _ready() -> void:
 	play_button.grab_focus()
 
