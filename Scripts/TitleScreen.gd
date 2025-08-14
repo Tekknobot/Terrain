@@ -308,13 +308,13 @@ func _bb_terrain() -> String:
 		+ "• Grass: Recover +5 HP at turn end\n"
 		+ "• Snow: −1 Attack Range while standing on it\n"
 		+ "• Ice: −2 Attack Range and may slip\n"
-		+ "• Road (↘ / ↙): +1 Movement this turn\n"
+		+ "• Roads: +1 Movement this turn\n"
 		+ "• Intersection: +2 Movement this turn\n"
 	)
 
 func _bb_specials() -> String:
 	return (
-		"[b]Special Abilities[/b] — click a target within range\n"
+		"[b]Special Abilities[/b] -- click a target within range\n"
 		+ "• Ground Slam: Leap and shockwave; damages all 8 adjacent tiles.\n"
 		+ "• Mark & Pounce: Mark a target, then vault in for a heavy strike.\n"
 		+ "• High-Arcing Shot: Shell lands after 2 s in a 3×3 zone (big center hit, splash around).\n"
@@ -328,7 +328,7 @@ func _bb_specials() -> String:
 func _bb_push() -> String:
 	return (
 		"[b]Push Mechanic[/b]\n"
-		+ "Shove enemies into hazards to delete them instantly—water tiles, off-map edges, or straight into structures (collisions deal extra damage).\n"
+		+ "Shove enemies into hazards to delete them instantly -- water tiles, off-map edges, or straight into structures (collisions deal extra damage).\n"
 	)
 
 func _normalize_glyphs(s: String) -> String:
