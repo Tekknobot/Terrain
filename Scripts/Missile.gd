@@ -55,6 +55,20 @@ func _process(delta):
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		var impact_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 
+		# ✅ NEW: check for a structure on the impact tile (direct hit)
+		var impact_structure = tilemap.get_structure_at_tile(impact_tile)
+		if impact_structure:
+			var anim_sprite = impact_structure.get_node_or_null("AnimatedSprite2D")
+			if anim_sprite:
+				anim_sprite.play("demolished")
+				# If you were brightening the structure via parent, also do it here:
+				anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+			# If demolish() immediately frees the node and you want the animation to be seen,
+			# consider awaiting the animation end before demolishing:
+			# await anim_sprite.animation_finished
+			if impact_structure.has_method("demolish"):
+				impact_structure.demolish()
+
 		# Damage the unit on the impact tile using exported damage
 		var target_unit = tilemap.get_unit_at_tile(impact_tile)
 		if target_unit:
