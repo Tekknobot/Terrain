@@ -135,7 +135,7 @@ func _on_round_ended(ended_team: int) -> void:
 func perform_round_action() -> void:
 	if _dying or _is_evacuating or not attack_enabled:
 		return
-	await attack_rapid_taps_4way(5, 5)  # or (25,1) if you want the full burst
+	await attack_rapid_taps_4way(5, 3)  # or (25,1) if you want the full burst
 
 func attack_rapid_taps_8way(burst_count: int = 25, per_hit_damage: int = 1) -> void:
 	if _attack_loop_running or _dying or _is_evacuating or not attack_enabled:

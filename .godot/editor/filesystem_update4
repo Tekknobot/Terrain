@@ -1,4 +1,4 @@
-res://Scenes/Human_Scenes/Soldier.scn
+res://Scenes/TitleScreen.tscn
 res://Textures/pixel_effect.gdshader
 res://Textures/pixel_effect.tres
 res://Textures/level_up.gdshader
@@ -9,4 +9,7 @@ res://Textures/in_water.tres
 res://Textures/EnemyTint.gdshader
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
-res://Scripts/Structure.gd
+res://Scripts/TitleScreen.gd
+res://Scenes/Main.tscn
+res://Scenes/Human_Scenes/Merc.scn
+res://Scenes/Human_Scenes/Soldier.scn
