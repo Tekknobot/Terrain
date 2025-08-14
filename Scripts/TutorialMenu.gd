@@ -55,23 +55,40 @@ func _build_ui() -> void:
 		c.queue_free()
 
 	# OUTER MARGINS (matches settings window)
-	# Center everything on screen
+	# === Centered grey card with white border (matches Settings) ===
 	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(center)
 
-	# OUTER MARGINS inside center
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.add_theme_stylebox_override("panel", _make_card_style())  # <-- use helper
+	center.add_child(panel)
+
+	# inner breathing room
+	var card_pad := MarginContainer.new()
+	card_pad.add_theme_constant_override("margin_left", 8)
+	card_pad.add_theme_constant_override("margin_right", 8)
+	card_pad.add_theme_constant_override("margin_top", 8)
+	card_pad.add_theme_constant_override("margin_bottom", 8)
+	panel.add_child(card_pad)
+
+	# OUTER MARGINS inside the card pad
 	var outer := MarginContainer.new()
 	outer.add_theme_constant_override("margin_left", 20)
 	outer.add_theme_constant_override("margin_right", 20)
 	outer.add_theme_constant_override("margin_top", 16)
 	outer.add_theme_constant_override("margin_bottom", 16)
-	center.add_child(outer)
+	card_pad.add_child(outer)
 
-	# ROOT COLUMN
+	# ROOT COLUMN inside margins
 	var root := VBoxContainer.new()
 	root.custom_minimum_size = Vector2(900, 520)
 	root.add_theme_constant_override("separation", 12)
 	outer.add_child(root)
+
 
 	# THEME (fonts)
 	var theme := Theme.new()
@@ -222,13 +239,14 @@ func _make_tutorial_row(tkey: String, title_text: String, desc_text: String, com
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
+	actions.add_theme_constant_override("margin_left", 8) # inside padding
 	card.add_child(actions)
 
 	var start := Button.new()
 	if completed:
 		start.text = "Replay"
 	else:
-		start.text = "Start"
+		start.text = "View"
 	start.pressed.connect(func():
 		_populate_readme(tkey, title_text)
 	)
@@ -236,9 +254,9 @@ func _make_tutorial_row(tkey: String, title_text: String, desc_text: String, com
 
 	var mark := Button.new()
 	if completed:
-		mark.text = "Mark Incomplete"
+		mark.text = "Mark Unread"
 	else:
-		mark.text = "Mark Complete"
+		mark.text = "Mark Read"
 	mark.pressed.connect(func():
 		var now_completed := not _get_completed(tkey)
 		_set_completed(tkey, now_completed)
@@ -304,38 +322,40 @@ func mark_completed(key: String) -> void:
 func _bb_controls() -> String:
 	return (
 		"[b]Controls[/b]\n"
-		+ "• Left-click (or tap) to select a unit\n"
-		+ "• Right-click (or hold) to enter attack mode\n"
-		+ "• Scroll Wheel to zoom\n"
+		+ "• Left-click / Tap: Select a unit\n"
+		+ "• Right-click / Hold: Toggle Attack view & aim\n"
+		+ "• Scroll wheel: Zoom the camera\n"
+		+ "• Click a highlighted tile: Move there\n"
+		+ "• Click an enemy in red range: Attack\n"
 	)
 
 func _bb_terrain() -> String:
 	return (
 		"[b]Terrain Effects[/b]\n"
-		+ "• Grass: +5 HP when standing on it\n"
-		+ "• Snow: −1 attack range\n"
-		+ "• Ice: −2 attack range\n"
-		+ "• Road (Down-Right / Down-Left): +1 movement\n"
-		+ "• Intersection: +2 movement\n"
+		+ "• Grass: Recover +5 HP at turn end\n"
+		+ "• Snow: −1 Attack Range while standing on it\n"
+		+ "• Ice: −2 Attack Range and may slip\n"
+		+ "• Road (↘ / ↙): +1 Movement this turn\n"
+		+ "• Intersection: +2 Movement this turn\n"
 	)
 
 func _bb_specials() -> String:
 	return (
-		"[b]Special Abilities[/b] (click a target within range)\n"
-		+ "• Ground Slam: Shockwaves damage all adjacent tiles (even empty ones).\n"
-		+ "• Mark & Pounce: Lock onto a target tile, leap in, and deliver a lethal strike.\n"
-		+ "• High-Arcing Shot: Parabolic shell lands after 2 s in a 3×3 zone—heavy center damage, splash around.\n"
-		+ "• Suppressive Fire: Line of fire up to 4 tiles—enemies in the path take damage.\n"
-		+ "• Guardian Halo: Grant a one-round shield to an ally (lost if you miss).\n"
-		+ "• Fortify: Halve all incoming damage until your next turn.\n"
-		+ "• Heavy Rain: Call down a devastating missile barrage on the battlefield.\n"
-		+ "• Web Field: Explosives ensnare and damage all foes in the zone.\n"
+		"[b]Special Abilities[/b] — click a target within range\n"
+		+ "• Ground Slam: Leap and shockwave; damages all 8 adjacent tiles.\n"
+		+ "• Mark & Pounce: Mark a target, then vault in for a heavy strike.\n"
+		+ "• High-Arcing Shot: Shell lands after 2 s in a 3×3 zone (big center hit, splash around).\n"
+		+ "• Suppressive Fire: Projectiles along lines up to 3 tiles per direction; damages and suppresses foes.\n"
+		+ "• Guardian Halo: Grant a 1-round shield to an ally (lost if you whiff).\n"
+		+ "• Fortify: Halve incoming damage until your next turn and fire a brief counter-barrage.\n"
+		+ "• Heavy Rain: Call a focused missile pattern that saturates the impact zone.\n"
+		+ "• Web Field: Threaded explosives travel a line, then burst in a 3×3.\n"
 	)
 
 func _bb_push() -> String:
 	return (
 		"[b]Push Mechanic[/b]\n"
-		+ "Knock enemies into hazards—water tiles, off-map edges or obstacles—for instant elimination.\n"
+		+ "Shove enemies into hazards to delete them instantly—water tiles, off-map edges, or straight into structures (collisions deal extra damage).\n"
 	)
 
 func _normalize_glyphs(s: String) -> String:
@@ -344,3 +364,58 @@ func _normalize_glyphs(s: String) -> String:
 		.replace("•", "- ")\
 		.replace("−", "-")\
 		.replace("×", "x")
+
+func _make_card_style(bg := Color(0.1, 0.1, 0.1), border := Color(1, 1, 1)) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.corner_radius_top_left = 8
+	sb.corner_radius_top_right = 8
+	sb.corner_radius_bottom_left = 8
+	sb.corner_radius_bottom_right = 8
+	sb.shadow_size = 8
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	return sb
+
+func _apply_button_states_to_theme(theme: Theme) -> void:
+	# Subtle hover/focus like Settings
+	var base := StyleBoxFlat.new()
+	base.bg_color = Color(0.18, 0.18, 0.18)
+	base.corner_radius_top_left = 6
+	base.corner_radius_top_right = 6
+	base.corner_radius_bottom_left = 6
+	base.corner_radius_bottom_right = 6
+	base.content_margin_left = 10
+	base.content_margin_right = 10
+	base.content_margin_top = 6
+	base.content_margin_bottom = 6
+
+	var hover := base.duplicate()
+	hover.bg_color = Color(0.22, 0.22, 0.22)
+
+	var pressed := base.duplicate()
+	pressed.bg_color = Color(0.14, 0.14, 0.14)
+	pressed.border_width_all = 1
+	pressed.border_color = Color(1,1,1,0.15)
+
+	var focus := base.duplicate()
+	focus.bg_color = base.bg_color
+	focus.border_width_all = 2
+	focus.border_color = Color(1,1,1,0.35)
+
+	theme.set_stylebox("normal", "Button", base)
+	theme.set_stylebox("hover", "Button", hover)
+	theme.set_stylebox("pressed", "Button", pressed)
+	theme.set_stylebox("focus", "Button", focus)
+
+	# CheckBox/OptionButton for consistency
+	theme.set_stylebox("normal", "CheckBox", base)
+	theme.set_stylebox("hover", "CheckBox", hover)
+	theme.set_stylebox("focus", "CheckBox", focus)
+	theme.set_stylebox("normal", "OptionButton", base)
+	theme.set_stylebox("hover", "OptionButton", hover)
+	theme.set_stylebox("focus", "OptionButton", focus)
