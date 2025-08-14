@@ -17,3 +17,6 @@ res://Scenes/TutorialMenu.tscn
 res://Scripts/TutorialMenu.gd
 res://Scripts/Explosion.gd
 res://Scripts/TileMap.gd
+res://Scripts/Missile.gd
+res://Scripts/Structure.gd
+res://Scripts/Unit.gd

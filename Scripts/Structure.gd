@@ -9,7 +9,7 @@ signal destroyed(tile_pos: Vector2i)
 # ---- Soldier spawn settings ----
 @export var soldier_scene: PackedScene                 # assign NPC scene (with SoldierNPC.gd)
 @export var merc_scene: PackedScene  
-@export var soldiers_to_spawn: int = 16                 # how many to pop out
+@export var soldiers_to_spawn: int = 8                 # how many to pop out
 @export var spawn_on_frame: int = 1                    # frame index inside "demolished" anim to spawn
 @export var spawn_adjacent_first: bool = true          # prefer adjacent open tiles
 
@@ -33,6 +33,22 @@ func _ready() -> void:
 func _process(_dt: float) -> void:
 	_update_z()
 
+	# One-shot: when demolished and not yet spawned, decide if we can spawn now.
+	if _demolished and not _spawned:
+		var sprite: AnimatedSprite2D = $AnimatedSprite2D if has_node("AnimatedSprite2D") else null
+
+		var can_spawn_now := true
+
+		# If we have a playing "demolished" anim, wait until it reaches the frame.
+		if sprite and sprite.sprite_frames and "demolished" in sprite.sprite_frames.get_animation_names():
+			if sprite.animation == "demolished" and sprite.is_playing() and sprite.frame < spawn_on_frame:
+				can_spawn_now = false
+
+		if can_spawn_now:
+			_spawn_soldiers_mid_anim()
+			_emit_destroyed()
+			_spawned = true
+
 func _update_z() -> void:
 	z_index = int(global_position.y)
 
@@ -53,16 +69,10 @@ func demolish() -> void:
 		return
 	_demolished = true
 
+	# Kick the anim if present; spawning will be handled by _process()
 	var sprite: AnimatedSprite2D = $AnimatedSprite2D if has_node("AnimatedSprite2D") else null
 	if sprite and sprite.sprite_frames and "demolished" in sprite.sprite_frames.get_animation_names():
-		# Connect to the frame tick so we can spawn WHILE the anim is playing
-		if not sprite.is_connected("frame_changed", Callable(self, "_on_demo_frame_changed")):
-			sprite.connect("frame_changed", Callable(self, "_on_demo_frame_changed"))
 		sprite.play("demolished")
-	else:
-		# No animation; spawn immediately and still emit destroyed
-		_spawn_soldiers_mid_anim()
-		_emit_destroyed()
 
 	# Disable collisions early so pathfinding can route through the tile
 	var col := get_node_or_null("CollisionShape2D")

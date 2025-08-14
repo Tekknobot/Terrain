@@ -369,6 +369,8 @@ func auto_attack_adjacent():
 									occ_sprite.play("demolished")
 									if occ_sprite.get_parent():
 										occ_sprite.get_parent().modulate = Color(1,1,1,1)
+									if occ.has_method("demolish"):
+										occ.demolish()										
 							elif occ.is_in_group("Units"):
 								await get_tree().create_timer(0.2).timeout
 								if is_instance_valid(occ):
@@ -447,6 +449,8 @@ func auto_attack_adjacent():
 									occ_sprite2.play("demolished")
 									if occ_sprite2.get_parent():
 										occ_sprite2.get_parent().modulate = Color(1,1,1,1)
+									if occ2.has_method("demolish"):
+										occ2.demolish()	
 							elif occ2.is_in_group("Units"):
 								await get_tree().create_timer(0.2).timeout
 								if is_instance_valid(occ2):
@@ -1060,6 +1064,8 @@ func ground_slam(target_tile: Vector2i) -> void:
 				if anim_player and anim_player.has_method("play"):
 					anim_player.play("demolished")
 					adj_structure.modulate = Color(1,1,1,1)
+				if adj_structure.has_method("demolish"):
+					adj_structure.demolish()					
 
 		await get_tree().create_timer(0.1).timeout
 
@@ -1358,6 +1364,8 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 				if st_sprite:
 					st_sprite.play("demolished")
 					st_sprite.get_parent().modulate = Color(1,1,1,1)
+				if st.has_method("demolish"):
+					st.demolish()						
 
 			var vfx := ExplosionScene.instantiate()
 			vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
@@ -1454,6 +1462,8 @@ func _on_projectile_impact(target_tile: Vector2i) -> void:
 			if st_sprite:
 				st_sprite.play("demolished")
 				st.modulate = Color(1, 1, 1, 1)
+				if st.has_method("demolish"):
+					st.demolish()					
 
 # 6) Brute – Fortify (local)
 func fortify() -> void:
@@ -1778,7 +1788,8 @@ func _fire_arc_to_tile_impl(tile: Vector2i, damage_val: int, point_count: int, s
 		if st_sprite:
 			st_sprite.play("demolished")
 			st_sprite.get_parent().modulate = Color(1, 1, 1, 1)
-
+			if st.has_method("demolish"):
+				st.demolish()	
 	var vfx = ExplosionScene.instantiate()
 	vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 	get_tree().get_current_scene().add_child(vfx)

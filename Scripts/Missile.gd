@@ -55,8 +55,6 @@ func _process(delta):
 		var tilemap = get_tree().get_current_scene().get_node("TileMap")
 		var impact_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 
-		_demolish_at(impact_tile, damage)
-
 		# Damage the unit on the impact tile using exported damage
 		var target_unit = tilemap.get_unit_at_tile(impact_tile)
 		if target_unit:
@@ -75,6 +73,8 @@ func _process(delta):
 				if anim_sprite:
 					anim_sprite.play("demolished")
 					anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+					if structure.has_method("demolish"):
+						structure.demolish()				
 
 			# Check for a unit on the adjacent tile
 			var occupant = tilemap.get_unit_at_tile(adjacent_tile)
@@ -114,6 +114,11 @@ func _process(delta):
 						if anim_sprite:
 							anim_sprite.play("demolished")
 							anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
+	
+						var dest_structure = tilemap.get_structure_at_tile(dest_tile)
+						if dest_structure and dest_structure.has_method("demolish"):
+							dest_structure.demolish()
+						
 				# Else if destination is water, animate push and apply 25 damage
 				elif is_water:
 					var dest_pos = tilemap.to_global(tilemap.map_to_local(dest_tile)) + Vector2(0, occupant.Y_OFFSET)
@@ -150,6 +155,10 @@ func _process(delta):
 							anim_sprite.play("demolished")
 							anim_sprite.get_parent().modulate = Color(1, 1, 1, 1)
 							
+						var dest_structure = tilemap.get_structure_at_tile(dest_tile)
+						if dest_structure and dest_structure.has_method("demolish"):
+							dest_structure.demolish()
+														
 					await get_tree().create_timer(0.2).timeout
 					if not is_instance_valid(occupant):
 						if TurnManager.turn_order[TurnManager.current_turn_index] == TurnManager.Team.PLAYER:
@@ -193,13 +202,3 @@ func set_target(start: Vector2, target: Vector2):
 	if line_renderer:
 		line_renderer.clear_points()
 		line_renderer.visible = true
-
-func _demolish_at(tile: Vector2i, dmg: int = 0) -> void:
-	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
-	var st = tilemap.get_structure_at_tile(tile)
-	if st == null:
-		return
-	if st.has_method("take_damage") and dmg > 0:
-		st.take_damage(dmg)
-	elif st.has_method("demolish"):
-		st.demolish()
