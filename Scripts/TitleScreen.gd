@@ -18,7 +18,8 @@ var tutorials_window: Window
 var _tutorials := [
 	{"key": "basics", "title": "Basics", "desc": "Movement, camera, and basic interaction."},
 	{"key": "combat", "title": "Combat", "desc": "Attacking, blocking, abilities, and stamina."},
-	{"key": "squad", "title": "Squad & Upgrades", "desc": "Selecting units, roles, and upgrading gear."}
+	{"key": "squad", "title": "Squad & Upgrades", "desc": "Selecting units, roles, and upgrading gear."},
+	{"key": "ai", "title": "A.I. Mechanics", "desc": "How enemy turns, specials, and targeting work."}  # ← NEW
 ]
 
 var _tutorial_bbcode := {}               # built on window creation
@@ -69,6 +70,11 @@ func _build_tutorials_window(
 	win.title = ""
 	win.size = Vector2i(600, 480)
 	win.unresizable = false
+
+	# Allow top-right X button to close window
+	win.close_requested.connect(func():
+		win.hide()
+	)
 
 	# --- card matching Settings ---
 	var root_holder := VBoxContainer.new()
@@ -181,6 +187,7 @@ func _build_tutorials_window(
 
 	# --- build bbcode dictionary ---
 	_tutorial_bbcode.clear()
+	_tutorial_bbcode["ai"] = _bb_ai_mechanics()  # ← NEW
 	_tutorial_bbcode["basics"] = _bb_controls() + "\n" + _bb_terrain() + "\n" + _bb_push()
 	_tutorial_bbcode["combat"] = _bb_specials() + "\n"
 	_tutorial_bbcode["squad"] = (
@@ -188,8 +195,6 @@ func _build_tutorials_window(
 		+ "• Upgrades are awarded after each map you clear, based on surviving units.\n"
 		+ "• Select units that complement each other (ranged + brawler + utility).\n"
 		+ "• Upgrades improve HP, range, abilities, and mobility.\n"
-		+ "• Synergize abilities (e.g., [i]Web Field[/i] to trap, then [i]High-Arcing Shot[/i]).\n\n"
-
 	)
 
 	# --- signals / initial state ---
@@ -325,6 +330,62 @@ func _bb_specials() -> String:
 		+ "• Web Field: Threaded explosives travel a line, then burst in a 3×3.\n"
 	)
 
+func _bb_ai_mechanics() -> String:
+	return (
+		"Turn Flow\n"
+		+ "- The game alternates turns in this order: PLAYER -> ENEMY.\n"
+		+ "- A turn starts with a signal that it has begun, then each unit of that team acts in sequence.\n"
+		+ "- If one side has no units left, the turn ends early and victory or defeat is checked.\n"
+		+ "\n"
+		+ "Enemy Unit Action Order\n"
+		+ "When it is the ENEMY team's turn, each enemy unit follows this pattern:\n"
+		+ "1) If the unit has not moved or attacked yet, it may try to use a Special Ability.\n"
+		+ "   - The choice is based on the unit type and battlefield situation.\n"
+		+ "   - A random roll controls whether the special is actually used (60 percent chance).\n"
+		+ "   - If used, the unit performs the action, marks itself as having moved and attacked, and ends its turn.\n"
+		+ "2) If no special is used, it plans movement toward the closest enemy.\n"
+		+ "   - Pathfinding chooses a route toward the target.\n"
+		+ "   - Prefers stopping within attack range but not adjacent, keeping maximum safe distance.\n"
+		+ "3) Executes movement.\n"
+		+ "4) If still able to attack, it may attempt another special (same 60 percent chance).\n"
+		+ "5) If no special is used, it attacks normally:\n"
+		+ "   - Ranged or support units pick the closest target within range.\n"
+		+ "   - Melee units attack if they are next to an enemy.\n"
+		+ "\n"
+		+ "Special Ability Selection by Unit Type\n"
+		+ "- Vanguard: Ground Slam if a player unit is on any directly adjacent tile.\n"
+		+ "- Aegis: Mark and Pounce if a player unit is within three tiles.\n"
+		+ "- Tempest: Guardian Halo if an ally within five tiles has the lowest health, no shield, and is below 70 percent HP.\n"
+		+ "- Titan: High-Arcing Shot aimed to hit the largest cluster of player units within five tiles (3x3 impact area).\n"
+		+ "- Specter: Suppressive Fire if a player unit is directly adjacent in a straight line.\n"
+		+ "- Nova: Fortify (self buff) if not already fortified.\n"
+		+ "- Raptor: Heavy Rain (5x5 area) if it can hit at least one player unit within five tiles.\n"
+		+ "- Valkyrie: Spider Blast against a player unit within five tiles.\n"
+		+ "- If no condition is met, no special is chosen.\n"
+		+ "\n"
+		+ "Targeting and Ranged Logic\n"
+		+ "- Ranged units target the closest enemy within their range.\n"
+		+ "- If none are in range, they move to get within range if possible.\n"
+		+ "\n"
+		+ "Movement and Pathing\n"
+		+ "- Enemies path toward the closest opposing unit.\n"
+		+ "- When moving, they try to end on a tile that:\n"
+		+ "  - Is within attack range of the target,\n"
+		+ "  - Is not directly adjacent if ranged,\n"
+		+ "  - Is the furthest valid step they can take that turn.\n"
+		+ "\n"
+		+ "Round End and Spawns\n"
+		+ "- After the ENEMY turn finishes, a signal is sent that the round has ended.\n"
+		+ "- At the end of the ENEMY turn, new enemy units may spawn before the next team begins.\n"
+		+ "\n"
+		+ "Game Over and Rewards\n"
+		+ "- If either side has no units, the match ends immediately.\n"
+		+ "- Rewards are based on total damage dealt, kills, and player losses, with survivors saved for the next battle.\n"
+		+ "\n"
+		+ "Tuning Options\n"
+		+ "- The special ability chance (currently 60 percent) controls how often abilities are used when available.\n"
+	)
+
 func _bb_push() -> String:
 	return (
 		"[b]Push Mechanic[/b]\n"
@@ -386,6 +447,10 @@ func _build_settings_window(
 		if body_font:
 			theme.set_default_font(body_font)
 			theme.set_default_font_size(font_size)
+
+	# 👉 make Settings buttons (including Close) match the rest
+	_apply_button_states_to_theme(theme)
+			
 	root.theme = theme
 
 	# Optional heading font
@@ -482,7 +547,7 @@ func _build_settings_window(
 	video.add_child(_make_option_row(
 		"Window mode",
 		wmodes,
-		_cfg_get("video", "window_mode", 0),
+		_get_current_window_mode_index(),  # ← reflect current state
 		func(idx):
 			if idx == 0:
 				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -533,23 +598,16 @@ func _build_settings_window(
 	tabs.add_child(gameplay_pad)
 	tabs.set_tab_title(tabs.get_tab_count() - 1, "Gameplay")
 
-	gameplay.add_child(_make_slider_row(
-		"Mouse sensitivity",
-		1, 200, 1,
-		_cfg_get("gameplay", "mouse_sens", 100),
-		func(v):
-			_cfg_set("gameplay", "mouse_sens", int(v))
-	))
-
-	var invy := CheckBox.new()
-	invy.text = "Invert Y axis"
-	invy.add_theme_constant_override("margin_left", 8)
-	invy.add_theme_constant_override("margin_right", 8)
-	invy.button_pressed = _cfg_get("gameplay", "invert_y", false)
-	invy.toggled.connect(func(on):
-		_cfg_set("gameplay", "invert_y", on)
+	# Camera Shake
+	var camshake := CheckBox.new()
+	camshake.text = "Enable Camera Shake"
+	camshake.add_theme_constant_override("margin_left", 8)
+	camshake.add_theme_constant_override("margin_right", 8)
+	camshake.button_pressed = _cfg_get("gameplay", "camera_shake", true)
+	camshake.toggled.connect(func(on):
+		_cfg_set("gameplay", "camera_shake", on)
 	)
-	gameplay.add_child(invy)
+	gameplay.add_child(camshake)
 
 	# Footer buttons
 	var sep2 := HSeparator.new()
@@ -565,6 +623,7 @@ func _build_settings_window(
 	_apply_settings_from_cfg()
 
 	return win
+
 
 # ------- Small UI builders -------
 func _make_slider_row(label_text: String, min_v: int, max_v: int, step: int, start_value: int, on_change: Callable) -> Control:
@@ -647,7 +706,7 @@ func _apply_settings_from_cfg() -> void:
 	MusicManager.set_muted(bool(_cfg_get("audio", "music_muted", MusicManager.is_muted())))
 
 	# Video
-	var wm := int(_cfg_get("video", "window_mode", 0))
+	var wm := int(_cfg_get("video", "window_mode", 2))
 	match wm:
 		0:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -720,6 +779,7 @@ func _make_card_style(bg := Color(0, 0, 0), border := Color(0, 0, 0, 0)) -> Styl
 	return sb
 
 func _apply_button_states_to_theme(theme: Theme) -> void:
+	# ---------- Base button style ----------
 	var base := StyleBoxFlat.new()
 	base.bg_color = Color(0.18, 0.18, 0.18)
 	base.corner_radius_top_left = 6
@@ -731,23 +791,52 @@ func _apply_button_states_to_theme(theme: Theme) -> void:
 	base.content_margin_top = 6
 	base.content_margin_bottom = 6
 
-	var hover := base.duplicate()
-	hover.bg_color = Color(0.22, 0.22, 0.22)
+	var hover := base.duplicate();   hover.bg_color = Color(0.22, 0.22, 0.22)
+	var pressed := base.duplicate(); pressed.bg_color = Color(0.14, 0.14, 0.14)
+	var focus := base.duplicate();   focus.bg_color = base.bg_color
+	var disabled := base.duplicate(); disabled.bg_color = Color(0.18, 0.18, 0.18, 0.6)
 
-	var pressed := base.duplicate()
-	pressed.bg_color = Color(0.14, 0.14, 0.14)
+	# Buttons / OptionButtons
+	for cls in ["Button", "OptionButton"]:
+		theme.set_stylebox("normal", cls, base)
+		theme.set_stylebox("hover",  cls, hover)
+		theme.set_stylebox("pressed",cls, pressed)
+		theme.set_stylebox("focus",  cls, focus)
+		theme.set_stylebox("disabled", cls, disabled)
 
-	var focus := base.duplicate()
-	focus.bg_color = base.bg_color
+	# ---------- CheckBox ----------
+	var pad_x := 10
+	var with_checkbox_padding = func(sbx: StyleBoxFlat) -> StyleBoxFlat:
+		var s := sbx.duplicate()
+		s.content_margin_left  = base.content_margin_left  + pad_x
+		s.content_margin_right = base.content_margin_right + pad_x
+		s.content_margin_top   = base.content_margin_top
+		s.content_margin_bottom= base.content_margin_bottom
+		return s
 
-	theme.set_stylebox("normal", "Button", base)
-	theme.set_stylebox("hover", "Button", hover)
-	theme.set_stylebox("pressed", "Button", pressed)
-	theme.set_stylebox("focus", "Button", focus)
+	var cb_states := {
+		"normal":   with_checkbox_padding.call(base),
+		"hover":    with_checkbox_padding.call(hover),
+		"pressed":  with_checkbox_padding.call(pressed),
+		"focus":    with_checkbox_padding.call(focus),
+		"disabled": with_checkbox_padding.call(disabled),
+		"hover_pressed": with_checkbox_padding.call(pressed)
+	}
 
-	theme.set_stylebox("normal", "CheckBox", base)
-	theme.set_stylebox("hover", "CheckBox", hover)
-	theme.set_stylebox("focus", "CheckBox", focus)
-	theme.set_stylebox("normal", "OptionButton", base)
-	theme.set_stylebox("hover", "OptionButton", hover)
-	theme.set_stylebox("focus", "OptionButton", focus)
+	for state in cb_states.keys():
+		theme.set_stylebox(state, "CheckBox", cb_states[state])
+
+	theme.set_constant("h_separation",  "CheckBox", 8)
+	theme.set_constant("check_vadjust", "CheckBox", 0)
+	theme.set_font("font", "CheckBox", theme.get_default_font())
+	theme.set_font_size("font_size", "CheckBox", theme.get_default_font_size())
+
+func _get_current_window_mode_index() -> int:
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		return 2
+	var borderless := DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_BORDERLESS)
+	if borderless:
+		return 1
+	else:
+		return 0

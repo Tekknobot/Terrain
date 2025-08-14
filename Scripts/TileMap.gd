@@ -204,6 +204,8 @@ var _crowd_offsets := [
 signal tile_occupied(tile: Vector2i, by: Node)
 signal tile_exploded(tile: Vector2i)
 
+var back_confirm_window: Window
+
 func notify_occupied(tile: Vector2i, by: Node) -> void:
 	emit_signal("tile_occupied", tile, by)
 
@@ -2334,13 +2336,161 @@ func _build_carryover_snapshot() -> void:
 		})
 
 func _on_back_pressed() -> void:
-	GameData.save_settings()
-	get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
+	if back_confirm_window == null:
+		back_confirm_window = _build_back_confirm_window(
+			"res://Fonts/magofonts/mago1.ttf", 16,
+			"res://Fonts/magofonts/mago3.ttf", 22
+		)
+		add_child(back_confirm_window)
+	back_confirm_window.popup_centered()
 
-func _on_peer_connected(id: int) -> void:
-	# Send the current map/state first (this might already be happening in receive_game_state),
-	# then immediately send the upgrades dictionary so the late‐joiner can populate their HUD.
-	rpc_id(id, "client_receive_all_upgrades", GameData.unit_upgrades)
+func _build_back_confirm_window(
+		font_path: String = "res://Fonts/magofonts/mago1.ttf",
+		font_size: int = 16,
+		heading_font_path: String = "",
+		heading_font_size: int = 24
+	) -> Window:
+	var win := Window.new()
+	win.title = ""
+	win.size = Vector2i(480, 260)
+	win.unresizable = false
+	win.transparent_bg = false
+
+	# Shell → black card (no white border)
+	var holder := VBoxContainer.new()
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	win.add_child(holder)
+
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _make_card_style(Color(0,0,0), Color(0,0,0,0)))
+	holder.add_child(card)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_bottom", 14)
+	card.add_child(pad)
+
+	var root := VBoxContainer.new()
+	root.custom_minimum_size = Vector2(440, 200)
+	root.add_theme_constant_override("separation", 10)
+	pad.add_child(root)
+
+	# Theme (fonts + button states)
+	var theme := Theme.new()
+	if ResourceLoader.exists(font_path):
+		var body_font := load(font_path) as FontFile
+		if body_font:
+			theme.set_default_font(body_font)
+			theme.set_default_font_size(font_size)
+	_apply_button_states_to_theme(theme)
+	root.theme = theme
+
+	var heading_font: FontFile
+	if heading_font_path != "" and ResourceLoader.exists(heading_font_path):
+		heading_font = load(heading_font_path) as FontFile
+
+	# Title
+	var title := Label.new()
+	title.text = "Confirm Return"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if heading_font:
+		title.add_theme_font_override("font", heading_font)
+		title.add_theme_font_size_override("font_size", heading_font_size)
+	root.add_child(title)
+
+	root.add_child(HSeparator.new())
+
+	# Message
+	var msg := Label.new()
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD
+	msg.text = "Are you sure you want to return to the saved menu?\nProgression may be lost."
+	root.add_child(msg)
+
+	root.add_child(HSeparator.new())
+
+	# Buttons
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.add_child(row)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+
+	var cancel := Button.new()
+	cancel.text = "Cancel"
+	cancel.pressed.connect(win.hide)
+	row.add_child(cancel)
+
+	var confirm := Button.new()
+	confirm.text = "Return"
+	confirm.pressed.connect(func():
+		GameData.save_settings()
+		get_tree().change_scene_to_file("res://Scenes/TitleScreen.tscn")
+	)
+	row.add_child(confirm)
+
+	# Keyboard affordances
+	win.close_requested.connect(win.hide)
+	win.focus_entered.connect(func(): confirm.grab_focus())
+	cancel.focus_neighbor_right = confirm.get_path()
+	confirm.focus_neighbor_left = cancel.get_path()
+
+	return win
+
+# --- Local UI helpers (TileMap.gd) ---
+func _make_card_style(bg := Color(0, 0, 0), border := Color(0, 0, 0, 0)) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg                    # black card
+	sb.border_color = border            # no visible border
+	sb.border_width_left = 0
+	sb.border_width_top = 0
+	sb.border_width_right = 0
+	sb.border_width_bottom = 0
+	sb.corner_radius_top_left = 8
+	sb.corner_radius_top_right = 8
+	sb.corner_radius_bottom_left = 8
+	sb.corner_radius_bottom_right = 8
+	sb.shadow_size = 8
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	return sb
+
+func _apply_button_states_to_theme(theme: Theme) -> void:
+	var base := StyleBoxFlat.new()
+	base.bg_color = Color(0.18, 0.18, 0.18)
+	base.corner_radius_top_left = 6
+	base.corner_radius_top_right = 6
+	base.corner_radius_bottom_left = 6
+	base.corner_radius_bottom_right = 6
+	base.content_margin_left = 10
+	base.content_margin_right = 10
+	base.content_margin_top = 6
+	base.content_margin_bottom = 6
+
+	var hover := base.duplicate()
+	hover.bg_color = Color(0.22, 0.22, 0.22)
+
+	var pressed := base.duplicate()
+	pressed.bg_color = Color(0.14, 0.14, 0.14)
+
+	var focus := base.duplicate()
+	focus.bg_color = base.bg_color
+
+	theme.set_stylebox("normal", "Button", base)
+	theme.set_stylebox("hover", "Button", hover)
+	theme.set_stylebox("pressed", "Button", pressed)
+	theme.set_stylebox("focus", "Button", focus)
+
+	theme.set_stylebox("normal", "CheckBox", base)
+	theme.set_stylebox("hover", "CheckBox", hover)
+	theme.set_stylebox("focus", "CheckBox", focus)
+	theme.set_stylebox("normal", "OptionButton", base)
+	theme.set_stylebox("hover", "OptionButton", hover)
+	theme.set_stylebox("focus", "OptionButton", focus)
 
 func _get_active_attack_range() -> int:
 	# If the player has clicked “show attack range” for a special ability,

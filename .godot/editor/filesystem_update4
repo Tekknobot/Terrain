@@ -15,3 +15,5 @@ res://Scenes/Human_Scenes/Merc.scn
 res://Scenes/Human_Scenes/Soldier.scn
 res://Scenes/TutorialMenu.tscn
 res://Scripts/TutorialMenu.gd
+res://Scripts/Explosion.gd
+res://Scripts/TileMap.gd
