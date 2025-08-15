@@ -252,6 +252,12 @@ func _ready():
 	# no multiplayer prints/logic
 
 func _process(delta):
+	# 👇 add this at the very top
+	if moving and (selected_unit == null or not is_instance_valid(selected_unit)):
+		moving = false
+		current_path.clear()
+		return
+			
 	if selected_unit and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		hold_time += delta
 		if hold_time >= 1.0:
@@ -2504,17 +2510,20 @@ func _get_active_attack_range() -> int:
 	return 0
 
 func _on_node_removed(node):
-	# Whenever any node is removed from the scene tree:
 	if node is Node2D and node.is_in_group("Units"):
-		# If it was our selected_unit, clear it
 		if node == selected_unit:
 			_on_selected_unit_died()
+			# ensure movement is reset even if death didn't route through the handler
+			moving = false
+			current_path.clear()
 
 func _on_selected_unit_died():
-	# If our selected_unit was just removed from the scene, clear everything
 	selected_unit = null
 	showing_attack = false
 	_clear_highlights()
+	# 👇 add these lines
+	moving = false
+	current_path.clear()
 
 func _on_full_pressed() -> void:
 	# Toggle between windowed and fullscreen

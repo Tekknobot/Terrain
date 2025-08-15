@@ -1356,13 +1356,21 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 	line.default_color = Color(1, 0.8, 0.2)
 	get_tree().get_current_scene().add_child(line)
 
+	# NEW: track this arc so it gets auto-cleaned (e.g., if the unit dies mid-shot)
+	_register_arc_line(line)
+
 	var interval = 2.0 / float(point_count)
 	for i in range(points.size()):
+		# If we were cleaned up (e.g. unit died), bail early.
+		if not is_instance_valid(line):
+			break
 		line.add_point(points[i])
 		await get_tree().create_timer(interval).timeout
 
+	# Cleanup: free and remove from our tracking array if still around
 	if is_instance_valid(line):
 		line.queue_free()
+	_active_arc_lines.erase(line)
 
 	var dmg_center = scaled_dmg(1.0)
 	var dmg_splash = scaled_dmg(0.8)
@@ -1393,7 +1401,7 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 					st_sprite.play("demolished")
 					st_sprite.get_parent().modulate = Color(1,1,1,1)
 				if st.has_method("demolish"):
-					st.demolish()						
+					st.demolish()
 
 			var vfx := ExplosionScene.instantiate()
 			vfx.global_position = tilemap.to_global(tilemap.map_to_local(tile))
