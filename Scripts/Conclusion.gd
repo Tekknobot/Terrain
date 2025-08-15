@@ -25,7 +25,7 @@ func show_defeat_popup(
 	if defeat_window == null:
 		defeat_window = _build_defeat_window(
 			"res://Fonts/magofonts/mago1.ttf", 16,   # body font
-			"res://Fonts/magofonts/mago3.ttf", 24    # heading font
+			"res://Fonts/magofonts/mago3.ttf", 32    # heading font
 		)
 		add_child(defeat_window)
 

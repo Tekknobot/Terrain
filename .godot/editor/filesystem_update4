@@ -26,3 +26,4 @@ res://Prefabs/Missile.tscn
 res://Scenes/GameOver.tscn
 res://Scripts/Conclusion.gd
 res://Scripts/TurnManager.gd
+res://Scripts/MusicManager.gd

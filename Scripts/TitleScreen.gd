@@ -53,7 +53,7 @@ func _on_TutorialButton_pressed() -> void:
 	if tutorials_window == null:
 		tutorials_window = _build_tutorials_window(
 			"res://Fonts/magofonts/mago1.ttf", 16,
-			"res://Fonts/magofonts/mago3.ttf", 20
+			"res://Fonts/magofonts/mago3.ttf", 32
 		)
 		add_child(tutorials_window)
 	tutorials_window.popup_centered()
@@ -410,7 +410,7 @@ func _on_SettingsButton_pressed() -> void:
 	if settings_window == null:
 		settings_window = _build_settings_window(
 			"res://Fonts/magofonts/mago1.ttf", 16,
-			"res://Fonts/magofonts/mago3.ttf", 20
+			"res://Fonts/magofonts/mago3.ttf", 32
 		)
 		add_child(settings_window)
 	settings_window.popup_centered()
@@ -522,7 +522,7 @@ func _build_settings_window(
 	mute.text = "Mute music"
 	mute.add_theme_constant_override("margin_left", 8)
 	mute.add_theme_constant_override("margin_right", 8)
-	mute.button_pressed = _cfg_get("audio", "music_muted", MusicManager.is_muted())
+	mute.button_pressed = _cfg_get("audio", "music_muted", false)
 	mute.toggled.connect(func(on):
 		MusicManager.set_muted(on)
 		_cfg_set("audio", "music_muted", on)
@@ -620,7 +620,7 @@ func _build_settings_window(
 	root.add_child(close)
 
 	# Apply saved settings now
-	_apply_settings_from_cfg()
+	_apply_settings_from_cfg(false, false)
 
 	return win
 
@@ -695,46 +695,54 @@ func _cfg_set(section: String, key: String, val) -> void:
 	cfg.set_value(section, key, val)
 	cfg.save(SETTINGS_PATH)
 
-func _apply_settings_from_cfg() -> void:
-	# Audio
-	var master := float(_cfg_get("audio", "master", _get_bus_volume_linear("Master")))
-	_set_bus_volume_linear("Master", master)
-	var music := float(_cfg_get("audio", "music", MusicManager.get_volume_linear()))
-	MusicManager.set_volume_linear(music)
-	var sfx := float(_cfg_get("audio", "sfx", _get_bus_volume_linear("SFX")))
-	_set_bus_volume_linear("SFX", sfx)
-	MusicManager.set_muted(bool(_cfg_get("audio", "music_muted", MusicManager.is_muted())))
+# 1) Add a flag to control whether to apply Video settings
+# Replace your current signature/body with this
+func _apply_settings_from_cfg(apply_audio: bool = true, apply_video: bool = true) -> void:
+	# Audio (guarded)
+	if apply_audio:
+		var master := float(_cfg_get("audio", "master", _get_bus_volume_linear("Master")))
+		_set_bus_volume_linear("Master", master)
+		var music := float(_cfg_get("audio", "music", MusicManager.get_volume_linear()))
+		MusicManager.set_volume_linear(music)
 
-	# Video
-	var wm := int(_cfg_get("video", "window_mode", 2))
-	match wm:
-		0:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
-		1:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
-		2:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		# IMPORTANT: default = false so merely opening the window never mutes
+		var muted := bool(_cfg_get("audio", "music_muted", false))
+		MusicManager.set_muted(muted)
 
-	var res_idx := int(_cfg_get("video", "resolution_idx", 2))
-	var resolutions := PackedStringArray(["1280 x 720","1600 x 900","1920 x 1080","2560 x 1440"])
-	res_idx = clamp(res_idx, 0, resolutions.size()-1)
-	var parts := resolutions[res_idx].split(" x ")
-	if parts.size() == 2:
-		DisplayServer.window_set_size(Vector2i(int(parts[0]), int(parts[1])))
+		var sfx := float(_cfg_get("audio", "sfx", _get_bus_volume_linear("SFX")))
+		_set_bus_volume_linear("SFX", sfx)
 
-	var vs := bool(_cfg_get("video", "vsync", true))
-	if vs:
-		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
-	else:
-		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	# Video (guarded)
+	if apply_video:
+		var wm := int(_cfg_get("video", "window_mode", 2))
+		match wm:
+			0:
+				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+				DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+			1:
+				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+				DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+			2:
+				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
-	Engine.max_fps = int(_cfg_get("video", "max_fps", 0))
+		var res_idx := int(_cfg_get("video", "resolution_idx", 2))
+		var resolutions := PackedStringArray(["1280 x 720","1600 x 900","1920 x 1080","2560 x 1440"])
+		res_idx = clamp(res_idx, 0, resolutions.size()-1)
+		var parts := resolutions[res_idx].split(" x ")
+		if parts.size() == 2:
+			DisplayServer.window_set_size(Vector2i(int(parts[0]), int(parts[1])))
 
-	# Gameplay / UI
+		var vs := bool(_cfg_get("video", "vsync", true))
+		if vs:
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+		else:
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+
+		Engine.max_fps = int(_cfg_get("video", "max_fps", 0))
+
+	# Gameplay / UI (unchanged)
 	var sens := int(_cfg_get("gameplay", "mouse_sens", 100))
-	_cfg_set("gameplay", "mouse_sens", sens) # ensure exists
+	_cfg_set("gameplay", "mouse_sens", sens)
 	get_tree().root.content_scale_factor = float(_cfg_get("ui", "scale_percent", 100)) / 100.0
 	var locale_idx := int(_cfg_get("ui", "locale_idx", 0))
 	var locales := PackedStringArray(["en","fr","es","de"])

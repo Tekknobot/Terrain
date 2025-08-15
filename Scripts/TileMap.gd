@@ -2339,7 +2339,7 @@ func _on_back_pressed() -> void:
 	if back_confirm_window == null:
 		back_confirm_window = _build_back_confirm_window(
 			"res://Fonts/magofonts/mago1.ttf", 16,
-			"res://Fonts/magofonts/mago3.ttf", 22
+			"res://Fonts/magofonts/mago3.ttf", 32
 		)
 		add_child(back_confirm_window)
 	back_confirm_window.popup_centered()

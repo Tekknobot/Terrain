@@ -56,6 +56,24 @@ static var web_grid: Array = []
 
 var _rounds_elapsed: int = 0
 
+var _active_arc_lines: Array[Line2D] = []
+
+func _register_arc_line(line: Line2D) -> void:
+	if line == null: return
+	_active_arc_lines.append(line)
+	# tag so we can find them if needed
+	line.set_meta("arc_owner_id", unit_id)
+
+func _cleanup_arc_trails() -> void:
+	for l in _active_arc_lines:
+		if is_instance_valid(l):
+			l.queue_free()
+	_active_arc_lines.clear()
+
+func _exit_tree() -> void:
+	# safety: if the unit leaves the tree for any reason, nuke its trails
+	_cleanup_arc_trails()
+
 # Ensure web_grid is initialized once
 func _init():
 	if web_grid.size() == 0:
@@ -582,6 +600,7 @@ func die():
 
 	_spawn_burst(death_scene, death_tile)
 
+	_cleanup_arc_trails()   # <-- add this
 	queue_free()
 
 	if tilemap.selected_unit == self:
