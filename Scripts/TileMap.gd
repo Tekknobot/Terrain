@@ -2735,39 +2735,56 @@ func auto_attack_adjacent(attacker_id: int, target_id: int) -> void:
 	if not atk or not tgt: return
 
 	var damage = atk.damage
-	var push_dir = _compute_push_direction(atk, tgt)
-	var died = tgt.take_damage(damage)
-	var new_tile = tgt.tile_pos + push_dir
+	var died   = tgt.take_damage(damage)
 
+	# Play attack VFX/SFX immediately
 	var atk_sprite = atk.get_node_or_null("AnimatedSprite2D")
 	if atk_sprite:
 		atk_sprite.play("attack")
 	play_attack_sound(atk.global_position)
-
 	atk.gain_xp(25)
 	if died:
 		atk.gain_xp(25)
 
+	# If target died → no push, ensure flags/tilemap stay sane
+	if died:
+		if is_instance_valid(tgt):
+			tgt.flash_white()
+			tgt.being_pushed = false
+			tgt.queue_free()
+		await get_tree().process_frame
+		update_astar_grid()
+		return
+
+	# Find a valid push tile BEFORE starting any tween
+	var new_tile := _find_valid_push_target(atk, tgt)
+
+	# If nowhere to push, just do hit-flash and rebuild nav; nothing stalls
+	if new_tile == Vector2i(-1, -1):
+		tgt.flash_white()
+		tgt.being_pushed = false
+		await get_tree().process_frame
+		update_astar_grid()
+		return
+
+	# Do the push safely
 	tgt.flash_white()
 	tgt.being_pushed = true
 
 	var world_dest = to_global(map_to_local(new_tile)) + Vector2(0, tgt.Y_OFFSET)
 	var tw = tgt.create_tween()
-	tw.tween_property(tgt, "global_position", world_dest, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(tgt, "global_position", world_dest, 0.2)\
+	  .set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-	if died:
-		tw.tween_callback(func():
-			if is_instance_valid(tgt):
-				tgt.being_pushed = false
-				tgt.queue_free()
-		)
-
+	# Always clear state and rebuild A* even if something changed mid-tween
 	tw.tween_callback(func():
-		if is_instance_valid(tgt):
-			tgt.tile_pos = new_tile
-			notify_occupied(new_tile, tgt)
-			tgt.being_pushed = false
+		if not is_instance_valid(tgt):
 			update_astar_grid()
+			return
+		tgt.tile_pos = new_tile
+		notify_occupied(new_tile, tgt)
+		tgt.being_pushed = false
+		update_astar_grid()
 	)
 
 # --- Ground Slam ---
@@ -3209,3 +3226,30 @@ func crowd_release(tile: Vector2i) -> void:
 		_crowd_slots.erase(tile)
 	else:
 		_crowd_slots[tile] = c
+
+# Put near your other helpers
+func _find_valid_push_target(attacker, target) -> Vector2i:
+	var base_dir := _compute_push_direction(attacker, target)
+	var candidates: Array[Vector2i] = []
+	
+	# primary: straight push
+	var straight = target.tile_pos + base_dir
+	candidates.append(straight)
+
+	# slide options if straight is blocked (pick the axis that changed)
+	if base_dir.x != 0:
+		candidates.append(target.tile_pos + Vector2i(base_dir.x,  0))
+		candidates.append(target.tile_pos + Vector2i(base_dir.x,  1))
+		candidates.append(target.tile_pos + Vector2i(base_dir.x, -1))
+	if base_dir.y != 0:
+		candidates.append(target.tile_pos + Vector2i( 0, base_dir.y))
+		candidates.append(target.tile_pos + Vector2i( 1, base_dir.y))
+		candidates.append(target.tile_pos + Vector2i(-1, base_dir.y))
+
+	# filter to first usable tile
+	for t in candidates:
+		if is_within_bounds(t) and _is_tile_walkable(t) and not is_tile_occupied(t):
+			return t
+
+	# no legal push
+	return Vector2i(-1, -1)
