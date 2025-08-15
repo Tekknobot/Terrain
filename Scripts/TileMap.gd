@@ -206,6 +206,10 @@ signal tile_exploded(tile: Vector2i)
 
 var back_confirm_window: Window
 
+@export var spawn_cooldown_turns := 2
+var turns_until_next_wave := 0
+
+
 func notify_occupied(tile: Vector2i, by: Node) -> void:
 	emit_signal("tile_occupied", tile, by)
 
@@ -1020,6 +1024,11 @@ func spawn_new_enemy_units() -> void:
 
 	# Ensure enemies have correct upgrade count for current level
 	_apply_enemy_upgrades_by_level(GameData.current_level)
+
+	if turns_until_next_wave > 0:
+		turns_until_next_wave -= 1
+		update_astar_grid()
+		return
 
 	# Next wave will scale a bit more (bounded by the caps above)
 	spawn_wave += 1
