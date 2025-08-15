@@ -209,6 +209,8 @@ var back_confirm_window: Window
 @export var spawn_cooldown_turns := 2
 var turns_until_next_wave := 0
 
+@export var player_spawn_cooldown_turns := 3
+var turns_until_next_player_spawn := 0
 
 func notify_occupied(tile: Vector2i, by: Node) -> void:
 	emit_signal("tile_occupied", tile, by)
@@ -3209,6 +3211,10 @@ func _would_create_wall(pos: Vector2i) -> bool:
 	return row_blocked or col_blocked
 
 func _ensure_player_parity():
+	if turns_until_next_player_spawn > 0:
+		turns_until_next_player_spawn -= 1
+		return
+
 	var alive := get_tree().get_nodes_in_group("Units").filter(
 		func(u): return is_instance_valid(u) and u.is_player and u.health > 0
 	).size()
@@ -3216,8 +3222,11 @@ func _ensure_player_parity():
 	var needed = max(0, want - alive)
 	needed = min(needed, free_topup_each_turn)
 
-	for i in range(needed):
-		_spawn_reinforcement_internal(true)
+	if needed > 0:
+		for i in range(needed):
+			_spawn_reinforcement_internal(true)
+		turns_until_next_player_spawn = player_spawn_cooldown_turns
+
 
 # at top you already have:
 # var _crowd_slots := {}   # { Vector2i: int }
