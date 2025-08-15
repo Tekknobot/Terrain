@@ -275,8 +275,16 @@ func take_damage(amount: int) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Optional small helper for safer writes
-func _safe_set_being_pushed(n: Node, v: bool) -> void:
-	if is_instance_valid(n) and n.has_method("set"):
+func _safe_set_being_pushed(n, v: bool) -> void:
+	if n == null:
+		return
+	# Only proceed if the object is still alive
+	if not is_instance_valid(n):
+		return
+	# Prefer direct property write if it exists, otherwise fall back to set()
+	if "being_pushed" in n:
+		n.being_pushed = v
+	elif n.has_method("set"):
 		n.set("being_pushed", v)
 
 func auto_attack_adjacent():
@@ -478,6 +486,7 @@ func auto_attack_adjacent():
 	if is_player:
 		$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 	TutorialManager.on_action("enemy_attacked")
+
 
 func get_occupants_at(pos: Vector2i, ignore: Node = null) -> Array:
 	var occupants = []

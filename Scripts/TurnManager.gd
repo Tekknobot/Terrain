@@ -324,7 +324,7 @@ func end_turn(game_over: bool = false):
 
 	if not player_units_exist:
 		print("❌ Game Over - You Lost!")
-		_show_game_over_screen("lose", stats, rewards)
+		_spawn_game_over_window("lose", stats, rewards)
 		match_done = true
 		return
 	elif not enemy_units_exist:
@@ -377,6 +377,40 @@ func end_turn(game_over: bool = false):
 	# 💡 Reset any highlights
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	tilemap._clear_highlights()
+
+func _spawn_game_over_window(result: String, stats: Dictionary, rewards: Dictionary) -> void:
+	# Give effects a frame to settle (no pause)
+	await get_tree().process_frame
+
+	var scene: PackedScene = preload("res://Scenes/GameOver.tscn")
+	var game_over := scene.instantiate()
+	get_tree().current_scene.add_child(game_over)
+
+	# Make sure the UI keeps updating regardless of game state
+	# (We are NOT pausing, but this doesn't hurt and keeps the window robust.)
+	game_over.process_mode = Node.PROCESS_MODE_ALWAYS
+	for child in game_over.get_children():
+		if child is Node:
+			child.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	# Auto-cleanup when the window signals it's hidden (if your script emits it)
+	if game_over.has_signal("window_hidden"):
+		game_over.connect("window_hidden", func ():
+			if is_instance_valid(game_over):
+				game_over.queue_free()
+		)
+	else:
+		# Fallback: free if it leaves the tree for any reason
+		game_over.tree_exited.connect(func ():
+			# no-op; already out of tree, but keep for symmetry
+			pass
+		)
+
+	# Populate + show using your Node2D API
+	if game_over.has_method("set_result"):
+		game_over.set_result(result, stats, rewards)
+	else:
+		push_warning("GameOver.tscn root has no set_result(...). Check GameOver.gd and scene wiring.")
 
 func hide_end_turn_button() -> void:
 	var end_turn_button = get_tree().get_current_scene().get_node("CanvasLayer/Control/HBoxContainer/EndTurn")
@@ -451,16 +485,6 @@ func _find_ranged_target(unit) -> Node:
 		)
 		return candidates[0]
 	return null
-
-func _show_game_over_screen(result: String, stats: Dictionary, rewards: Dictionary) -> void:
-	# Now wait if needed
-	await get_tree().create_timer(1).timeout 
-	
-	var game_over_scene = preload("res://Scenes/GameOver.tscn").instantiate()
-	# Add it immediately so that _ready() is called
-	get_tree().get_current_scene().add_child(game_over_scene) 
-	# Then set the result (which can also trigger updates in the UI)
-	game_over_scene.set_result(result, stats, rewards)
 
 func calculate_units_lost() -> int:
 	return TurnManager.player_units_lost

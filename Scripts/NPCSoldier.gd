@@ -885,10 +885,11 @@ func attack_rapid_taps_4way(burst_count: int = 25, per_hit_damage: int = 1) -> v
 		else:
 			await get_tree().create_timer(max(0.05, attack_interval * 0.4)).timeout
 
-		# Play SFX if we have one (assume AudioStreamPlayer named "SFX" exists)
+		# Play SFX if we have one (assume AudioStreamPlayer named "AttackAudio" exists)
 		if has_node("AttackAudio"):
 			var sfx = $AttackAudio
 			if sfx and sfx is AudioStreamPlayer2D:
+				sfx.volume_db = -12  # roughly half volume
 				sfx.play()
 				
 		taps_done += 1

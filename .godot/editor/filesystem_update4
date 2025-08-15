@@ -20,3 +20,9 @@ res://Scripts/TileMap.gd
 res://Scripts/Missile.gd
 res://Scripts/Structure.gd
 res://Scripts/Unit.gd
+res://Scripts/NPCSoldier.gd
+res://Scenes/VFX/Explosion.tscn
+res://Prefabs/Missile.tscn
+res://Scenes/GameOver.tscn
+res://Scripts/Conclusion.gd
+res://Scripts/TurnManager.gd
