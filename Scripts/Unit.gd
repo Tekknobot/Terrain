@@ -1774,23 +1774,12 @@ func _fortify_shock_burst_desktop() -> void:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SFX: desktop only (no-ops on web)
-# Plays once per strike (allows overlap) on the SFX bus, then auto-frees.
 func _play_electric_sfx(pos: Vector2) -> void:
-	var p := AudioStreamPlayer2D.new()
-	p.bus = "SFX"
-	p.stream = ELECTRIC_SFX
-	p.global_position = pos
-
-	add_child(p)
-	p.play(0.0)
-
-	# Auto-cleanup after a short lifetime (don’t rely on finished for streams)
-	var lifetime := 0.45  # keep brief to avoid piling up on Web
-	var t := get_tree().create_timer(lifetime)
-	t.timeout.connect(func():
-		if is_instance_valid(p):
-			p.queue_free()
-	)
+	if step_player == null or not is_instance_valid(step_player):
+		step_player.bus = "SFX"
+	step_player.global_position = pos
+	step_player.pitch_scale = randf_range(0.95, 1.05)  # safe on desktop
+	step_player.play(0.0)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lightning: desktop only (no-ops on web)
