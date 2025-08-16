@@ -102,6 +102,7 @@ var missile_sfx := preload("res://Audio/SFX/missile_launch.wav")
 var attack_sfx := preload("res://Audio/SFX/attack_default.wav")
 var step_sfx := preload("res://Audio/SFX/step_tile.wav")
 
+@export var LaserBeamScene: PackedScene = preload("res://Scenes/VFX/laser_beam.tscn")
 @export var fortify_effect_scene := preload("res://Scenes/VFX/FortifyAura.tscn")
 var _fortify_aura: Node = null
 
@@ -148,6 +149,9 @@ var tile_pos: Vector2i:
 		emit_signal("tile_changed", self, _tile_pos)
 	get:
 		return _tile_pos
+
+var _pending_fortify_beams: int = 0
+var _fortify_finishing: bool = false
 		
 func _ready():
 	prev_tile_pos = tile_pos
@@ -185,9 +189,7 @@ func _ready():
 
 	if step_player and step_sfx:
 		step_player.stream = step_sfx
-		
-	_ensure_zap_player()	
-
+	
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
 	print("DEBUG: Listing all units in the 'Units' group. Total: ", units.size())
@@ -1609,272 +1611,186 @@ func _enemies_in_range(range_tiles: int) -> Array:
 	return results
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Public ability
-var _web_lightning_count: int = 0
-const _WEB_LIGHTNING_MAX := 8  # cap on-screen web bolts at once
-
+# 8) Foritfy
 func fortify() -> void:
-	gain_xp(25)
 	is_fortified = true
-	print("Brute %s is now fortified." % name)
+	gain_xp(25)
 
-	# Safe attack anim (never hangs on web)
-	var sprite: AnimatedSprite2D = $AnimatedSprite2D
-	if sprite:
-		var sf: SpriteFrames = sprite.sprite_frames
-		var has_attack: bool = sf != null and sf.has_animation("attack")
-		var has_default: bool = sf != null and sf.has_animation("default")
-
-		if has_attack:
-			sprite.play("attack")
-			# Skip this SFX on web to avoid audio lockups
-			if not _is_web():
-				$AudioStreamPlayer2D.play()
-
-			var t: SceneTreeTimer = get_tree().create_timer(1.5)
-			while true:
-				var anim_done: bool = (not sprite.is_playing()) or (sprite.animation == "default")
-				var timed_out: bool = t.time_left <= 0.0
-				if anim_done or timed_out:
-					break
-				await get_tree().process_frame
-
-			if has_default:
-				sprite.play("default")
-			else:
-				sprite.stop()
-		else:
-			if has_default:
-				sprite.play("default")
-			else:
-				sprite.stop()
-
-	# Optional aura
-	if fortify_effect_scene:
-		if _fortify_aura and is_instance_valid(_fortify_aura):
-			_fortify_aura.queue_free()
-		_fortify_aura = fortify_effect_scene.instantiate()
-		add_child(_fortify_aura)
-		_fortify_aura.position = Vector2.ZERO
-		_fortify_aura.z_index = -1
-		if _fortify_aura.has_method("set_emitting"):
-			_fortify_aura.set("emitting", true)
-
-	# Lock input for the whole sequence
 	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
-	var unlock_done := false
 	if tilemap:
 		tilemap.input_locked = true
 
-	# Burst logic: light but multi on web; fuller on desktop
-	if _is_web():
-		var web_bursts := 5
-		for i in range(web_bursts):
-			await _fortify_shock_burst_web()
-			# deterministic spacing so the browser “breathes”
-			await get_tree().create_timer(0.12).timeout
-			
-	else:
-		var bursts := 5
-		var watchdog := get_tree().create_timer(3.0)
-		for i in range(bursts):
-			if watchdog.time_left <= 0.0:
-				break
-			await _fortify_shock_burst_desktop()
+	var range := _get_fortify_range(5)
+	var targets := _enemies_in_range(range)
 
-	# Always unlock
-	if tilemap and tilemap.input_locked:
+	var sprite: AnimatedSprite2D = $AnimatedSprite2D
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("attack"):
+		sprite.play("attack")
+
+	var dmg_each = max(1, self.damage)
+	var travel_time := 2.0
+	var arc_height := 160.0
+
+	var launch_gap: float
+	if _is_web():
+		launch_gap = 0.06
+	else:
+		launch_gap = 0.10
+
+	# reset pending & finishing flags
+	_pending_fortify_beams = 0
+	_fortify_finishing = false
+
+	for i in range(targets.size()):
+		var u = targets[i]
+		if not is_instance_valid(u): 
+			continue
+		if u.health <= 0: 
+			continue
+
+		_pending_fortify_beams += 1
+		_launch_fortify_beam(u, dmg_each, travel_time, arc_height, Color(1,0,0,1), i * launch_gap)
+
+	# if nothing actually launched (all targets invalid), finish immediately
+	if _pending_fortify_beams == 0:
+		_finish_fortify(tilemap, sprite)
+
+func _launch_fortify_beam(u: Node, dmg_each: int, travel_time: float, arc_height: float, col: Color, launch_delay: float) -> void:
+	# optional stagger before launching this particular beam
+	if launch_delay > 0.0:
+		await get_tree().create_timer(launch_delay).timeout
+
+	# re-validate right before launch
+	if not is_instance_valid(u) or u.health <= 0:
+		_on_fortify_beam_done()
+		return
+
+	# ── start from THIS UNIT (slightly above its sprite)
+	var start_pos := global_position + Vector2(0, Y_OFFSET)
+
+	# end point at target (slightly above sprite center)
+	var end_pos = u.global_position
+
+	# draw the beam prefab (plays its own SFX) and let it “fly” for travel_time
+	_spawn_laser_beam(start_pos, end_pos, travel_time, arc_height, col)
+
+	# when the beam "arrives", explode + apply damage, then mark done
+	var t := get_tree().create_timer(travel_time)
+	t.timeout.connect(func():
+		if ExplosionScene != null:
+			var vfx := ExplosionScene.instantiate()
+			vfx.global_position = end_pos
+			get_tree().get_current_scene().add_child(vfx)
+
+		if is_instance_valid(u) and u.health > 0:
+			u.take_damage(dmg_each)
+			if u.has_method("flash_white"): u.flash_white()
+			if u.has_method("shake"): u.shake()
+
+		_on_fortify_beam_done()
+	)
+
+func _on_fortify_beam_done() -> void:
+	_pending_fortify_beams = max(0, _pending_fortify_beams - 1)
+	if _pending_fortify_beams == 0 and not _fortify_finishing:
+		_fortify_finishing = true
+		var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+		var sprite: AnimatedSprite2D = $AnimatedSprite2D
+		_finish_fortify(tilemap, sprite)
+
+func _finish_fortify(tilemap: TileMap, sprite: AnimatedSprite2D) -> void:
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("default"):
+		sprite.play("default")
+
+	if tilemap:
 		tilemap.input_locked = false
-		unlock_done = true
-	if not unlock_done and tilemap:
-		call_deferred("_force_unlock_input")
 
 	has_attacked = true
 	has_moved   = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-func _force_unlock_input() -> void:
-	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
-	if tilemap:
-		tilemap.input_locked = false
-
-# ─────────────────────────────────────────────────────────────────────────────
-# WEB burst: damage + tiny instant visual nudge; no timers/sounds/Line2D
-func _fortify_shock_burst_web() -> void:
-	# small pre-yield helps the browser flush the previous frame
-	await get_tree().process_frame
-
-	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
-	if tilemap == null:
+func _spawn_laser_beam(from_pos: Vector2, to_pos: Vector2, travel_time: float, arc_height: float, color: Color) -> void:
+	if LaserBeamScene == null:
 		return
 
-	var range := _get_fortify_range(5)
-	var enemies := _enemies_in_range(range)
-	if enemies.is_empty():
-		# still yield once so bursts remain visibly separate
-		await get_tree().process_frame
+	var beam := LaserBeamScene.instantiate()
+	get_tree().get_current_scene().add_child(beam)
+
+	# grab parts
+	var line: Line2D = beam.get_node_or_null("Line2D")
+	if line == null:
+		beam.queue_free()
 		return
+	line.clear_points()
+	line.width = 1
+	line.default_color = color
+	line.z_index = 5000
 
-	# throttle: don’t draw lines for more than N enemies per burst
-	var max_targets := 4
-	var count := 0
+	var sfx: AudioStreamPlayer2D = beam.get_node_or_null("SFX")
+	if sfx:
+		sfx.global_position = from_pos
+		sfx.pitch_scale = 1.0
+		sfx.play()
 
-	for u in enemies:
-		if count >= max_targets:
-			break
-		if not is_instance_valid(u) or u.health <= 0:
-			continue
+	# quadratic bezier control
+	var mid := (from_pos + to_pos) * 0.5
+	var ctrl := mid
+	ctrl.y -= arc_height
 
-		# damage first
-		u.take_damage(int(self.damage / 5))
-		if u.has_method("flash_white"):
-			u.flash_white()
+	# progressive draw along the path
+	var steps := 64
+	var step_time := travel_time / float(steps)
 
-		# quick + cheap web lightning (no audio)
-		var start_world := global_position + Vector2(0, Y_OFFSET)
-		var end_world   = u.global_position + Vector2(0, -16)
-		var d := start_world.distance_to(end_world)
-		var seg = clamp(int(d / 50.0) + 4, 5, 7)
-		var amp = clamp(d * 0.05, 8.0, 14.0)
-		var life := 0.10  # brief
+	var i := 0
+	while i <= steps:
+		var t := float(i) / float(steps)
+		var one := 1.0 - t
+		var p := one * one * from_pos + 2.0 * one * t * ctrl + t * t * to_pos
+		line.add_point(p)
+		await get_tree().create_timer(step_time).timeout
+		i += 1
 
-		_draw_lightning_web(start_world, end_world, seg, amp, life)
-		
-		count += 1
-		# micro-breath so many enemies don’t stall a frame
-		await get_tree().process_frame
+	# fade and clean up
+	var tw := line.create_tween()
+	tw.tween_property(line, "modulate:a", 0.0, 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		if is_instance_valid(beam):
+			beam.queue_free())
 
-	# one more yield so the next outer burst is perceptible
-	await get_tree().process_frame
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DESKTOP burst: optional lightning + sfx + pacing
-func _fortify_shock_burst_desktop() -> void:
-	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
-	if tilemap == null:
-		return
-
-	var range := _get_fortify_range(5)
-	var enemies := _enemies_in_range(range)
-	if enemies.is_empty():
-		return
-
-	var per_enemy_delay: float = 0.25
-
-	for i in range(enemies.size()):
-		var u = enemies[i]
-		if not is_instance_valid(u) or u.health <= 0:
-			continue
-
-		var start_world: Vector2 = global_position; start_world.y += Y_OFFSET
-		var end_world: Vector2   = u.global_position; end_world.y -= 16
-		var d_world := start_world.distance_to(end_world)
-		var segments: int = clamp(int(d_world / 40.0) + 3, 5, 12)
-		var amplitude: float = clamp(d_world * 0.06, 8.0, 22.0)
-		var life: float = clamp(0.08 + d_world / 1200.0, 0.08, 0.2)
-
-		_draw_lightning(start_world, end_world, segments, amplitude, life)
-		_play_electric_sfx(start_world)
-
-		var shock_dmg: int = int(self.damage / 5)
-		u.take_damage(shock_dmg)
-		if u.has_method("flash_white"): u.flash_white()
-		if u.has_method("play_shocked_effect"): u.play_shocked_effect()
-
-		# desktop can afford a tiny pacing delay per enemy
-		await get_tree().create_timer(per_enemy_delay).timeout
-
-# ─────────────────────────────────────────────────────────────────────────────
-func _play_electric_sfx(pos: Vector2) -> void:
-	if sfx_player == null or not is_instance_valid(sfx_player):
-		return
-
-	# Always restart so every strike makes a sound
-	if sfx_player.playing:
-		sfx_player.stop()
-
-	sfx_player.bus = "SFX"
-	sfx_player.stream = ELECTRIC_SFX
-	sfx_player.global_position = pos
-
-	# Use narrow pitch jitter to keep web safe, desktop still varied
-	if _is_web():
-		sfx_player.pitch_scale = randf_range(0.98, 1.02)
-	else:
-		sfx_player.pitch_scale = randf_range(0.95, 1.05)
-
-	sfx_player.play(0.0)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Lightning: desktop only (no-ops on web)
-func _draw_lightning(start_pos: Vector2, end_pos: Vector2, segments: int = 5, amplitude: float = 10.0, lifetime: float = 0.12) -> void:
-	if _is_web():
-		return
-
+func _draw_laser_beam(from_pos: Vector2, to_pos: Vector2, lifetime: float = 2) -> void:
 	var line := Line2D.new()
-	line.width = SHOCK_WIDTH
-	line.z_index = 4000
-	line.default_color = SHOCK_COLOR
+	line.width = 1
+	line.z_index = 5000
+	line.default_color = Color(1, 0, 0, 1)  # red
 	get_tree().get_current_scene().add_child(line)
 
-	var dir := (end_pos - start_pos)
-	var len := dir.length()
-	if len < 0.001:
-		line.add_point(start_pos)
-		line.add_point(end_pos)
-	else:
-		var n := dir / len
-		var perp := Vector2(-n.y, n.x)
-		for i in range(segments + 1):
-			var t := float(i) / float(segments)
-			var base := start_pos.lerp(end_pos, t)
-			var falloff := sin(PI * t)
-			var jitter_mag := randf_range(-amplitude, amplitude) * falloff
-			var jitter := perp * jitter_mag
-			line.add_point(base + jitter)
+	# --- curve shape ---
+	var arc_height := 80.0                  # raise/lower the arc
+	var mid := (from_pos + to_pos) * 0.5
+	var ctrl := mid
+	ctrl.y -= arc_height                     # apex above the middle
 
+	# --- draw progressively along the curve ---
+	var point_count := 48
+	var draw_time := 0.12                    # how long the “tracer” takes to grow
+	var step := draw_time / float(point_count)
+
+	for i in range(point_count + 1):
+		var t := float(i) / float(point_count)
+		# Quadratic Bezier: B(t) = (1-t)^2*P0 + 2(1-t)t*C + t^2*P1
+		var one_minus := 1.0 - t
+		var p := one_minus * one_minus * from_pos \
+			+ 2.0 * one_minus * t * ctrl \
+			+ t * t * to_pos
+		line.add_point(p)
+		await get_tree().create_timer(step).timeout
+
+	# --- fade out and clean up ---
 	var tw := line.create_tween()
 	tw.tween_property(line, "modulate:a", 0.0, lifetime).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func():
 		if is_instance_valid(line):
 			line.queue_free()
-	)
-
-func _draw_lightning_web(start_pos: Vector2, end_pos: Vector2, segments: int = 6, amplitude: float = 10.0, lifetime: float = 0.1) -> void:
-	if _web_lightning_count >= _WEB_LIGHTNING_MAX:
-		return
-	_web_lightning_count += 1
-
-	var line := Line2D.new()
-	line.width = SHOCK_WIDTH
-	line.z_index = 4000
-	line.default_color = SHOCK_COLOR
-	get_tree().get_current_scene().add_child(line)
-
-	var dir := (end_pos - start_pos)
-	var len := dir.length()
-	if len < 0.001:
-		line.points = PackedVector2Array([start_pos, end_pos])
-	else:
-		var n := dir / len
-		var perp := Vector2(-n.y, n.x)
-		var pts := PackedVector2Array()
-		for i in range(segments + 1):
-			var t := float(i) / float(segments)
-			var base := start_pos.lerp(end_pos, t)
-			# stronger jitter in middle, lighter at ends
-			var falloff := sin(PI * t)
-			var jitter := perp * randf_range(-amplitude, amplitude) * falloff
-			pts.append(base + jitter)
-		line.points = pts
-
-	var tw := line.create_tween()
-	tw.tween_property(line, "modulate:a", 0.0, lifetime).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func():
-		if is_instance_valid(line):
-			line.queue_free()
-		_web_lightning_count = max(0, _web_lightning_count - 1)
 	)
 
 

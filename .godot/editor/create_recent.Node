@@ -1,3 +1,5 @@
+AudioStreamPlayer2D
+Line2D
 Control
 Button
 HBoxContainer
@@ -7,7 +9,6 @@ ColorRect
 CenterContainer
 RichTextLabel
 Sprite2D
-Line2D
 TextureButton
 GridContainer
 PanelContainer
