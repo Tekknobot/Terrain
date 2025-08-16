@@ -185,8 +185,6 @@ func _ready():
 	if step_player and step_sfx:
 		step_player.stream = step_sfx
 		
-	_ensure_zap_player()	
-
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
 	print("DEBUG: Listing all units in the 'Units' group. Total: ", units.size())
@@ -1546,15 +1544,6 @@ const ELECTRIC_SFX := preload("res://Audio/SFX/electric.mp3") # <— prefer ogg 
 
 var _zap_player: AudioStreamPlayer2D
 
-func _ensure_zap_player() -> void:
-	if _zap_player and is_instance_valid(_zap_player):
-		return
-	_zap_player = AudioStreamPlayer2D.new()
-	_zap_player.bus = "SFX"
-	_zap_player.stream = ELECTRIC_SFX
-	# Keep polyphony sane on Web by reusing a single player
-	add_child(_zap_player)
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Feature detection
 func _is_web() -> bool:
@@ -1737,7 +1726,8 @@ func _fortify_shock_burst_web() -> void:
 		var life := 0.10  # brief
 
 		_draw_lightning_web(start_world, end_world, seg, amp, life)
-
+		_play_electric_sfx(start_world)
+		
 		count += 1
 		# micro-breath so many enemies don’t stall a frame
 		await get_tree().process_frame
@@ -1784,17 +1774,23 @@ func _fortify_shock_burst_desktop() -> void:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SFX: desktop only (no-ops on web)
+# Plays once per strike (allows overlap) on the SFX bus, then auto-frees.
 func _play_electric_sfx(pos: Vector2) -> void:
-	if _is_web():
-		return
-	if _zap_player == null or not is_instance_valid(_zap_player):
-		_zap_player = AudioStreamPlayer2D.new()
-		_zap_player.bus = "SFX"
-		_zap_player.stream = ELECTRIC_SFX
-		add_child(_zap_player)
-	_zap_player.global_position = pos
-	_zap_player.pitch_scale = randf_range(0.95, 1.05)  # safe on desktop
-	_zap_player.play(0.0)
+	var p := AudioStreamPlayer2D.new()
+	p.bus = "SFX"
+	p.stream = ELECTRIC_SFX
+	p.global_position = pos
+
+	add_child(p)
+	p.play(0.0)
+
+	# Auto-cleanup after a short lifetime (don’t rely on finished for streams)
+	var lifetime := 0.45  # keep brief to avoid piling up on Web
+	var t := get_tree().create_timer(lifetime)
+	t.timeout.connect(func():
+		if is_instance_valid(p):
+			p.queue_free()
+	)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lightning: desktop only (no-ops on web)
