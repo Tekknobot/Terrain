@@ -184,6 +184,8 @@ func _ready():
 
 	if step_player and step_sfx:
 		step_player.stream = step_sfx
+		
+	_ensure_zap_player()	
 
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
@@ -402,7 +404,7 @@ func auto_attack_adjacent():
 			if tilemap.has_method("play_splash_sound"):
 				tilemap.play_splash_sound(target_world)
 			if unit.has_method("apply_water_effect"):
-				unit.apply_water_effect(push_pos)
+				apply_water_effect(unit)
 
 			# Collisions on water tile
 			if tilemap.is_tile_occupied(push_pos):
@@ -1539,66 +1541,27 @@ func _on_projectile_impact(target_tile: Vector2i) -> void:
 # 6) Brute – Fortify (LOCAL SHOCKS FROM THE UNIT)
 const SHOCK_WIDTH  := 1               # Line2D width
 const SHOCK_COLOR  := Color(0.6, 0.95, 1.0, 1.0)  # electric cyan
-const ELECTRIC_SFX := preload("res://Audio/SFX/electric.mp3") # <- update path if needed
+# At top (keep the preload but switch to OGG if you can)
+const ELECTRIC_SFX := preload("res://Audio/SFX/electric.mp3") # <— prefer ogg on Web
 
-func _play_electric_sfx(at_pos: Vector2) -> void:
-	var p := AudioStreamPlayer2D.new()
-	p.stream = ELECTRIC_SFX
-	p.position = at_pos
-	p.bus = "SFX"  # optional: route to your SFX bus
-	p.volume_db = -2.0
-	p.pitch_scale = randf_range(0.95, 1.05)  # light variation
-	get_tree().get_current_scene().add_child(p)
-	p.play()
-	# Auto-cleanup when done
-	p.finished.connect(func():
-		if is_instance_valid(p):
-			p.queue_free()
-	)
+var _zap_player: AudioStreamPlayer2D
 
-func fortify() -> void:
-	gain_xp(25)
+func _ensure_zap_player() -> void:
+	if _zap_player and is_instance_valid(_zap_player):
+		return
+	_zap_player = AudioStreamPlayer2D.new()
+	_zap_player.bus = "SFX"
+	_zap_player.stream = ELECTRIC_SFX
+	# Keep polyphony sane on Web by reusing a single player
+	add_child(_zap_player)
 
-	is_fortified = true
-	print("Brute ", name, " is now fortified.")
+# ─────────────────────────────────────────────────────────────────────────────
+# Feature detection
+func _is_web() -> bool:
+	return OS.has_feature("web") or OS.has_feature("HTML5")
 
-	# Little attack pose to “cast” the fortify
-	var sprite := $AnimatedSprite2D
-	if sprite:
-		sprite.play("attack")
-		$AudioStreamPlayer2D.play()
-		await sprite.animation_finished
-		sprite.play("default")
-
-	# Optional aura VFX (unchanged from your version, but parented to unit)
-	if fortify_effect_scene:
-		if _fortify_aura and is_instance_valid(_fortify_aura):
-			_fortify_aura.queue_free()
-			_fortify_aura = null
-
-		_fortify_aura = fortify_effect_scene.instantiate()
-		add_child(_fortify_aura)
-		_fortify_aura.position = Vector2.ZERO
-		_fortify_aura.z_index = -1
-
-		var p := _fortify_aura as Node
-		if p and p.has_method("set_emitting"):
-			p.set("emitting", true)
-		if _fortify_aura.has_method("set_top_level"):
-			_fortify_aura.set("top_level", false)
-
-	# === NEW: Emit lightning shocks from THIS UNIT to enemies in range ===
-	for i in 5:
-		await _fortify_shock_burst()
-
-	# End-of-action flags & tint
-	has_attacked = true
-	has_moved   = true
-	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
-
-
-# === Helpers ===
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Ability config lookups (kept local to this script)
 func _get_fortify_range(default_val: int = 5) -> int:
 	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap == null:
@@ -1606,20 +1569,20 @@ func _get_fortify_range(default_val: int = 5) -> int:
 
 	var range := default_val
 
+	# Try TurnManager.ability_ranges["Fortify"]
 	var tm := get_node_or_null("/root/TurnManager")
 	if tm and tm.has_method("get") and typeof(tm.get("ability_ranges")) == TYPE_DICTIONARY:
 		var ar: Dictionary = tm.get("ability_ranges")
 		if ar.has("Fortify"):
 			range = int(ar["Fortify"])
 
+	# Fallback: tilemap.ability_ranges["Fortify"]
 	if range <= 0 and typeof(tilemap.ability_ranges) == TYPE_DICTIONARY and tilemap.ability_ranges.has("Fortify"):
 		range = int(tilemap.ability_ranges["Fortify"])
 
 	if range <= 0:
 		range = default_val
-
 	return range
-
 
 func _enemies_in_range(range_tiles: int) -> Array:
 	var results: Array = []
@@ -1628,109 +1591,217 @@ func _enemies_in_range(range_tiles: int) -> Array:
 		return results
 
 	for u in get_tree().get_nodes_in_group("Units"):
-		if not is_instance_valid(u): continue
-		if u.is_player == is_player: continue
-		if u.health <= 0: continue
+		if not is_instance_valid(u):
+			continue
+		if u.is_player == is_player:
+			continue
+		if u.health <= 0:
+			continue
 
-		# Use *live* tile by sampling world position (handles moving sprites/offsets)
+		# sample current world position (safer with offsets/motion)
 		var t := tilemap.local_to_map(tilemap.to_local(u.global_position - Vector2(0, u.Y_OFFSET)))
-		if not tilemap.is_within_bounds(t): continue
-
+		if not tilemap.is_within_bounds(t):
+			continue
 		var dist = abs(t.x - tile_pos.x) + abs(t.y - tile_pos.y)
 		if dist <= range_tiles:
 			results.append(u)
 	return results
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Public ability
+var _web_lightning_count: int = 0
+const _WEB_LIGHTNING_MAX := 8  # cap on-screen web bolts at once
 
-# Burst shocks from the Brute to every valid enemy in Fortify range
-func _fortify_shock_burst() -> void:
+func fortify() -> void:
+	gain_xp(25)
+	is_fortified = true
+	print("Brute %s is now fortified." % name)
+
+	# Safe attack anim (never hangs on web)
+	var sprite: AnimatedSprite2D = $AnimatedSprite2D
+	if sprite:
+		var sf: SpriteFrames = sprite.sprite_frames
+		var has_attack: bool = sf != null and sf.has_animation("attack")
+		var has_default: bool = sf != null and sf.has_animation("default")
+
+		if has_attack:
+			sprite.play("attack")
+			# Skip this SFX on web to avoid audio lockups
+			if not _is_web():
+				$AudioStreamPlayer2D.play()
+
+			var t: SceneTreeTimer = get_tree().create_timer(1.5)
+			while true:
+				var anim_done: bool = (not sprite.is_playing()) or (sprite.animation == "default")
+				var timed_out: bool = t.time_left <= 0.0
+				if anim_done or timed_out:
+					break
+				await get_tree().process_frame
+
+			if has_default:
+				sprite.play("default")
+			else:
+				sprite.stop()
+		else:
+			if has_default:
+				sprite.play("default")
+			else:
+				sprite.stop()
+
+	# Optional aura
+	if fortify_effect_scene:
+		if _fortify_aura and is_instance_valid(_fortify_aura):
+			_fortify_aura.queue_free()
+		_fortify_aura = fortify_effect_scene.instantiate()
+		add_child(_fortify_aura)
+		_fortify_aura.position = Vector2.ZERO
+		_fortify_aura.z_index = -1
+		if _fortify_aura.has_method("set_emitting"):
+			_fortify_aura.set("emitting", true)
+
+	# Lock input for the whole sequence
 	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
-	if tilemap == null: return
+	var unlock_done := false
+	if tilemap:
+		tilemap.input_locked = true
+
+	# Burst logic: light but multi on web; fuller on desktop
+	if _is_web():
+		var web_bursts := 5
+		for i in range(web_bursts):
+			await _fortify_shock_burst_web()
+			# deterministic spacing so the browser “breathes”
+			await get_tree().create_timer(0.12).timeout
+	else:
+		var bursts := 5
+		var watchdog := get_tree().create_timer(3.0)
+		for i in range(bursts):
+			if watchdog.time_left <= 0.0:
+				break
+			await _fortify_shock_burst_desktop()
+
+	# Always unlock
+	if tilemap and tilemap.input_locked:
+		tilemap.input_locked = false
+		unlock_done = true
+	if not unlock_done and tilemap:
+		call_deferred("_force_unlock_input")
+
+	has_attacked = true
+	has_moved   = true
+	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
+
+func _force_unlock_input() -> void:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap:
+		tilemap.input_locked = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WEB burst: damage + tiny instant visual nudge; no timers/sounds/Line2D
+func _fortify_shock_burst_web() -> void:
+	# small pre-yield helps the browser flush the previous frame
+	await get_tree().process_frame
+
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return
+
+	var range := _get_fortify_range(5)
+	var enemies := _enemies_in_range(range)
+	if enemies.is_empty():
+		# still yield once so bursts remain visibly separate
+		await get_tree().process_frame
+		return
+
+	# throttle: don’t draw lines for more than N enemies per burst
+	var max_targets := 4
+	var count := 0
+
+	for u in enemies:
+		if count >= max_targets:
+			break
+		if not is_instance_valid(u) or u.health <= 0:
+			continue
+
+		# damage first
+		u.take_damage(int(self.damage / 6))
+		if u.has_method("flash_white"):
+			u.flash_white()
+
+		# quick + cheap web lightning (no audio)
+		var start_world := global_position + Vector2(0, Y_OFFSET)
+		var end_world   = u.global_position + Vector2(0, -16)
+		var d := start_world.distance_to(end_world)
+		var seg = clamp(int(d / 50.0) + 4, 5, 7)
+		var amp = clamp(d * 0.05, 8.0, 14.0)
+		var life := 0.10  # brief
+
+		_draw_lightning_web(start_world, end_world, seg, amp, life)
+
+		count += 1
+		# micro-breath so many enemies don’t stall a frame
+		await get_tree().process_frame
+
+	# one more yield so the next outer burst is perceptible
+	await get_tree().process_frame
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DESKTOP burst: optional lightning + sfx + pacing
+func _fortify_shock_burst_desktop() -> void:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return
 
 	var range := _get_fortify_range(5)
 	var enemies := _enemies_in_range(range)
 	if enemies.is_empty():
 		return
 
-	tilemap.input_locked = true
+	var per_enemy_delay: float = 0.06
 
-	# Zap them with tiny staggers for juicy feel
-	for i in enemies.size():
+	for i in range(enemies.size()):
 		var u = enemies[i]
-		if not is_instance_valid(u):
-			continue
-		if u.health <= 0:
+		if not is_instance_valid(u) or u.health <= 0:
 			continue
 
-		var start_world: Vector2 = global_position
-		start_world.y += Y_OFFSET
-
-		var end_world: Vector2 = u.global_position
-		end_world.y -= 16
-
-		# distance-based look
+		var start_world: Vector2 = global_position; start_world.y += Y_OFFSET
+		var end_world: Vector2   = u.global_position; end_world.y -= 16
 		var d_world := start_world.distance_to(end_world)
-		var segments = clamp(int(d_world / 40.0) + 3, 5, 12)
-		var amplitude = clamp(d_world * 0.06, 8.0, 22.0)
-		var life = clamp(0.08 + d_world / 1200.0, 0.1, 0.2)
+		var segments: int = clamp(int(d_world / 40.0) + 3, 5, 12)
+		var amplitude: float = clamp(d_world * 0.06, 8.0, 22.0)
+		var life: float = clamp(0.08 + d_world / 1200.0, 0.08, 0.2)
 
 		_draw_lightning(start_world, end_world, segments, amplitude, life)
 		_play_electric_sfx(start_world)
-		
-		# Damage & feedback - "same way" as your previous hits
-		var shock_dmg = self.damage / 5
+
+		var shock_dmg: int = int(self.damage / 5)
 		u.take_damage(shock_dmg)
 		if u.has_method("flash_white"): u.flash_white()
 		if u.has_method("play_shocked_effect"): u.play_shocked_effect()
 
-		await get_tree().create_timer(0.1).timeout
+		# desktop can afford a tiny pacing delay per enemy
+		await get_tree().create_timer(per_enemy_delay).timeout
 
-	tilemap.input_locked = false
+# ─────────────────────────────────────────────────────────────────────────────
+# SFX: desktop only (no-ops on web)
+func _play_electric_sfx(pos: Vector2) -> void:
+	if _is_web():
+		return
+	if _zap_player == null or not is_instance_valid(_zap_player):
+		_zap_player = AudioStreamPlayer2D.new()
+		_zap_player.bus = "SFX"
+		_zap_player.stream = ELECTRIC_SFX
+		add_child(_zap_player)
+	_zap_player.global_position = pos
+	_zap_player.pitch_scale = randf_range(0.95, 1.05)  # safe on desktop
+	_zap_player.play(0.0)
 
-# Play a shocked effect on this unit (flash, shake, sfx, vfx)
-func play_shocked_effect():
-	if not is_instance_valid(self):
+# ─────────────────────────────────────────────────────────────────────────────
+# Lightning: desktop only (no-ops on web)
+func _draw_lightning(start_pos: Vector2, end_pos: Vector2, segments: int = 5, amplitude: float = 10.0, lifetime: float = 0.12) -> void:
+	if _is_web():
 		return
 
-	# === 1. Shake jitter ===
-	var original_position := global_position
-	var shake_amount := 6.0
-	var tween := create_tween()
-	for i in range(3):  # 3 quick jolts
-		var offset := Vector2(randf_range(-shake_amount, shake_amount), randf_range(-shake_amount, shake_amount))
-		tween.tween_property(self, "global_position", original_position + offset, 0.05)
-		tween.tween_property(self, "global_position", original_position, 0.05)
-	# Safety: reset position at the end
-	tween.tween_callback(func():
-		if is_instance_valid(self):
-			global_position = original_position
-	)
-
-	# === 2. Play zap sound ===
-	var zap_sfx := preload("res://Audio/SFX/electric.mp3")  # adjust path
-	var p := AudioStreamPlayer2D.new()
-	p.stream = zap_sfx
-	p.position = global_position
-	p.bus = "SFX"
-	p.pitch_scale = randf_range(0.9, 1.1)
-	get_tree().get_current_scene().add_child(p)
-	p.play()
-	p.finished.connect(func():
-		if is_instance_valid(p):
-			p.queue_free())
-
-	# === 3. Optional: spark VFX ===
-	var spark_scene := preload("res://Scenes/VFX/Spark.tscn")  # your spark effect scene
-	if spark_scene:
-		var spark = spark_scene.instantiate()
-		spark.global_position = global_position
-		spark.global_position.y -= 16
-		spark.emitting = true
-		get_tree().get_current_scene().add_child(spark)
-		
-
-# Create a jagged Line2D between two points and fade it quickly.
-func _draw_lightning(start_pos: Vector2, end_pos: Vector2, segments: int = 5, amplitude: float = 10.0, lifetime: float = 0.12) -> void:
 	var line := Line2D.new()
 	line.width = SHOCK_WIDTH
 	line.z_index = 4000
@@ -1748,7 +1819,7 @@ func _draw_lightning(start_pos: Vector2, end_pos: Vector2, segments: int = 5, am
 		for i in range(segments + 1):
 			var t := float(i) / float(segments)
 			var base := start_pos.lerp(end_pos, t)
-			var falloff := sin(PI * t)  # stronger jitter mid-bolt
+			var falloff := sin(PI * t)
 			var jitter_mag := randf_range(-amplitude, amplitude) * falloff
 			var jitter := perp * jitter_mag
 			line.add_point(base + jitter)
@@ -1759,6 +1830,43 @@ func _draw_lightning(start_pos: Vector2, end_pos: Vector2, segments: int = 5, am
 		if is_instance_valid(line):
 			line.queue_free()
 	)
+
+func _draw_lightning_web(start_pos: Vector2, end_pos: Vector2, segments: int = 6, amplitude: float = 10.0, lifetime: float = 0.1) -> void:
+	if _web_lightning_count >= _WEB_LIGHTNING_MAX:
+		return
+	_web_lightning_count += 1
+
+	var line := Line2D.new()
+	line.width = SHOCK_WIDTH
+	line.z_index = 4000
+	line.default_color = SHOCK_COLOR
+	get_tree().get_current_scene().add_child(line)
+
+	var dir := (end_pos - start_pos)
+	var len := dir.length()
+	if len < 0.001:
+		line.points = PackedVector2Array([start_pos, end_pos])
+	else:
+		var n := dir / len
+		var perp := Vector2(-n.y, n.x)
+		var pts := PackedVector2Array()
+		for i in range(segments + 1):
+			var t := float(i) / float(segments)
+			var base := start_pos.lerp(end_pos, t)
+			# stronger jitter in middle, lighter at ends
+			var falloff := sin(PI * t)
+			var jitter := perp * randf_range(-amplitude, amplitude) * falloff
+			pts.append(base + jitter)
+		line.points = pts
+
+	var tw := line.create_tween()
+	tw.tween_property(line, "modulate:a", 0.0, lifetime).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		if is_instance_valid(line):
+			line.queue_free()
+		_web_lightning_count = max(0, _web_lightning_count - 1)
+	)
+
 
 # 7) Helicopter – Airlift (local)
 func airlift_pick(ally: Node) -> void:
