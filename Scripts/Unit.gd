@@ -72,8 +72,21 @@ func _cleanup_arc_trails() -> void:
 	_active_arc_lines.clear()
 
 func _exit_tree() -> void:
-	# safety: if the unit leaves the tree for any reason, nuke its trails
 	_cleanup_arc_trails()
+	# NEW: if something was waiting on us, nudge it so awaits don't hang
+	if is_connected("movement_finished", Callable(self, "_on_movement_finished")):
+		# Harmless emit; listeners will just resume
+		emit_signal("movement_finished")
+		
+	# NEW: fail-safe – if TileMap has us selected, clear it
+	var tilemap := get_tree().get_current_scene().get_node("TileMap")
+	if tilemap and "selected_unit" in tilemap and tilemap.selected_unit == self:
+		if tilemap.has_method("_on_selected_unit_died"):
+			tilemap._on_selected_unit_died()
+		# also make sure input isn't left locked
+		if "input_locked" in tilemap:
+			tilemap.input_locked = false
+
 
 # Ensure web_grid is initialized once
 func _init():
@@ -763,46 +776,77 @@ func update_xp_bar():
 	if xp_bar:
 		xp_bar.value = float(xp) / max_xp * 100.0
 
-func die():
+func die() -> void:
+	# ── graceful early exit if we're somehow already dying
+	if not is_inside_tree():
+		return
+
+	# 1) end any pending "action" guard on the turn manager
 	var tm := get_node_or_null("/root/TurnManager")
 	if tm and tm.has_method("end_action"):
-		tm.end_action()   # safe: max(0, …) in TurnManager
-			
-	# Free any active fortify aura before dying
-	if _fortify_aura:
+		tm.end_action()
+
+	# 2) unlock input + clear selection immediately (prevents UI hangs)
+	var tilemap := get_tree().get_current_scene().get_node("TileMap")
+	if tilemap:
+		if "input_locked" in tilemap:
+			tilemap.input_locked = false
+		if "selected_unit" in tilemap and tilemap.selected_unit == self and tilemap.has_method("_on_selected_unit_died"):
+			tilemap._on_selected_unit_died()
+
+	# 3) stop any long-running ability visuals/timers (e.g., Fortify beams)
+	_abort_fortify_if_needed()
+
+	# 4) free any fortify aura if present
+	if _fortify_aura and is_instance_valid(_fortify_aura):
 		_fortify_aura.queue_free()
 		_fortify_aura = null
 
+	# 5) stats bookkeeping
 	if is_player:
 		TurnManager.player_units_lost += 1
-		
-	_abort_fortify_if_needed()	
 
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
+	# 6) boom (visual feedback) at our current spot
+	var explosion := preload("res://Scenes/VFX/Explosion.tscn").instantiate()
 	explosion.position = global_position + Vector2(0, -8)
-	tilemap.add_child(explosion)
+	if tilemap:
+		tilemap.add_child(explosion)
+	else:
+		get_tree().get_current_scene().add_child(explosion)
 
 	await get_tree().process_frame
 
-	# Store tile before anything
-	var death_tile = tile_pos
-	var death_scene = get_tree().get_current_scene()
+	# 7) cache where we died + scene ref for drops
+	var death_tile := tile_pos
+	var death_scene := get_tree().get_current_scene()
 
+	# 8) tiny defer to keep visuals snappy
 	await get_tree().process_frame
 
+	# 9) spawn a pickup burst somewhere valid on the grid
 	_spawn_burst(death_scene, death_tile)
 
-	_cleanup_arc_trails()   # <-- add this
+	# 10) if anyone was awaiting our movement or completion, release them
+	if is_connected("movement_finished", Callable(self, "_on_movement_finished")):
+		emit_signal("movement_finished")
+
+	# 11) cleanup any registered arc/line trails we drew
+	_cleanup_arc_trails()
+
+	# 12) remove the unit
 	queue_free()
 
-	if tilemap.selected_unit == self:
-		tilemap._on_selected_unit_died()
-	await get_tree().process_frame
+	# 13) keep nav/pathing fresh and make absolutely sure input is unlocked
+	if tilemap:
+		if tilemap.has_method("update_astar_grid"):
+			tilemap.update_astar_grid()
+		if "input_locked" in tilemap:
+			tilemap.input_locked = false
 
-	var units = get_tree().get_nodes_in_group("Units")
-	var has_players = false
-	var has_enemies = false
+	# 14) check end-of-battle condition safely
+	var units := get_tree().get_nodes_in_group("Units")
+	var has_players := false
+	var has_enemies := false
 	for u in units:
 		if not is_instance_valid(u):
 			continue
@@ -811,11 +855,8 @@ func die():
 		else:
 			has_enemies = true
 
-	if not has_players or not has_enemies:
-		if tm and tm.has_method("request_game_over_check"):
-			tm.request_game_over_check()  # ✅ defers until mover finishes
-		return
-
+	if (not has_players or not has_enemies) and tm and tm.has_method("request_game_over_check"):
+		tm.request_game_over_check()  # lets TurnManager decide, deferred internally
 
 #–– Returns a random cell within the used rect that has no tile (i.e. open)
 func cache_open_tiles() -> void:
