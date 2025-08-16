@@ -45,9 +45,9 @@ const ABILITIES := {
 	"Ground Slam": "shockwave hits all adjacent tiles even if empty",
 	"Mark and Pounce": "lock target leap in and strike with damage",
 	"High Arcing Shot": "lands in 3x3 zone strong damage in center",
-	"Suppressive Fire": "fire in line up to 3 tiles damaging all in path",
+	"Suppressive Fire": "fire at all within range",
 	"Guardian Halo": "give ally one round shield lost if missed",
-	"Fortify": "halve all damage taken until next turn and fire up to 3 missiles from range",
+	"Fortify": "halve all damage taken until next turn and shock enemies from range",
 	"Heavy Rain": "missile barrage over wide area damage - Passive healing",
 	"Web Field": "zone in and damage all enemies 3x3 - Passive healing"
 }

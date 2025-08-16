@@ -27,3 +27,5 @@ res://Scenes/GameOver.tscn
 res://Scripts/Conclusion.gd
 res://Scripts/TurnManager.gd
 res://Scripts/MusicManager.gd
+res://Scripts/UnitCard.gd
+res://Scenes/VFX/Spark.tscn
