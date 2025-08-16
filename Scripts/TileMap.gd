@@ -2574,16 +2574,17 @@ func _on_node_removed(node):
 	if node is Node2D and node.is_in_group("Units"):
 		var dead_was_player = is_instance_valid(node) and node.is_player
 
-		if node == selected_unit:
-			_on_selected_unit_died()
+		# If the unit that died was the one we were moving, cancel the move.
+		if is_instance_valid(selected_unit) and node == selected_unit:
+			_on_selected_unit_died()   # already clears selection/highlights
+			moving = false
+			current_path.clear()
+		# Otherwise, do NOT cancel movement — just let pathfinding update below.
 
-		moving = false
-		current_path.clear()
 		_clear_ability_modes()
 
 		# Only rebuild nav if we’re still in the tree
 		if is_inside_tree():
-			# It's also safe to skip the await if tree might be going away
 			var tree := _tree_or_null()
 			if tree != null:
 				await tree.process_frame

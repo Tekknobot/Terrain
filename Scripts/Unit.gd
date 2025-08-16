@@ -232,47 +232,124 @@ func compute_path(from: Vector2i, to: Vector2i) -> Array:
 	return tilemap.astar.get_point_path(from, to)
 
 func _move_one(dest: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var world_target = tilemap.to_global(tilemap.map_to_local(dest)) + Vector2(0, Y_OFFSET)
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
+	var world_target := tilemap.to_global(tilemap.map_to_local(dest)) + Vector2(0, Y_OFFSET)
 
-	var sprite = $AnimatedSprite2D
+	# face and sfx
+	var sprite: AnimatedSprite2D = $AnimatedSprite2D
 	if sprite:
 		sprite.play("move")
 		sprite.flip_h = global_position.x < world_target.x
-
-	var speed := 100.0
-
 	if step_player:
 		step_player.pitch_scale = randf_range(0.9, 1.1)
 		step_player.play()
 
-	while global_position.distance_to(world_target) > 1.0:
-		var delta = get_process_delta_time()
-		global_position = global_position.move_toward(world_target, speed * delta)
-		await Engine.get_main_loop().process_frame
+	# --- tweened movement (no frame loop) ---
+	var speed_px_per_sec := 50.0
+	var dist := global_position.distance_to(world_target)
+	var dur  = max(0.001, dist / speed_px_per_sec)
 
-	global_position = world_target
-	tile_pos = dest
+	# Kill any previous movement tween for safety
+	if has_meta("_move_tw"):
+		var old: Tween = get_meta("_move_tw")
+		if is_instance_valid(old): old.kill()
+		remove_meta("_move_tw")
+
+	var tw := create_tween()
+	set_meta("_move_tw", tw)
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(self, "global_position", world_target, dur)
+
+	# ── hard timeout fallback: if tween doesn't finish, snap to target
+	var timeout := get_tree().create_timer(dur + 0.35)  # small grace
+	var finished := false
+
+	tw.finished.connect(func():
+		finished = true
+		if sprite: sprite.play("default")
+		tile_pos = dest
+	)
+
+	await timeout.timeout
+	if not finished:
+		# force-complete this step
+		if is_instance_valid(self):
+			global_position = world_target
+			tile_pos = dest
+			if sprite: sprite.play("default")
+
+var _move_tw: Tween
+var _is_player_moving := false
+
+func _move_one_player(dest: Vector2i) -> void:
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
+	var world_target := tilemap.to_global(tilemap.map_to_local(dest)) + Vector2(0, Y_OFFSET)
+
+	# face + anim
+	var sprite: AnimatedSprite2D = $AnimatedSprite2D
 	if sprite:
-		sprite.play("default")
+		sprite.play("move")
+		sprite.flip_h = global_position.x < world_target.x
+
+	# optional footstep sfx
+	if step_player:
+		step_player.pitch_scale = randf_range(0.9, 1.1)
+		step_player.play()
+
+	# kill any prior tween safely
+	if _move_tw and is_instance_valid(_move_tw):
+		_move_tw.kill()
+		_move_tw = null
+
+	# duration by distance
+	var speed_px_per_sec := 110.0  # tweak feel
+	var dist := global_position.distance_to(world_target)
+	var dur = max(0.001, dist / speed_px_per_sec)
+
+	_move_tw = create_tween()
+	_move_tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_move_tw.tween_property(self, "global_position", world_target, dur)
+
+	var finished := false
+	_move_tw.finished.connect(func():
+		finished = true
+		tile_pos = dest
+		if sprite: sprite.play("default")
+	)
+
+	# hard fallback: if something interrupts, snap and continue
+	var watchdog := get_tree().create_timer(dur + 0.35)
+	await watchdog.timeout
+	if not finished:
+		global_position = world_target
+		tile_pos = dest
+		if sprite: sprite.play("default")
+
 
 func move_to(dest: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	_is_player_moving = true
+	var tm := get_node_or_null("/root/TurnManager")
+	if tm and tm.has_method("begin_action"): tm.begin_action()  # prevents turn flip mid-move, doesn’t lock input
+
+	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
 	var path = tilemap.get_weighted_path(tile_pos, dest)
 	if path.is_empty():
 		emit_signal("movement_finished")
+		if tm and tm.has_method("end_action"): tm.end_action()
+		_is_player_moving = false
 		return
 
-	print("DEBUG: Path computed for unit ", unit_id, " with length: ", path.size())
 	for step in path:
-		await _move_one(step)
+		await _move_one_player(step)  # <— tween + timeout
 
 	tilemap.update_astar_grid()
 	await get_tree().process_frame
 	emit_signal("movement_finished")
 	has_moved = true
 
-	print("DEBUG: Finished moving unit ", unit_id, ". Tile pos: ", tile_pos, ", Global pos: ", global_position)
+	if tm and tm.has_method("end_action"): tm.end_action()
+	_is_player_moving = false
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Damage / shields / fortify
@@ -602,6 +679,10 @@ func update_xp_bar():
 		xp_bar.value = float(xp) / max_xp * 100.0
 
 func die():
+	var tm := get_node_or_null("/root/TurnManager")
+	if tm and tm.has_method("end_action"):
+		tm.end_action()   # safe: max(0, …) in TurnManager
+			
 	# Free any active fortify aura before dying
 	if _fortify_aura:
 		_fortify_aura.queue_free()
@@ -646,10 +727,10 @@ func die():
 			has_enemies = true
 
 	if not has_players or not has_enemies:
-		print("🏁 Game Over — One team has no remaining units.")
-		var tm = get_node_or_null("/root/TurnManager")
-		if tm:
-			tm.end_turn(true)
+		if tm and tm.has_method("request_game_over_check"):
+			tm.request_game_over_check()  # ✅ defers until mover finishes
+		return
+
 
 #–– Returns a random cell within the used rect that has no tile (i.e. open)
 func cache_open_tiles() -> void:
@@ -701,8 +782,8 @@ func _choose_drop_scene() -> PackedScene:
 	var roll = randi() % 100
 	if roll < 100:
 		match randi() % 3:
-			0: return HEALTH_SCENE
-			1: return LIGHTNING_SCENE
+			0: return ORBITAL_STRIKE_SCENE
+			1: return ORBITAL_STRIKE_SCENE
 			2: return ORBITAL_STRIKE_SCENE
 	return null
 

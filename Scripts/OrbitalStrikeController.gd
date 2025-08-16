@@ -37,10 +37,18 @@ func _ready() -> void:
 	tw.tween_callback(Callable(layer, "queue_free"))
 
 func _strike_all(is_player_team: bool) -> void:
+	var tm := get_node_or_null("/root/TurnManager")
+	if tm and tm.has_method("begin_action"):
+		tm.begin_action()
+
 	await _do_strike(is_player_team)
-	emit_signal("strike_finished")   # ✅ ALWAYS fires
-	# optional: self-cleanup
+
+	if tm and tm.has_method("end_action"):
+		tm.end_action()
+
+	emit_signal("strike_finished")
 	queue_free()
+
 
 # Internal so callers can just await strike_finished if they prefer
 func _do_strike(is_player_team: bool) -> void:

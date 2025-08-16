@@ -23,6 +23,28 @@ var match_done: bool = false
 @export var reset_button: Button
 const AI_SPECIAL_CHANCE := 60  # percent chance to actually fire a special when one is available
 
+# TurnManager.gd (top)
+var _action_locks := 0
+var _pending_game_over := false
+
+func begin_action() -> void:
+	_action_locks += 1
+
+func end_action() -> void:
+	_action_locks = max(0, _action_locks - 1)
+	_maybe_finish_round()
+
+func request_game_over_check() -> void:
+	_pending_game_over = true
+	_maybe_finish_round()
+
+func _maybe_finish_round() -> void:
+	# Only end/advance when nothing is mid-action
+	if _action_locks == 0 and _pending_game_over:
+		_pending_game_over = false
+		end_turn(true)  # your existing implementation
+
+	
 func _ready():
 	# Record the initial number of player units.
 	initial_player_unit_count = get_tree().get_nodes_in_group("Units").filter(func(u): return u.is_player).size()
