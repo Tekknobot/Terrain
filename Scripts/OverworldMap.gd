@@ -89,6 +89,7 @@ var _edge_lines: Dictionary = {}   # "min_max" -> Line2D
 @export var pulse_color_current: Color = Color(1.0, 0.8, 0.2, 0.85)
 
 var _pulse_tweens := {}   # region_id -> SceneTreeTween
+var _spine: Array = []
 
 func _ready():
 	# Create a session seed once, then reuse it for the rest of the run.
@@ -104,10 +105,10 @@ func _ready():
 	_update_region_labels()
 
 func _input(event: InputEvent) -> void:
-	# Drag with Right or Middle mouse (prevents fighting with left-click buttons)
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT or mb.button_index == MOUSE_BUTTON_MIDDLE:
+		# ⬇️ Only middle or right should pan
+		if mb.button_index == MOUSE_BUTTON_MIDDLE or mb.button_index == MOUSE_BUTTON_RIGHT:
 			_dragging = mb.pressed
 			_drag_mouse_start = mb.position
 			_drag_node_start  = position
@@ -116,6 +117,7 @@ func _input(event: InputEvent) -> void:
 	if _dragging and event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		position += mm.relative
+
 
 func _make_circle_texture(radius: int, color: Color) -> Texture2D:
 	var size := radius * 2
@@ -172,33 +174,46 @@ func _generate_world() -> void:
 	for i in range(regions.size()):
 		_adj[i] = []
 
-	# Build roads: per-island MST + extra local edges
+	# Build local roads (within islands) only
 	for isl in islands:
 		_connect_island_nodes(isl["nodes"])
 
-	# Bridges between islands (closest pairs)
-	_connect_islands()
+	# (Optional) REMOVE or comment out global random island-to-island bridges:
+	# _connect_islands()
 
-	# Assign tiers…
+	# Assign tiers & get the spine
 	var spine := _assign_tiers_to_six()
-
-	# Redraw region visuals now that tiers are known
+	_spine = spine
+	# Redraw visuals now that tiers are known
 	for i in range(regions.size()):
 		_update_region_visuals(i)
 
 	_ensure_tier_six(spine)
 
-	# Optional: highlight spine…
+	# Optional highlight...
 	for n in spine:
 		if n >= 0 and n < regions.size():
 			regions[n]["button"].modulate = regions[n]["button"].modulate.lightened(0.12)
 
-	# NEW: prune Tier 1 ↔ Tier 6 shortcuts, then refresh interactivity/labels
+	# 1) Keep your tier gate cleanup
 	_remove_disallowed_edges()
+
+	# 2) **Block** non-spine edges that hop between islands
+	_remove_nonspine_interisland_edges(spine)
+
+	# 3) **Guarantee** a single constellation by adding exactly one bridge
+	#    from any isolated island to the spine.
+	_ensure_island_bridge_to_spine(spine)
+
+	# 4) Final sweep: if any stray nodes still can’t reach the spine, tether them.
 	_ensure_connected_to_spine(spine)
+
+	# Wrap up
 	_update_region_interactivity()
 	_update_region_labels()
 	_refresh_available_animations()
+	_refresh_highlight_state()
+
 
 func _ensure_connected_to_spine(spine: Array) -> void:
 	if spine.is_empty():
@@ -424,7 +439,7 @@ func _create_region_node(index: int, pos: Vector2, _depth_stub: int, parent_inde
 	btn.modulate = base_tint
 	btn.z_index = 5
 	# Important: allow RMB/MMB to pass through for panning
-	btn.mouse_filter = Control.MOUSE_FILTER_PASS
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	btn.focus_mode = Control.FOCUS_NONE
 	add_child(btn)
 
@@ -461,16 +476,47 @@ func _create_region_node(index: int, pos: Vector2, _depth_stub: int, parent_inde
 func _update_region_visuals(i: int) -> void:
 	var e = regions[i]
 	var completed := GameData.is_region_completed(i)
-	var unlocked  := GameData.is_region_unlocked(i, e["tier"], e["parents"])
 
+	# Keep base (dim) unless completed; we'll brighten selectively elsewhere.
 	var tint: Color = node_locked_color
 	if completed:
 		tint = node_cleared_color
-	elif unlocked:
-		tint = node_available_color
 
 	(e["button"] as TextureButton).modulate = tint
 	(e["label"] as Label).text = e["name"]
+
+func _refresh_highlight_state() -> void:
+	var cur := _current_spine_node()
+	var nxt := _next_connected_to_current(cur)
+
+	for i in range(regions.size()):
+		var e = regions[i]
+		var completed := GameData.is_region_completed(i)
+		var unlocked  := GameData.is_region_unlocked(i, e["tier"], e["parents"])
+
+		var tint := node_locked_color
+		if completed:
+			tint = node_cleared_color
+		elif i == cur:
+			# Make current slightly brighter than normal available
+			tint = node_available_color.lightened(0.10)
+		elif i == nxt and unlocked:
+			# Next target: bright white
+			tint = node_available_color
+		else:
+			# Everyone else (locked or just not the focus): stay dim
+			tint = node_locked_color
+
+		(e["button"] as TextureButton).modulate = tint
+
+		# Labels: only current/next are bright (completed stays red)
+		var lbl: Label = e["label"]
+		if completed:
+			lbl.modulate = Color(1, 0.2, 0.2)
+		elif i == cur or (i == nxt and unlocked):
+			lbl.modulate = Color(1, 1, 1)
+		else:
+			lbl.modulate = Color(0.5, 0.5, 0.5)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Roads & bridges
@@ -776,15 +822,27 @@ func _reconstruct_path(src: int, dst: int) -> Array:
 # Interactivity & labels (non-linear unlocks)
 # ─────────────────────────────────────────────────────────────────────────────
 func _update_region_interactivity() -> void:
+	var cur := _current_spine_node()
+	var nxt := _next_connected_to_current(cur)
+
 	for i in range(regions.size()):
 		var e = regions[i]
 		var completed := GameData.is_region_completed(i)
 		var unlocked  := GameData.is_region_unlocked(i, e["tier"], e["parents"])
 
-		# Completed regions are never selectable again.
-		e["button"].disabled = completed or (not unlocked)
-	
-	_refresh_available_animations()	
+		# Current node: playable if not completed (ignore unlocked)
+		# Next node: playable only if unlocked and not completed
+		var playable := false
+		if i == cur and not completed:
+			playable = true
+		elif i == nxt and not completed and unlocked:
+			playable = true
+
+		e["button"].disabled = not playable
+
+	_refresh_available_animations()
+	_refresh_highlight_state()
+
 
 func _update_region_labels() -> void:
 	for i in range(regions.size()):
@@ -805,19 +863,25 @@ func _update_region_labels() -> void:
 # Input
 # ─────────────────────────────────────────────────────────────────────────────
 func _on_region_pressed(i: int) -> void:
-	var e = regions[i]
-	var tier: int = e["tier"]
-
-	# Block if completed or not unlocked.
+	var cur := _current_spine_node()
+	var nxt := _next_connected_to_current(cur)
+	if i != cur and i != nxt:
+		return
 	if GameData.is_region_completed(i):
 		return
-	if not GameData.is_region_unlocked(i, tier, e["parents"]):
+
+	var e = regions[i]
+	# Only enforce unlock for 'next'; current is always allowed
+	if i == nxt and not GameData.is_region_unlocked(i, e["tier"], e["parents"]):
 		return
 
 	GameData.last_region_index = i
-	GameData.last_region_tier  = tier
-	emit_signal("region_selected", i, e["name"])
-	get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+	GameData.last_region_tier  = e["tier"]
+
+	# More robust scene change (prints error code if any)
+	var err := get_tree().change_scene_to_file("res://Scenes/Main.tscn")
+	if err != OK:
+		push_error("Failed to change scene (code %d). Check path/case." % err)
 
 func _on_region_hover(i: int) -> void:
 	var e = regions[i]
@@ -984,11 +1048,135 @@ func _pick_current_available() -> int:
 	return best
 
 func _refresh_available_animations() -> void:
-	var current := _pick_current_available()
+	var cur := _current_spine_node()
+	var nxt := _next_connected_to_current(cur)
+
 	for i in range(regions.size()):
-		var completed := GameData.is_region_completed(i)
-		var unlocked  := GameData.is_region_unlocked(i, regions[i]["tier"], regions[i]["parents"])
-		if completed or not unlocked:
-			_remove_pulse(i)
+		if i == cur:
+			_apply_pulse(i, true)     # current = golden pulse
+		elif i == nxt:
+			_apply_pulse(i, false)    # next = white pulse
 		else:
-			_apply_pulse(i, i == current)
+			_remove_pulse(i)          # no other rings
+
+func _node_to_island_map() -> Dictionary:
+	var map := {}
+	for isl_idx in range(islands.size()):
+		for n in islands[isl_idx]["nodes"]:
+			map[n] = isl_idx
+	return map
+
+func _to_set(arr: Array) -> Dictionary:
+	var d := {}
+	for x in arr: d[x] = true
+	return d
+
+func _remove_nonspine_interisland_edges(spine: Array) -> void:
+	var spine_set := _to_set(spine)
+	var node_island := _node_to_island_map()
+	var to_remove: Array[String] = []
+
+	for u in _adj.keys():
+		for v in _adj[u]:
+			if u < v:
+				# If edge is between **different** islands and **neither** endpoint is on the spine → remove it
+				if node_island.get(u, -1) != node_island.get(v, -1) \
+				and not spine_set.has(u) and not spine_set.has(v):
+					to_remove.append(_edge_key(u, v))
+
+	# Physically remove them (graph, parents, visuals)
+	for key in to_remove:
+		var parts := key.split("_")
+		var u := int(parts[0]); var v := int(parts[1])
+
+		if _adj.has(u): _adj[u].erase(v)
+		if _adj.has(v): _adj[v].erase(u)
+
+		if regions[v]["parents"].has(u): regions[v]["parents"].erase(u)
+		if regions[u]["parents"].has(v): regions[u]["parents"].erase(v)
+
+		if _edge_lines.has(key):
+			var line: Line2D = _edge_lines[key]
+			if is_instance_valid(line):
+				remove_child(line)
+				line.queue_free()
+			_edge_lines.erase(key)
+
+func _ensure_island_bridge_to_spine(spine: Array) -> void:
+	if spine.is_empty():
+		return
+	var spine_set := _to_set(spine)
+	var dist := _multi_source_bfs(spine)  # who is already connected?
+
+	# For each island, if **none** of its nodes is reachable from the spine,
+	# create exactly ONE bridge from the island to the nearest compatible spine node.
+	for isl_idx in range(islands.size()):
+		var nodes: Array = islands[isl_idx]["nodes"]
+		if nodes.is_empty():
+			continue
+
+		var island_reachable := false
+		for n in nodes:
+			if dist.has(n):
+				island_reachable = true
+				break
+		if island_reachable:
+			continue
+
+		# Find the closest pair (island node ↔ spine node) that passes tier rules.
+		var best_u := -1
+		var best_s := -1
+		var best_d := INF
+		for u in nodes:
+			for s in spine:
+				if _tiers_can_connect(u, s):
+					var d = regions[u]["pos"].distance_to(regions[s]["pos"])
+					if d < best_d:
+						best_d = d; best_u = u; best_s = s
+
+		# Fallback: if tier rule blocked *every* pair (unlikely since spine has mixed tiers),
+		# ignore tier ban once to guarantee global connectivity.
+		if best_u == -1:
+			for u in nodes:
+				for s in spine:
+					var d = regions[u]["pos"].distance_to(regions[s]["pos"])
+					if d < best_d:
+						best_d = d; best_u = u; best_s = s
+
+		if best_u != -1 and best_s != -1:
+			_add_edge(best_u, best_s)
+
+func _current_spine_node() -> int:
+	if _spine.is_empty():
+		return -1
+	# If start isn’t completed yet, it’s the current.
+	if not GameData.is_region_completed(_spine[0]):
+		return _spine[0]
+
+	# Otherwise, use the last completed node along the spine (the player’s anchor).
+	var last_completed_idx := -1
+	for i in range(_spine.size()):
+		if GameData.is_region_completed(_spine[i]):
+			last_completed_idx = i
+		else:
+			break
+	if last_completed_idx >= 0:
+		return _spine[last_completed_idx]
+	return _spine[0]
+
+func _next_connected_to_current(cur: int) -> int:
+	if cur == -1 or _spine.is_empty():
+		return -1
+	var idx := _spine.find(cur)
+	if idx == -1:
+		return -1
+
+	# Prefer the forward neighbor on the spine (the intended progression).
+	if idx + 1 < _spine.size():
+		var n = _spine[idx + 1]
+		var e = regions[n]
+		if not GameData.is_region_completed(n) and GameData.is_region_unlocked(n, e["tier"], e["parents"]):
+			return n
+
+	# (Optionally you could also check idx-1 if you want backward-play; omitted by design.)
+	return -1
