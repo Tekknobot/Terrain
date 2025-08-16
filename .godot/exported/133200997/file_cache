@@ -13,7 +13,7 @@ res://Textures/level_up.tres::5d1fd614758c0a5fb6248aed3142dd54::1755147083::res:
 res://Scenes/GameOver.tscn::e4ee0f8c57b416639ac47e7e02e13ace::1755355978::res://.godot/exported/133200997/export-65c7be664135646c8b1d80384e4ee831-GameOver.scn
 res://Scenes/GameData.tscn::2438cc13b6cc98957548d7de0a0b5da3::1753313328::res://.godot/exported/133200997/export-6b9c6d0b246437692d66ee04167f6954-GameData.scn
 res://Scenes/RewardUpgrade.tscn::8d3af5b0005c069dfbd4d4c3514793a6::1754943941::res://.godot/exported/133200997/export-da51e953d097ea621fd6ae799676d0cf-RewardUpgrade.scn
-res://Scenes/TitleScreen.tscn::ed8ffa67c15cfb02c66ae2594999f356::1755355977::res://.godot/exported/133200997/export-d5bf480432d23be8d7ee9621b49ab4de-TitleScreen.scn
+res://Scenes/TitleScreen.tscn::ed8ffa67c15cfb02c66ae2594999f356::1755356315::res://.godot/exported/133200997/export-d5bf480432d23be8d7ee9621b49ab4de-TitleScreen.scn
 res://Prefabs/CriticalStrikeMissile.tscn::6c25a453ae69aec6c94d5ac60da5426d::1753313327::res://.godot/exported/133200997/export-d0aef66b249c500eb7d3ea46c5d3006c-CriticalStrikeMissile.scn
 res://Scenes/Projectile_Scenes/Grenade.tscn::4db065f005706b5731df7dfc56d5bb34::1753313327::res://.godot/exported/133200997/export-61e0e60161a2ab3785be150dcd85725c-Grenade.scn
 res://Scenes/Projectile_Scenes/Projectile.tscn::b4a5f5778feeb02398059952ef0bb1ed::1753313327::res://.godot/exported/133200997/export-96f28fdf67310d4343faeeacb6feb5af-Projectile.scn
