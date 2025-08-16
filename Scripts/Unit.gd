@@ -152,6 +152,10 @@ var tile_pos: Vector2i:
 
 var _pending_fortify_beams: int = 0
 var _fortify_finishing: bool = false
+
+var _fortify_beam_nodes: Array[Node] = []
+var _fortify_timers: Array[SceneTreeTimer] = []
+var _fortify_in_progress: bool = false
 		
 func _ready():
 	prev_tile_pos = tile_pos
@@ -605,6 +609,8 @@ func die():
 
 	if is_player:
 		TurnManager.player_units_lost += 1
+		
+	_abort_fortify_if_needed()	
 
 	var tilemap = get_tree().get_current_scene().get_node("TileMap")
 	var explosion = preload("res://Scenes/VFX/Explosion.tscn").instantiate()
@@ -1682,6 +1688,7 @@ func _enemies_in_range(range_tiles: int) -> Array:
 # ─────────────────────────────────────────────────────────────────────────────
 # 8) Foritfy
 func fortify() -> void:
+	_fortify_in_progress = true
 	is_fortified = true
 	gain_xp(25)
 	_ensure_fortify_aura_active()
@@ -1725,6 +1732,49 @@ func fortify() -> void:
 	if _pending_fortify_beams == 0:
 		_finish_fortify(tilemap, sprite)
 
+func _register_fortify_beam(n: Node) -> void:
+	if n and is_instance_valid(n):
+		_fortify_beam_nodes.append(n)
+		# auto-remove from list when freed
+		n.tree_exited.connect(func():
+			_fortify_beam_nodes.erase(n))
+
+func _abort_fortify_if_needed() -> void:
+	if not _fortify_in_progress:
+		return
+
+	# 1) kill visuals
+	for b in _fortify_beam_nodes:
+		if is_instance_valid(b):
+			b.queue_free()
+	_fortify_beam_nodes.clear()
+
+	# 2) (optional) drop references to timers; their callbacks won’t run anyway once self is gone
+	_fortify_timers.clear()
+
+	# 3) unlock & mark action end (don’t wait for callbacks that will never come)
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap:
+		tilemap.input_locked = false
+
+	has_attacked = true
+	has_moved = true
+
+	# 4) visual reset if we’re still alive during abort
+	var sprite: AnimatedSprite2D = $AnimatedSprite2D
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("default"):
+		sprite.play("default")
+
+	_fortify_in_progress = false
+	_pending_fortify_beams = 0
+	_fortify_finishing = false
+
+func _register_fortify_timer(t: SceneTreeTimer) -> void:
+	if t:
+		_fortify_timers.append(t)
+		t.timeout.connect(func():
+			_fortify_timers.erase(t))
+
 func _launch_fortify_beam(u: Node, dmg_each: int, travel_time: float, arc_height: float, col: Color, launch_delay: float) -> void:
 	# optional stagger before launching this particular beam
 	if launch_delay > 0.0:
@@ -1746,6 +1796,7 @@ func _launch_fortify_beam(u: Node, dmg_each: int, travel_time: float, arc_height
 
 	# when the beam "arrives", explode + apply damage, then mark done
 	var t := get_tree().create_timer(travel_time)
+	_register_fortify_timer(t)
 	t.timeout.connect(func():
 		if ExplosionScene != null:
 			var vfx := ExplosionScene.instantiate()
@@ -1769,6 +1820,8 @@ func _on_fortify_beam_done() -> void:
 		_finish_fortify(tilemap, sprite)
 
 func _finish_fortify(tilemap: TileMap, sprite: AnimatedSprite2D) -> void:
+	_fortify_in_progress = false   # <— mark done
+
 	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("default"):
 		sprite.play("default")
 
@@ -1779,13 +1832,15 @@ func _finish_fortify(tilemap: TileMap, sprite: AnimatedSprite2D) -> void:
 	has_moved   = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
+
 func _spawn_laser_beam(from_pos: Vector2, to_pos: Vector2, travel_time: float, arc_height: float, color: Color) -> void:
 	if LaserBeamScene == null:
 		return
 
 	var beam := LaserBeamScene.instantiate()
 	get_tree().get_current_scene().add_child(beam)
-
+	_register_fortify_beam(beam)
+	
 	# grab parts
 	var line: Line2D = beam.get_node_or_null("Line2D")
 	if line == null:
