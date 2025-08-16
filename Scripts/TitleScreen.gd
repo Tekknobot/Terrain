@@ -357,7 +357,7 @@ func _bb_ai_mechanics() -> String:
 		+ "- Aegis: Mark and Pounce if a player unit is within three tiles.\n"
 		+ "- Tempest: Guardian Halo if an ally within five tiles has the lowest health, no shield, and is below 70 percent HP.\n"
 		+ "- Titan: High-Arcing Shot aimed to hit the largest cluster of player units within five tiles (3x3 impact area).\n"
-		+ "- Specter: Suppressive Fire if a player unit is directly adjacent in a straight line.\n"
+		+ "- Specter: Suppressive Fire at any unit within range.\n"
 		+ "- Nova: Fortify (self buff) if not already fortified.\n"
 		+ "- Raptor: Heavy Rain (5x5 area) if it can hit at least one player unit within five tiles.\n"
 		+ "- Valkyrie: Spider Blast against a player unit within five tiles.\n"

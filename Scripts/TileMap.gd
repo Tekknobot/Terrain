@@ -151,7 +151,7 @@ var ability_ranges: Dictionary = {
 	"Mark & Pounce":       3,
 	"Guardian Halo":       5,
 	"High Arching Shot":   5,
-	"Suppressive Fire":    0,
+	"Suppressive Fire":    5,
 	"Fortify":             5,  # “Fortify” might not highlight anything; adjust as needed
 	"Heavy Rain":          5,
 	"Web Field":           0
@@ -2887,12 +2887,6 @@ func airlift_drop(attacker_id: int, ally_id: int, click_tile: Vector2i) -> void:
 		spr.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
 # --- Web Field ---
-func do_web_field(attacker_id: int, center_tile: Vector2i) -> void:
-	var atk = get_unit_by_id(attacker_id)
-	if not atk: return
-	atk.web_field(center_tile)
-
-# --- Thread Attack ---
 func do_thread_attack(attacker_id: int, target_tile: Vector2i) -> void:
 	var atk = get_unit_by_id(attacker_id)
 	if not atk: return

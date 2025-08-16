@@ -1418,37 +1418,50 @@ func high_arcing_shot(target_tile: Vector2i) -> void:
 
 	tilemap.input_locked = false
 
-# 5) Multi Turret – Suppressive Fire (local)
+# 5) Multi Turret – Suppressive Fire (auto-target within ability range)
 func suppressive_fire(_unused: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return
+
+	# 1) Read range from GameData (fallbacks if not present)
+	var sup_range := 5
+	if Engine.has_singleton("GameData"):
+		var GD = Engine.get_singleton("GameData")
+		if GD != null and GD.has_method("get") and typeof(GD.get("ability_ranges")) == TYPE_DICTIONARY:
+			var ar: Dictionary = GD.get("ability_ranges")
+			if ar.has("Suppressive Fire"):
+				sup_range = int(ar["Suppressive Fire"])
+
+	if sup_range <= 0:
+		sup_range = 5  # final safety
+
+	# 2) Collect enemy units in range (Manhattan distance, same as your pathing/attack rules)
+	var targets: Array[Dictionary] = []  # [{unit: Node2D, tile: Vector2i}]
+	for u in get_tree().get_nodes_in_group("Units"):
+		if not is_instance_valid(u): continue
+		if u.is_player == is_player: continue          # only enemies
+		if u.health <= 0: continue
+		# Use live tile with Y_OFFSET compensation to avoid stale positions
+		var tile := tilemap.local_to_map(tilemap.to_local(u.global_position - Vector2(0, u.Y_OFFSET)))
+		var dist = abs(tile.x - tile_pos.x) + abs(tile.y - tile_pos.y)
+		if dist <= sup_range:
+			targets.append({"unit": u, "tile": tile})
+
+	# 3) Fire a projectile toward each target tile (slight stagger for style)
 	gain_xp(25)
-
-	# 4-adjacent directions
-	var dirs = [
-		Vector2i( 1,  0),
-		Vector2i(-1,  0),
-		Vector2i( 0,  1),
-		Vector2i( 0, -1)
-	]
-
-	# Collect 3 tiles along each direction -> 12 total
-	var tiles_to_hit: Array = []
-	for d in dirs:
-		for step in range(1, 4): # 1..3
-			var n = tile_pos + d * step
-			if tilemap.is_within_bounds(n):
-				tiles_to_hit.append(n)
-
-	_fire_projectiles_along(tiles_to_hit)
+	_fire_projectiles_to_targets(targets)
 
 	has_attacked = true
 	has_moved   = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-func _fire_projectiles_along(tiles: Array) -> void:
+# Helper: staggered multi-shot at specific target tiles (from current positions)
+func _fire_projectiles_to_targets(targets: Array) -> void:
 	var delay_step := 0.05
-	for i in range(tiles.size()):
-		var tile: Vector2i = tiles[i]
+	for i in range(targets.size()):
+		var info: Dictionary = targets[i]
+		var tile: Vector2i = info["tile"]
 		var t := Timer.new()
 		t.one_shot = true
 		t.wait_time = 0.01 + i * delay_step
@@ -1457,38 +1470,40 @@ func _fire_projectiles_along(tiles: Array) -> void:
 		t.connect("timeout", Callable(self, "_on_fire_timer_timeout").bind(tile))
 
 func _on_fire_timer_timeout(target_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap == null:
 		return
 
-	var start_pos = global_position
-	var end_pos = tilemap.to_global(tilemap.map_to_local(target_tile))
+	var start_pos := global_position
+	var end_pos := tilemap.to_global(tilemap.map_to_local(target_tile))
 	end_pos.y += Y_OFFSET
 
-	var proj_scene = preload("res://Scenes/Projectile_Scenes/Projectile.tscn")
+	var proj_scene := preload("res://Scenes/Projectile_Scenes/Projectile.tscn")
 	var proj = proj_scene.instantiate()
 	get_tree().get_current_scene().add_child(proj)
 	proj.set_target(start_pos, end_pos)
 	proj.connect("reached_target", Callable(self, "_on_projectile_impact").bind(target_tile))
 
 func _on_projectile_impact(target_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap == null:
 		return
 
-	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+	var explosion_scene := preload("res://Scenes/VFX/Explosion.tscn")
 	var vfx = explosion_scene.instantiate()
 	vfx.global_position = tilemap.to_global(tilemap.map_to_local(target_tile))
 	get_tree().get_current_scene().add_child(vfx)
 
+	# Damage unit if enemy is still there
 	var enemy = tilemap.get_unit_at_tile(target_tile)
 	if enemy and enemy.is_player != is_player:
 		var dmg_now = scaled_dmg(1.0)
 		enemy.take_damage(dmg_now)
 		enemy.flash_white()
 		enemy.is_suppressed = true
-		print("Multi Turret suppressed ", enemy.name, "at ", target_tile)
+		print("Multi Turret suppressed ", enemy.name, " at ", target_tile)
 
+	# Damage structures as before
 	var st = tilemap.get_structure_at_tile(target_tile)
 	if st:
 		if st.has_method("take_damage"):
@@ -1499,9 +1514,28 @@ func _on_projectile_impact(target_tile: Vector2i) -> void:
 				st_sprite.play("demolished")
 				st.modulate = Color(1, 1, 1, 1)
 				if st.has_method("demolish"):
-					st.demolish()					
+					st.demolish()
 
-# 6) Brute – Fortify (local)
+# 6) Brute – Fortify (LOCAL SHOCKS FROM THE UNIT)
+const SHOCK_WIDTH  := 1               # Line2D width
+const SHOCK_COLOR  := Color(0.6, 0.95, 1.0, 1.0)  # electric cyan
+const ELECTRIC_SFX := preload("res://Audio/SFX/electric.mp3") # <- update path if needed
+
+func _play_electric_sfx(at_pos: Vector2) -> void:
+	var p := AudioStreamPlayer2D.new()
+	p.stream = ELECTRIC_SFX
+	p.position = at_pos
+	p.bus = "SFX"  # optional: route to your SFX bus
+	p.volume_db = -2.0
+	p.pitch_scale = randf_range(0.95, 1.05)  # light variation
+	get_tree().get_current_scene().add_child(p)
+	p.play()
+	# Auto-cleanup when done
+	p.finished.connect(func():
+		if is_instance_valid(p):
+			p.queue_free()
+	)
+
 func fortify() -> void:
 	gain_xp(25)
 
@@ -1516,107 +1550,151 @@ func fortify() -> void:
 		await sprite.animation_finished
 		sprite.play("default")
 
-	# Optional aura VFX (unchanged from your version)
-	# NEW – attach to the unit so it follows
+	# Optional aura VFX (unchanged from your version, but parented to unit)
 	if fortify_effect_scene:
 		if _fortify_aura and is_instance_valid(_fortify_aura):
 			_fortify_aura.queue_free()
 			_fortify_aura = null
 
 		_fortify_aura = fortify_effect_scene.instantiate()
-		add_child(_fortify_aura)                    # <— parented to the unit
-		_fortify_aura.position = Vector2.ZERO       # center on the unit
-		_fortify_aura.z_index = -1                  # under the sprite (optional)
+		add_child(_fortify_aura)
+		_fortify_aura.position = Vector2.ZERO
+		_fortify_aura.z_index = -1
 
-		# If your effect is a Particles2D/CPUParticles2D:
 		var p := _fortify_aura as Node
 		if p and p.has_method("set_emitting"):
 			p.set("emitting", true)
-		# If it has a `top_level` flag, ensure local coords:
 		if _fortify_aura.has_method("set_top_level"):
 			_fortify_aura.set("top_level", false)
 
-	# === NEW: Fire a 3-shot arc barrage, Spider-Blast style ===
-	await _fortify_barrage(3)
+	# === NEW: Emit lightning shocks from THIS UNIT to enemies in range ===
+	await _fortify_shock_burst()
 
-	# End-of-action flags & tint (same as before)
+	# End-of-action flags & tint
 	has_attacked = true
 	has_moved   = true
 	$AnimatedSprite2D.self_modulate = Color(0.4, 0.4, 0.4, 1)
 
-# Pick up to `count` target tiles, ONLY enemies within `radius`.
-# If not enough enemies in range, fill with random OPEN tiles within same radius.
-func _select_barrage_targets(count: int, radius: int = 5) -> Array:
-	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
 
-	var enemy_tiles: Array[Vector2i] = []
+# === Helpers ===
+
+func _get_fortify_range(default_val: int = 5) -> int:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return default_val
+
+	var range := default_val
+
+	var tm := get_node_or_null("/root/TurnManager")
+	if tm and tm.has_method("get") and typeof(tm.get("ability_ranges")) == TYPE_DICTIONARY:
+		var ar: Dictionary = tm.get("ability_ranges")
+		if ar.has("Fortify"):
+			range = int(ar["Fortify"])
+
+	if range <= 0 and typeof(tilemap.ability_ranges) == TYPE_DICTIONARY and tilemap.ability_ranges.has("Fortify"):
+		range = int(tilemap.ability_ranges["Fortify"])
+
+	if range <= 0:
+		range = default_val
+
+	return range
+
+
+func _enemies_in_range(range_tiles: int) -> Array:
+	var results: Array = []
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return results
+
 	for u in get_tree().get_nodes_in_group("Units"):
 		if not is_instance_valid(u): continue
-		if u.is_player == is_player: continue  # opposing side only
+		if u.is_player == is_player: continue
 		if u.health <= 0: continue
-		var d = abs(u.tile_pos.x - tile_pos.x) + abs(u.tile_pos.y - tile_pos.y)
-		if d <= radius:
-			enemy_tiles.append(u.tile_pos)
 
-	enemy_tiles.shuffle()
-	return enemy_tiles.slice(0, min(count, enemy_tiles.size()))
-	
-# Fire N arcs; only shoot tiles that STILL have a valid enemy at fire time.
-func _fortify_barrage(count: int = 3) -> void:
-	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap") as TileMap
+		# Use *live* tile by sampling world position (handles moving sprites/offsets)
+		var t := tilemap.local_to_map(tilemap.to_local(u.global_position - Vector2(0, u.Y_OFFSET)))
+		if not tilemap.is_within_bounds(t): continue
+
+		var dist = abs(t.x - tile_pos.x) + abs(t.y - tile_pos.y)
+		if dist <= range_tiles:
+			results.append(u)
+	return results
+
+
+# Burst shocks from the Brute to every valid enemy in Fortify range
+func _fortify_shock_burst() -> void:
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap == null: return
 
-	var point_count := 64
-	var step_time := 2.0 / float(point_count)
-	var arc_height := 100.0
-	var trail_color := Color(0.85, 0.85, 0.85, 1.0)
-	var ExplosionScene: PackedScene = preload("res://Scenes/VFX/Explosion.tscn")
-
-	# ✅ limit to Manhattan 5
-	var targets: Array = _select_barrage_targets(count, 5)
-	if targets.is_empty(): return
-
-	var launched := 0
-	var completed := 0
-	var on_arc := func() -> void: completed += 1
-	self.spider_arc_done.connect(on_arc)
+	var range := _get_fortify_range(5)
+	var enemies := _enemies_in_range(range)
+	if enemies.is_empty():
+		return
 
 	tilemap.input_locked = true
 
-	for i in range(targets.size()):
-		var tile: Vector2i = targets[i]
+	# Zap them with tiny staggers for juicy feel
+	for i in enemies.size():
+		var u = enemies[i]
+		if not is_instance_valid(u):
+			continue
+		if u.health <= 0:
+			continue
 
-		# 🔒 Fire only if a valid opposing unit is still on that tile *now*
-		var u = tilemap.get_unit_at_tile(tile)
-		if u and is_instance_valid(u) and u.is_player != is_player and u.health > 0:
-			call_deferred("_fire_arc_to_tile_impl",
-				tile,
-				scaled_dmg(0.9),
-				point_count,
-				step_time,
-				arc_height,
-				trail_color,
-				ExplosionScene
-			)
-			launched += 1
-			if i < targets.size() - 1:
-				await get_tree().create_timer(0.12).timeout
+		var start_world: Vector2 = global_position
+		start_world.y += Y_OFFSET
 
-	# If nothing actually launched, just unlock and bail
-	if launched == 0:
-		if self.spider_arc_done.is_connected(on_arc):
-			self.spider_arc_done.disconnect(on_arc)
-		tilemap.input_locked = false
-		return
+		var end_world: Vector2 = u.global_position
+		end_world.y += u.Y_OFFSET
 
-	var timeout_ms := 600
-	var start_ms := Time.get_ticks_msec()
-	while completed < launched and (Time.get_ticks_msec() - start_ms) < timeout_ms:
-		await get_tree().create_timer(0.08).timeout
+		# distance-based look
+		var d_world := start_world.distance_to(end_world)
+		var segments = clamp(int(d_world / 40.0) + 3, 5, 12)
+		var amplitude = clamp(d_world * 0.06, 8.0, 22.0)
+		var life = clamp(0.08 + d_world / 1200.0, 0.1, 0.2)
 
-	if self.spider_arc_done.is_connected(on_arc):
-		self.spider_arc_done.disconnect(on_arc)
+		_draw_lightning(start_world, end_world, segments, amplitude, life)
+		_play_electric_sfx(start_world)
+		
+		# Damage & feedback - "same way" as your previous hits
+		u.take_damage(self.damage)
+		if u.has_method("flash_white"): u.flash_white()
+		if u.has_method("shake"): u.shake()
+
+		await get_tree().create_timer(0.1).timeout
+
 	tilemap.input_locked = false
+
+# Create a jagged Line2D between two points and fade it quickly.
+func _draw_lightning(start_pos: Vector2, end_pos: Vector2, segments: int = 5, amplitude: float = 10.0, lifetime: float = 0.12) -> void:
+	var line := Line2D.new()
+	line.width = SHOCK_WIDTH
+	line.z_index = 4000
+	line.default_color = SHOCK_COLOR
+	get_tree().get_current_scene().add_child(line)
+
+	var dir := (end_pos - start_pos)
+	var len := dir.length()
+	if len < 0.001:
+		line.add_point(start_pos)
+		line.add_point(end_pos)
+	else:
+		var n := dir / len
+		var perp := Vector2(-n.y, n.x)
+		for i in range(segments + 1):
+			var t := float(i) / float(segments)
+			var base := start_pos.lerp(end_pos, t)
+			var falloff := sin(PI * t)  # stronger jitter mid-bolt
+			var jitter_mag := randf_range(-amplitude, amplitude) * falloff
+			var jitter := perp * jitter_mag
+			line.add_point(base + jitter)
+
+	var tw := line.create_tween()
+	tw.tween_property(line, "modulate:a", 0.0, lifetime).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		if is_instance_valid(line):
+			line.queue_free()
+	)
 
 # 7) Helicopter – Airlift (local)
 func airlift_pick(ally: Node) -> void:
@@ -1862,6 +1940,12 @@ func thread_attack(target_tile: Vector2i) -> void:
 		sprite.self_modulate = Color(0.4,0.4,0.4,1)
 
 func _on_thread_attack_reached(target_tile: Vector2i) -> void:
+	var tilemap = get_tree().get_current_scene().get_node("TileMap")
+	if tilemap == null:
+		return
+	if not tilemap.is_within_bounds(target_tile):
+		print("Thread Attack: impact out of bounds; skipping explosions.")
+		return
 	spawn_explosions_at_tile(target_tile)
 	print("Thread Attack exploded at tile: ", target_tile)
 
@@ -1914,17 +1998,25 @@ func on_lightning_surge_reached(target_tile: Vector2i) -> void:
 				print("Lightning Surge: ", enemy_unit.name, "took", dmg, "damage at tile", tile)
 	print("Lightning Surge exploded at tile:", target_tile)
 
-# Spawn 3×3 explosions around a tile (used by Thread Attack)
+# Spawn 3×3 explosions around a tile (used by Thread Attack) — on-map only
 func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
-	var tilemap = get_tree().get_current_scene().get_node("TileMap")
-	var explosion_scene = preload("res://Scenes/VFX/Explosion.tscn")
+	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
+	if tilemap == null:
+		return
+	if not tilemap.is_within_bounds(target_tile):
+		print("Thread Attack: center out of bounds; skipping explosions.")
+		return
 
-	var dmg_center = scaled_dmg(1.0)
-	var dmg_splash = scaled_dmg(0.8)
+	var explosion_scene: PackedScene = preload("res://Scenes/VFX/Explosion.tscn")
+	var dmg_center := scaled_dmg(1.0)
+	var dmg_splash := scaled_dmg(0.8)
 
 	for x in range(-1, 2):
 		for y in range(-1, 2):
-			var tile = target_tile + Vector2i(x, y)
+			var tile := target_tile + Vector2i(x, y)
+			if not tilemap.is_within_bounds(tile):
+				continue  # ← skip off-map tiles
+
 			var explosion = explosion_scene.instantiate()
 			explosion.global_position = tilemap.to_global(tilemap.map_to_local(tile))
 			get_tree().get_current_scene().add_child(explosion)
@@ -1940,6 +2032,8 @@ func spawn_explosions_at_tile(target_tile: Vector2i) -> void:
 				unit.take_damage(dmg)
 				unit.flash_white()
 				unit.shake()
+
+		# small pacing delay per ring-column (optional)
 		await get_tree().create_timer(0.2).timeout
 
 	print("Explosions spawned at and around tile: ", target_tile)
