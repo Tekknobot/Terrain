@@ -205,6 +205,13 @@ func _process(delta):
 
 func update_z_index():
 	z_index = int(position.y)
+	# Aura stays behind even with y-sort, but we still mirror relative placement:
+	if _fortify_aura and is_instance_valid(_fortify_aura):
+		var ci := _fortify_aura as CanvasItem
+		if ci:
+			ci.z_as_relative = true
+			ci.z_index = -1
+
 
 ### PLAYER TURN ###
 func start_turn():
@@ -1298,6 +1305,68 @@ func _on_turn_ended(ended_team: int) -> void:
 			_fortify_aura.queue_free()
 			_fortify_aura = null
 
+func _ensure_fortify_aura_active() -> void:
+	if _fortify_aura and is_instance_valid(_fortify_aura):
+		if _fortify_aura is CPUParticles2D:
+			(_fortify_aura as CPUParticles2D).emitting = true
+		var ap := _fortify_aura.get_node_or_null("AnimationPlayer")
+		if ap: ap.play("loop")
+		var spr := _fortify_aura as AnimatedSprite2D
+		if spr and spr.sprite_frames and spr.sprite_frames.has_animation("loop"):
+			spr.play("loop")
+		_place_aura_behind()
+		return
+
+	if fortify_effect_scene == null:
+		return
+	_fortify_aura = fortify_effect_scene.instantiate()
+	_fortify_aura.name = "FortifyAura"
+	add_child(_fortify_aura)                       # keep as child of the unit
+	_place_aura_behind()                           # ⬅ ensure behind
+
+	# kick visuals
+	var particles := _fortify_aura as CPUParticles2D
+	if particles: particles.emitting = true
+	var ap2 := _fortify_aura.get_node_or_null("AnimationPlayer")
+	if ap2: ap2.play("loop")
+	var spr2 := _fortify_aura as AnimatedSprite2D
+	if spr2 and spr2.sprite_frames and spr2.sprite_frames.has_animation("loop"):
+		spr2.play("loop")
+
+
+func _place_aura_behind() -> void:
+	if _fortify_aura == null or not is_instance_valid(_fortify_aura):
+		return
+	var ci := _fortify_aura as CanvasItem
+	if ci == null: return
+
+	# Best: draw behind parent regardless of z/y-sort
+	ci.show_behind_parent = true
+
+	# Also set a relative z below the unit (helps when show_behind_parent isn’t honored)
+	ci.z_as_relative = true
+	ci.z_index = -1  # parent (the unit) stays at 0 by default; aura renders before it
+
+	# Position and ordering niceties
+	if _fortify_aura is Node2D:
+		var n2 := _fortify_aura as Node2D
+		n2.position = Vector2.ZERO
+
+func _remove_fortify_aura() -> void:
+	if _fortify_aura and is_instance_valid(_fortify_aura):
+		# Try a quick fade if it’s a CanvasItem
+		var ci := _fortify_aura as CanvasItem
+		if ci:
+			var tw := ci.create_tween()
+			tw.tween_property(ci, "modulate:a", 0.0, 0.12)
+			tw.tween_callback(func():
+				if is_instance_valid(_fortify_aura):
+					_fortify_aura.queue_free()
+					_fortify_aura = null)
+		else:
+			_fortify_aura.queue_free()
+			_fortify_aura = null
+
 func apply_tile_effect():
 	movement_range = base_movement_range
 	attack_range   = base_attack_range
@@ -1615,6 +1684,7 @@ func _enemies_in_range(range_tiles: int) -> Array:
 func fortify() -> void:
 	is_fortified = true
 	gain_xp(25)
+	_ensure_fortify_aura_active()
 
 	var tilemap := get_tree().get_current_scene().get_node("TileMap") as TileMap
 	if tilemap:

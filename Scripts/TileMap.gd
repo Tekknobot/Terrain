@@ -18,12 +18,12 @@ const MOVE_SPEED := 100.0  # pixels/sec
 
 @export var tilemap : TileMap
 
-@export var water_threshold     := -0.77  # reduced water
-@export var sandstone_threshold := -0.2
-@export var dirt_threshold      :=  0.1
-@export var grass_threshold     :=  0.4
-@export var snow_threshold      :=  0.175
-@export var ice_fraction: float = 0.3     # ↓ less ice
+@export var water_threshold     := -0.6   # ~10% water (halved)
+@export var sandstone_threshold :=  0.0   # ~20% sand/beach
+@export var dirt_threshold      :=  0.2   # ~20% dirt
+@export var grass_threshold     :=  0.4   # ~20% grass
+@export var snow_threshold      :=  0.6   # ~20% snow
+@export var ice_fraction: float = 0.5     # balanced ice/snow split
 
 @export var water_tile_id := 6
 @export var sandstone_tile_id := 10
@@ -211,6 +211,8 @@ var turns_until_next_wave := 0
 
 @export var player_spawn_cooldown_turns := 3
 var turns_until_next_player_spawn := 0
+
+var _road_count := 0
 
 func notify_occupied(tile: Vector2i, by: Node) -> void:
 	emit_signal("tile_occupied", tile, by)
@@ -404,14 +406,50 @@ func _get_tile_id_from_noise(n: float) -> int:
 		return snow_tile_id
 	return ice_tile_id
 
+# Replaces _get_unique_random_index with a gap-aware version.
+func _get_unique_random_index_with_gap(limit: int, used: Array, gap: int = 1) -> int:
+	# try random picks first
+	for i in range(100):
+		var v = randi_range(0, limit - 1)
+		var ok := true
+		for u in used:
+			if abs(v - int(u)) <= gap:
+				ok = false
+				break
+		if ok:
+			used.append(v)
+			return v
+
+	# deterministic fallback scan
+	for v in range(limit):
+		var ok := true
+		for u in used:
+			if abs(v - int(u)) <= gap:
+				ok = false
+				break
+		if ok:
+			used.append(v)
+			return v
+
+	# if we truly can't fit another with the gap, relax the rule
+	return _get_unique_random_index(limit, used)  # your old unique-only function
+
+
 func _generate_roads():
-	var used_h := []
-	var used_v := []
-	for i in randi_range(1, 2):
-		var hy = _get_unique_random_odd(grid_height, used_h)
+	var used_h: Array[int] = []
+	var used_v: Array[int] = []
+	var GAP := 1
+	_road_count = 0
+
+	var how_many = randi_range(1, 3)
+	for i in range(how_many):
+		var hy = _get_unique_random_index_with_gap(grid_height, used_h, GAP)
 		draw_road(Vector2i(0, hy), Vector2i(1, 0), DOWN_RIGHT_ROAD)
-		var vx = _get_unique_random_odd(grid_width, used_v)
+		_road_count += 1
+
+		var vx = _get_unique_random_index_with_gap(grid_width, used_v, GAP)
 		draw_road(Vector2i(vx, 0), Vector2i(0, 1), DOWN_LEFT_ROAD)
+		_road_count += 1
 
 func draw_road(start: Vector2i, direction: Vector2i, road_id: int):
 	var pos = start
@@ -423,13 +461,20 @@ func draw_road(start: Vector2i, direction: Vector2i, road_id: int):
 			set_cell(0, pos, road_id, Vector2i.ZERO)
 		pos += direction
 
-func _get_unique_random_odd(limit: int, used: Array) -> int:
-	for i in range(20):
-		var v = randi_range(1, limit - 2)
-		if v % 2 == 1 and not used.has(v):
+# New: pick any index (0..limit-1), still unique per orientation
+func _get_unique_random_index(limit: int, used: Array) -> int:
+	for i in range(50):
+		var v = randi_range(0, limit - 1)
+		if not used.has(v):
 			used.append(v)
 			return v
-	return 1
+	# fallback: first unused, or 0 if all used
+	for v in range(limit):
+		if not used.has(v):
+			used.append(v)
+			return v
+	return 0
+
 
 func export_map_data() -> Dictionary:
 	var data = {
@@ -787,7 +832,7 @@ func _find_nearest_land(start: Vector2i, used_tiles: Array[Vector2i]) -> Vector2
 	return start
 
 func spawn_structures():
-	if structure_scenes.size() == 0:
+	if structure_scenes.is_empty():
 		push_error("No structure scenes available to spawn!")
 		return
 
@@ -795,7 +840,12 @@ func spawn_structures():
 	var attempts = 0
 	var max_attempts = grid_width * grid_height * 5
 
-	max_structures = randi_range(4, 8)
+	# Base + bonus per road
+	var base = 3
+	var bonus_per_road = 2
+	max_structures = base + int(_road_count * bonus_per_road)
+	# Optional clamp
+	max_structures = clamp(max_structures, 3, 12)
 
 	while count < max_structures and attempts < max_attempts:
 		attempts += 1
@@ -2522,11 +2572,76 @@ func _get_active_attack_range() -> int:
 
 func _on_node_removed(node):
 	if node is Node2D and node.is_in_group("Units"):
+		var dead_was_player = is_instance_valid(node) and node.is_player
+
 		if node == selected_unit:
 			_on_selected_unit_died()
-			# ensure movement is reset even if death didn't route through the handler
-			moving = false
-			current_path.clear()
+
+		moving = false
+		current_path.clear()
+		_clear_ability_modes()
+
+		# Only rebuild nav if we’re still in the tree
+		if is_inside_tree():
+			# It's also safe to skip the await if tree might be going away
+			var tree := _tree_or_null()
+			if tree != null:
+				await tree.process_frame
+			update_astar_grid()
+
+		_maybe_advance_after_casualty_from_team(dead_was_player)
+
+func _is_gray_tinted(sprite: CanvasItem) -> bool:
+	return sprite != null and sprite.self_modulate == Color(0.4, 0.4, 0.4, 1)
+
+func _unit_can_still_act(u: Node) -> bool:
+	if not is_instance_valid(u): return false
+	if u.health <= 0: return false
+	# Must be on the active team
+	var active_team = TurnManager.get_active_team()
+	if (active_team == TurnManager.Team.PLAYER and not u.is_player) \
+	or (active_team == TurnManager.Team.ENEMY and u.is_player):
+		return false
+	# If it's already gray-tinted, it's spent
+	var spr := u.get_node_or_null("AnimatedSprite2D")
+	if _is_gray_tinted(spr): return false
+	# Otherwise, if it hasn't both moved and attacked yet, it can still act
+	return (not u.has_moved) or (not u.has_attacked)
+
+func _any_active_units_can_act() -> bool:
+	for u in get_tree().get_nodes_in_group("Units"):
+		if _unit_can_still_act(u):
+			return true
+	return false
+
+func _tree_or_null() -> SceneTree:
+	return get_tree() if is_inside_tree() else null
+
+func _safe_units_group() -> Array:
+	var tree := _tree_or_null()
+	return tree.get_nodes_in_group("Units") if tree != null else []
+
+func _maybe_advance_after_casualty_from_team(dead_was_player: bool) -> void:
+	# If we’re not in the tree anymore, do nothing.
+	if not is_inside_tree():
+		return
+
+	var active_team = TurnManager.get_active_team()
+	var dead_was_active = (active_team == TurnManager.Team.PLAYER and dead_was_player) \
+		or (active_team == TurnManager.Team.ENEMY and not dead_was_player)
+	if not dead_was_active:
+		return
+
+	# If anyone is still moving, wait (prevents premature turn advance)
+	for u in _safe_units_group():
+		if is_instance_valid(u) and u.has_method("is_moving") and u.is_moving():
+			return
+
+	# If no remaining units on the active team can act, end the turn.
+	if not _any_active_units_can_act():
+		var tm = get_node_or_null("/root/TurnManager")
+		if tm:
+			tm.end_turn()
 
 func _on_selected_unit_died():
 	selected_unit = null
