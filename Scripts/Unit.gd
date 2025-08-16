@@ -26,6 +26,7 @@ signal movement_finished
 @onready var health_bar = $HealthUI
 @onready var xp_bar = $XPUI
 @onready var step_player: AudioStreamPlayer2D = $SFX
+@onready var sfx_player: AudioStreamPlayer2D = $SFX2
 
 var has_moved := false
 var has_attacked := false
@@ -185,6 +186,8 @@ func _ready():
 	if step_player and step_sfx:
 		step_player.stream = step_sfx
 		
+	_ensure_zap_player()	
+
 func debug_print_units():
 	var units = get_tree().get_nodes_in_group("Units")
 	print("DEBUG: Listing all units in the 'Units' group. Total: ", units.size())
@@ -1544,6 +1547,15 @@ const ELECTRIC_SFX := preload("res://Audio/SFX/electric.mp3") # <— prefer ogg 
 
 var _zap_player: AudioStreamPlayer2D
 
+func _ensure_zap_player() -> void:
+	if _zap_player and is_instance_valid(_zap_player):
+		return
+	_zap_player = AudioStreamPlayer2D.new()
+	_zap_player.bus = "SFX"
+	_zap_player.stream = ELECTRIC_SFX
+	# Keep polyphony sane on Web by reusing a single player
+	add_child(_zap_player)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Feature detection
 func _is_web() -> bool:
@@ -1661,6 +1673,7 @@ func fortify() -> void:
 			await _fortify_shock_burst_web()
 			# deterministic spacing so the browser “breathes”
 			await get_tree().create_timer(0.12).timeout
+			
 	else:
 		var bursts := 5
 		var watchdog := get_tree().create_timer(3.0)
@@ -1713,7 +1726,7 @@ func _fortify_shock_burst_web() -> void:
 			continue
 
 		# damage first
-		u.take_damage(int(self.damage / 6))
+		u.take_damage(int(self.damage / 5))
 		if u.has_method("flash_white"):
 			u.flash_white()
 
@@ -1726,7 +1739,6 @@ func _fortify_shock_burst_web() -> void:
 		var life := 0.10  # brief
 
 		_draw_lightning_web(start_world, end_world, seg, amp, life)
-		_play_electric_sfx(start_world)
 		
 		count += 1
 		# micro-breath so many enemies don’t stall a frame
@@ -1747,7 +1759,7 @@ func _fortify_shock_burst_desktop() -> void:
 	if enemies.is_empty():
 		return
 
-	var per_enemy_delay: float = 0.06
+	var per_enemy_delay: float = 0.25
 
 	for i in range(enemies.size()):
 		var u = enemies[i]
@@ -1773,13 +1785,26 @@ func _fortify_shock_burst_desktop() -> void:
 		await get_tree().create_timer(per_enemy_delay).timeout
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SFX: desktop only (no-ops on web)
 func _play_electric_sfx(pos: Vector2) -> void:
-	if step_player == null or not is_instance_valid(step_player):
-		step_player.bus = "SFX"
-	step_player.global_position = pos
-	step_player.pitch_scale = randf_range(0.95, 1.05)  # safe on desktop
-	step_player.play(0.0)
+	if sfx_player == null or not is_instance_valid(sfx_player):
+		return
+
+	# Always restart so every strike makes a sound
+	if sfx_player.playing:
+		sfx_player.stop()
+
+	sfx_player.bus = "SFX"
+	sfx_player.stream = ELECTRIC_SFX
+	sfx_player.global_position = pos
+
+	# Use narrow pitch jitter to keep web safe, desktop still varied
+	if _is_web():
+		sfx_player.pitch_scale = randf_range(0.98, 1.02)
+	else:
+		sfx_player.pitch_scale = randf_range(0.95, 1.05)
+
+	sfx_player.play(0.0)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lightning: desktop only (no-ops on web)
