@@ -235,48 +235,133 @@ func _move_one(dest: Vector2i) -> void:
 	var tilemap: TileMap = get_tree().get_current_scene().get_node("TileMap")
 	var world_target := tilemap.to_global(tilemap.map_to_local(dest)) + Vector2(0, Y_OFFSET)
 
-	# face and sfx
 	var sprite: AnimatedSprite2D = $AnimatedSprite2D
+	var holder: Node2D = $AnimatedSprite2D           # change to $"SpriteHolder" if you use one
+	var dust: GPUParticles2D = get_node_or_null("Dust")
+
+	# cancel any previous motion tweens
+	for key in ["_move_tw", "_bob_tw", "_lean_tw"]:
+		if has_meta(key):
+			var t: Tween = get_meta(key)
+			if is_instance_valid(t): t.kill()
+			remove_meta(key)
+
+	# ── mark "actively moving" so nothing else flips us to idle
+	set_meta("_anim_move_guard", true)
+
+	# face, play and scale speed (kept until we finish)
 	if sprite:
 		sprite.play("move")
+		sprite.loop = true
 		sprite.flip_h = global_position.x < world_target.x
-	if step_player:
-		step_player.pitch_scale = randf_range(0.9, 1.1)
-		step_player.play()
 
-	# --- tweened movement (no frame loop) ---
-	var speed_px_per_sec := 50.0
+	# dust on (optional)
+	if dust:
+		dust.emitting = true
+
+	# timings
+	var speed_px_per_sec := 100.0
 	var dist := global_position.distance_to(world_target)
-	var dur  = max(0.001, dist / speed_px_per_sec)
+	var dur = max(0.001, dist / speed_px_per_sec)
 
-	# Kill any previous movement tween for safety
-	if has_meta("_move_tw"):
-		var old: Tween = get_meta("_move_tw")
-		if is_instance_valid(old): old.kill()
-		remove_meta("_move_tw")
+	# keep anim speed proportional to travel speed (helps “feel” continuous)
+	if sprite:
+		sprite.speed_scale = clamp(speed_px_per_sec / 80.0, 0.85, 1.6)
 
-	var tw := create_tween()
-	set_meta("_move_tw", tw)
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(self, "global_position", world_target, dur)
+	# ─────────────────────────────────────────────────────────
+	# Movement tween (authoritative)
+	# ─────────────────────────────────────────────────────────
+	var move_tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	set_meta("_move_tw", move_tw)
+	move_tw.tween_property(self, "global_position", world_target, dur)
 
-	# ── hard timeout fallback: if tween doesn't finish, snap to target
-	var timeout := get_tree().create_timer(dur + 0.35)  # small grace
+	# ─────────────────────────────────────────────────────────
+	# Lean-in → travel → recover (purely cosmetic)
+	# ─────────────────────────────────────────────────────────
+	var dir := (world_target - global_position).normalized()
+	var target_rot := deg_to_rad(clamp(dir.x * 6.0, -6.0, 6.0))  # small tilt by x direction
+	var accel = min(0.12, dur * 0.25)
+	var decel = accel
+	var coast = max(0.0, dur - (accel + decel))
+
+	var lean_tw := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	set_meta("_lean_tw", lean_tw)
+	if is_instance_valid(holder):
+		lean_tw.tween_property(holder, "rotation", target_rot, accel)
+		lean_tw.tween_interval(coast)
+		lean_tw.tween_property(holder, "rotation", 0.0, decel)
+
+	# ─────────────────────────────────────────────────────────
+	# Bobbing (continuous up/down for the whole duration)
+	# ─────────────────────────────────────────────────────────
+	var bob_amp := 2.0
+	var bob_tw := create_tween().set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	set_meta("_bob_tw", bob_tw)
+	var t0 := Time.get_ticks_msec() / 1000.0
+	var bobper := 0.22  # ~4–5 steps per second
+	bob_tw.tween_method(
+		func(_t):
+			if is_instance_valid(holder):
+				var tnow := Time.get_ticks_msec() / 1000.0
+				var phase := (tnow - t0) / bobper
+				holder.position.y = -sin(phase * TAU) * bob_amp
+	, 0.0, dur, dur)
+
+	# ─────────────────────────────────────────────────────────
+	# Footsteps (optional: small loop; never flips anim)
+	# ─────────────────────────────────────────────────────────
+	var keep_stepping := true
+	var step_interval := 0.24
+	var step_loop
+	step_loop = func():
+		if not keep_stepping: return
+		if step_player:
+			step_player.pitch_scale = randf_range(0.92, 1.08)
+			step_player.play()
+		await get_tree().create_timer(step_interval).timeout
+		step_loop.call_deferred()
+	step_loop.call_deferred()
+
+	# ─────────────────────────────────────────────────────────
+	# Completion & safety timeout — only here we go back to idle
+	# ─────────────────────────────────────────────────────────
 	var finished := false
-
-	tw.finished.connect(func():
+	move_tw.finished.connect(func():
 		finished = true
-		if sprite: sprite.play("default")
+		# snap cosmetics back
+		if is_instance_valid(holder):
+			holder.rotation = 0.0
+			holder.position.y = 0.0
+		if dust: dust.emitting = false
+		keep_stepping = false
+
+		# end of motion → NOW switch back to idle
+		if sprite:
+			sprite.speed_scale = 1.0
+			sprite.play("default")
+
 		tile_pos = dest
+		if has_meta("_anim_move_guard"): remove_meta("_anim_move_guard")
 	)
 
+	var timeout := get_tree().create_timer(dur + 0.35)
 	await timeout.timeout
+	if not finished and is_instance_valid(self):
+		# force-complete to target (network hiccup / tween killed, etc.)
+		global_position = world_target
+		tile_pos = dest
+
+	# make sure all cosmetics are reset on fallback too
 	if not finished:
-		# force-complete this step
-		if is_instance_valid(self):
-			global_position = world_target
-			tile_pos = dest
-			if sprite: sprite.play("default")
+		if is_instance_valid(holder):
+			holder.rotation = 0.0
+			holder.position.y = 0.0
+		if dust: dust.emitting = false
+		keep_stepping = false
+		if sprite:
+			sprite.speed_scale = 1.0
+			sprite.play("default")
+		if has_meta("_anim_move_guard"): remove_meta("_anim_move_guard")
 
 var _move_tw: Tween
 var _is_player_moving := false
@@ -782,8 +867,8 @@ func _choose_drop_scene() -> PackedScene:
 	var roll = randi() % 100
 	if roll < 100:
 		match randi() % 3:
-			0: return ORBITAL_STRIKE_SCENE
-			1: return ORBITAL_STRIKE_SCENE
+			0: return HEALTH_SCENE
+			1: return LIGHTNING_SCENE
 			2: return ORBITAL_STRIKE_SCENE
 	return null
 
