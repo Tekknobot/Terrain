@@ -44,12 +44,12 @@ var info_text: String = ""                                   # NEW
 const ABILITIES := {
 	"Ground Slam": "shockwave hits all adjacent tiles even if empty",
 	"Mark and Pounce": "lock target leap in and strike with damage",
-	"High Arcing Shot": "lands in 3x3 zone strong damage in center",
+	"High Arching Shot": "lands in 3x3 zone strong damage in center",
 	"Suppressive Fire": "fire at all within range",
 	"Guardian Halo": "give ally one round shield lost if missed",
-	"Fortify": "halve all damage taken until next turn and fore laser arcs within range",
-	"Heavy Rain": "missile barrage over wide area damage - Passive healing",
-	"Web Field": "zone in and damage all enemies 3x3 - Passive healing"
+	"Fortify": "halve all damage taken until next turn and fire laser arcs within range",
+	"Heavy Rain": "missile barrage over wide area damage with passive healing",
+	"Web Field": "zone in and damage all enemies 3x3 with passive healing"
 }
 
 func _layout_overlay(pilot_tx: Texture2D, mek_tx: Texture2D) -> void:
