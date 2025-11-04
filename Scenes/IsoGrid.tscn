@@ -1,4 +1,4 @@
-[gd_scene load_steps=46 format=3 uid="uid://cjslm3njvyox0"]
+[gd_scene load_steps=55 format=3 uid="uid://cjslm3njvyox0"]
 
 [ext_resource type="Script" uid="uid://bdb3p0q7yvebm" path="res://Scripts II/Camera.gd" id="1_50wvn"]
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_v5osp"]
@@ -19,9 +19,18 @@
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://Sprites/Terrain/grass_default.png" id="16_nhkxx"]
 [ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://Sprites/Terrain/grass_snow.png" id="17_u1ka1"]
 [ext_resource type="Script" uid="uid://b3u4gcuw271vm" path="res://Scripts II/MapGen.gd" id="18_qnxxh"]
+[ext_resource type="Script" uid="uid://rsf733qntu7" path="res://Scripts II/Spawner.gd" id="27_ph65w"]
 [ext_resource type="PackedScene" uid="uid://c2xvfkwdxs0xp" path="res://Scenes/Meks_Scenes/AVATARS/M1.scn" id="28_jo5i0"]
+[ext_resource type="PackedScene" uid="uid://cdgmcddvf8k4k" path="res://Scenes/Meks_Scenes/CPU II/M1.scn" id="29_6gea1"]
+[ext_resource type="PackedScene" uid="uid://ed4qkkrk0vqo" path="res://Scenes/Meks_Scenes/CPU II/M2.scn" id="30_mxq66"]
+[ext_resource type="PackedScene" uid="uid://cdqedw03khtl5" path="res://Scenes/Meks_Scenes/CPU II/R1.scn" id="31_su57w"]
+[ext_resource type="PackedScene" uid="uid://cuiflgspey5jw" path="res://Scenes/Meks_Scenes/CPU II/R2.scn" id="32_irsdr"]
+[ext_resource type="PackedScene" uid="uid://dw3hurgcrpccs" path="res://Scenes/Meks_Scenes/CPU II/R3.scn" id="33_158w7"]
+[ext_resource type="PackedScene" uid="uid://bj5brjmdt3fsw" path="res://Scenes/Meks_Scenes/CPU II/R4.scn" id="34_v5osp"]
+[ext_resource type="PackedScene" uid="uid://coyahap3jshja" path="res://Scenes/Meks_Scenes/CPU II/S2.scn" id="35_3ylvv"]
 [ext_resource type="PackedScene" uid="uid://dx4l36fri7lqo" path="res://Scenes/Structures_Scenes/building_c3.scn" id="35_hv46v"]
 [ext_resource type="PackedScene" uid="uid://ta73ff7u5b2i" path="res://Scenes/Structures_Scenes/building_d.tscn" id="36_mmgiq"]
+[ext_resource type="PackedScene" uid="uid://np4hkb4ffi1g" path="res://Scenes/Meks_Scenes/CPU II/S3.scn" id="36_v4kts"]
 [ext_resource type="PackedScene" uid="uid://bjego6do1vtmm" path="res://Scenes/Structures_Scenes/building_e.tscn" id="37_bixtq"]
 [ext_resource type="PackedScene" uid="uid://b6reg1gechlys" path="res://Scenes/Structures_Scenes/district.tscn" id="38_ylwe2"]
 [ext_resource type="PackedScene" uid="uid://bj4tbqwo8ei00" path="res://Scenes/Structures_Scenes/stadium.tscn" id="39_vqr6d"]
@@ -200,8 +209,9 @@ layer_2/name = "Layer2"
 script = ExtResource("18_qnxxh")
 grid_width = 32
 grid_height = 32
-min_road_pairs = 3
-max_road_pairs = 5
+min_road_pairs = 4
+max_road_pairs = 8
+road_gap = 2
 structure_scenes = Array[PackedScene]([ExtResource("35_hv46v"), ExtResource("38_ylwe2"), ExtResource("39_vqr6d"), ExtResource("40_rt7o2"), ExtResource("36_mmgiq"), ExtResource("37_bixtq")])
 max_structures = 32
 
@@ -209,7 +219,9 @@ max_structures = 32
 
 [node name="StarryNight" parent="TileMap" instance=ExtResource("41_4ydyc")]
 
-[node name="M1" parent="." groups=["Player"] instance=ExtResource("28_jo5i0")]
-position = Vector2(172, 109)
-tilemap_path = NodePath("../TileMap")
-move_speed = 110.0
+[node name="Spawner" type="Node2D" parent="."]
+script = ExtResource("27_ph65w")
+player_prefabs = Array[PackedScene]([ExtResource("28_jo5i0")])
+enemy_prefabs = Array[PackedScene]([ExtResource("29_6gea1"), ExtResource("30_mxq66"), ExtResource("31_su57w"), ExtResource("32_irsdr"), ExtResource("33_158w7"), ExtResource("34_v5osp"), ExtResource("35_3ylvv"), ExtResource("36_v4kts")])
+require_structures_ready = true
+auto_spawn_on_ready = true

@@ -40,6 +40,7 @@ const DOWN_LEFT_ROAD   := 13
 # Structures
 @export var structure_scenes: Array[PackedScene] = []
 @export var max_structures: int = 10   # will be recalculated (base + per-road bonus)
+@export var spawn_on_all_sandstone: bool = true
 
 # Optional: quick regenerate on scene run
 @export var clear_before_gen: bool = true
@@ -205,11 +206,59 @@ func spawn_structures() -> void:
 	if structure_scenes.is_empty():
 		return
 
+	# If not forcing sandstone-only, fall back to your old behavior
+	if not spawn_on_all_sandstone:
+		_spawn_structures_original_style()
+		return
+
+	var placed := 0
+	var scene_index := 0  # cycle through scenes for variety
+
+	for y in range(grid_height):
+		for x in range(grid_width):
+			var pos := Vector2i(x, y)
+			var tile_id := get_cell_source_id(0, pos)
+
+			# ONLY sandstone tiles
+			if tile_id != sandstone_tile_id:
+				continue
+
+			# No gaps: place on every sandstone tile (skip only if something already sits here)
+			if is_tile_occupied(pos):
+				continue
+
+			var scene := structure_scenes[scene_index % structure_scenes.size()]
+			scene_index += 1
+
+			var structure := scene.instantiate()
+			structure.set_meta("tile_pos", pos)
+			if structure.has_method("set_tile_pos"):
+				structure.set_tile_pos(pos)
+
+			structure.global_position = to_global(map_to_local(pos))
+			structure.add_to_group("Structures")
+
+			# Optional tint, fully opaque
+			var r_val := randf_range(0.4, 0.8)
+			var g_val := randf_range(0.4, 0.8)
+			var b_val := randf_range(0.4, 0.8)
+			structure.modulate = Color(r_val, g_val, b_val, 1.0)
+
+			# (Optional) world-space z sort so stacking looks correct
+			if structure.has_method("set"):
+				structure.set("z_as_relative", false)
+				structure.set("z_index", int(structure.global_position.y))
+
+			add_child(structure)
+			placed += 1
+
+	print("Sandstone structures placed (no gaps):", placed)
+
+func _spawn_structures_original_style() -> void:
 	var count := 0
 	var attempts := 0
 	var max_attempts := grid_width * grid_height * 5
 
-	# Base + bonus per road (same spirit as your original)
 	var base := 3
 	var bonus_per_road := 2
 	max_structures = clamp(base + int(_road_count * bonus_per_road), 3, 12)
@@ -221,64 +270,31 @@ func spawn_structures() -> void:
 		var pos := Vector2i(x, y)
 		var tile_id := get_cell_source_id(0, pos)
 
-		# --- Terrain / road rules ---
+		# allow sandstone; block only water/roads
 		if tile_id == water_tile_id \
 		or tile_id == INTERSECTION \
 		or tile_id == DOWN_RIGHT_ROAD \
 		or tile_id == DOWN_LEFT_ROAD:
 			continue
+		if _is_edge(pos, 1): continue
+		if _has_nearby_structure(pos, 1): continue
+		if is_tile_occupied(pos): continue
 
-		# --- Keep a clear perimeter ring (no edge spawns) ---
-		if _is_edge(pos, 1):
-			continue
+		var fat_blocks := [pos, pos + Vector2i(1,0), pos + Vector2i(-1,0), pos + Vector2i(0,1), pos + Vector2i(0,-1)]
+		if not _zones_connected_with_block_area(fat_blocks): continue
+		if _would_create_wall(pos): continue
 
-		# --- Keep at least 1 tile spacing between structures (no diagonal touching) ---
-		if _has_nearby_structure(pos, 1):
-			continue
-
-		# --- No stacking ---
-		if is_tile_occupied(pos):
-			continue
-
-		# Strong connectivity: pretend we block pos and its 4-neighbors (fat structure)
-		var fat_blocks: Array[Vector2i] = [
-			pos,
-			pos + Vector2i(1, 0),
-			pos + Vector2i(-1, 0),
-			pos + Vector2i(0, 1),
-			pos + Vector2i(0, -1),
-		]
-
-		# 1) still globally connected?
-		if not _zones_connected_with_block_area(fat_blocks):
-			continue
-		# 2) won’t produce a full wall across a row/column?
-		if _would_create_wall(pos):
-			continue
-
-		# Place the structure
 		var scene_idx := _rng.randi_range(0, structure_scenes.size() - 1)
 		var structure := structure_scenes[scene_idx].instantiate()
-
-		# Track tile pos in meta so our helpers can always read it
 		structure.set_meta("tile_pos", pos)
-		# try to set property if it exists (safe fallback via meta above)
 		if structure.has_method("set_tile_pos"):
 			structure.set_tile_pos(pos)
-		else:
-			# avoid structure.set("tile_pos", pos) because it errors if property doesn't exist
-			pass
-
-		# place in world
 		structure.global_position = to_global(map_to_local(pos))
 		structure.add_to_group("Structures")
-
-		# random tint (fully opaque; no fades)
 		var r_val := randf_range(0.4, 0.8)
 		var g_val := randf_range(0.4, 0.8)
 		var b_val := randf_range(0.4, 0.8)
 		structure.modulate = Color(r_val, g_val, b_val, 1.0)
-
 		add_child(structure)
 		count += 1
 

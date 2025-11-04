@@ -1,3 +1,4 @@
+Node2D
 Camera2D
 AudioStreamPlayer2D
 Line2D
@@ -12,4 +13,3 @@ RichTextLabel
 Sprite2D
 TextureButton
 GridContainer
-PanelContainer

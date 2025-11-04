@@ -1,19 +1,19 @@
-# File: EnemyDiabloAI.gd
+# File: EnemyController.gd
 # Attach to: your enemy prefab root (Node2D)
 extends Node2D
 
 # ─────────────────────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────────────────────
-@export var tilemap_path: NodePath = ^"../../TileMap"   # adjust to your scene layout
-@export var player_group: String = "Player"             # put player(s) in this group
+@export var tilemap_path: NodePath = ^"../../TileMap"   # optional direct path
+@export var player_group: String = "Player"
 @export var move_speed: float = 180.0
 @export var y_offset: float = -8.0
 @export var stop_radius_px: float = 6.0
 
-@export var aggro_radius_px: float = 220.0             # begin chase when player within this range
-@export var give_up_radius_px: float = 360.0           # stop chasing if player gets this far away
-@export var melee_range_tiles: int = 1                 # Manhattan distance in tiles
+@export var aggro_radius_px: float = 220.0
+@export var give_up_radius_px: float = 360.0
+@export var melee_range_tiles: int = 1
 @export var attack_damage: int = 6
 @export var attack_cooldown: float = 0.7
 
@@ -47,15 +47,54 @@ var _target: Node = null
 var _path: Array[Vector2i] = []
 
 # ─────────────────────────────────────────────────────────────
+# RESOLVERS
+# ─────────────────────────────────────────────────────────────
+func _dfs_find_tilemap(n: Node) -> TileMap:
+	if n is TileMap:
+		return n
+	for c in n.get_children():
+		var r := _dfs_find_tilemap(c)
+		if r != null:
+			return r
+	return null
+
+func _resolve_tilemap() -> TileMap:
+	# 1) Try the exported path
+	if tilemap_path != NodePath():
+		var t := get_node_or_null(tilemap_path) as TileMap
+		if t != null:
+			return t
+
+	# 2) Try by name under the current scene
+	var root := get_tree().current_scene
+	if root != null:
+		var by_name := root.find_child("TileMap", true, false)
+		if by_name is TileMap:
+			return by_name
+
+		# 3) DFS under current scene
+		var found := _dfs_find_tilemap(root)
+		if found != null:
+			return found
+
+	# 4) Fallback: scan direct children of the tree root
+	var tree_root := get_tree().get_root()
+	for n in tree_root.get_children():
+		if n is TileMap:
+			return n
+
+	return null
+
+# ─────────────────────────────────────────────────────────────
 # LIFECYCLE
 # ─────────────────────────────────────────────────────────────
 func _ready() -> void:
 	# Auto-tag as "Enemies" for the player's click-to-attack
 	add_to_group("Enemies")
 
-	_tilemap = get_node_or_null(tilemap_path) as TileMap
+	_tilemap = _resolve_tilemap()
 	if _tilemap == null:
-		push_error("EnemyDiabloAI: TileMap not found. Set 'tilemap_path'.")
+		push_error("EnemyDiabloAI: TileMap not found (path and auto-discovery failed).")
 		return
 
 	_sprite = get_node_or_null(sprite_node_path) as AnimatedSprite2D
@@ -114,7 +153,8 @@ func _update_target() -> void:
 		var best: Node = null
 		var best_d2: float = aggro_radius_px * aggro_radius_px
 		for p in get_tree().get_nodes_in_group(player_group):
-			if not is_instance_valid(p): continue
+			if not is_instance_valid(p):
+				continue
 			var d2: float = p.global_position.distance_squared_to(global_position)
 			if d2 <= best_d2:
 				best = p
@@ -134,7 +174,8 @@ func _issue_path_to(goal_tile: Vector2i) -> void:
 	_path = _astar.get_id_path(start_tile, goal_tile)
 	if _path.size() > 0 and typeof(_path[0]) != TYPE_VECTOR2I:
 		var conv: Array[Vector2i] = []
-		for p in _path: conv.append(Vector2i(p))
+		for p in _path:
+			conv.append(Vector2i(p))
 		_path = conv
 
 	if not _path.is_empty():
@@ -198,9 +239,10 @@ func take_damage(amount: int) -> void:
 
 # quick white flash for hit feedback (if sprite exists)
 func _flash() -> void:
-	if _sprite == null: return
+	if _sprite == null:
+		return
 	var old := _sprite.modulate
-	_sprite.modulate = Color(1,1,1)
+	_sprite.modulate = Color(1, 1, 1)
 	var tw := create_tween()
 	tw.tween_property(_sprite, "modulate", old, 0.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
@@ -240,13 +282,17 @@ func _build_astar_from_tilemap() -> void:
 
 func _is_blocked_tile(t: Vector2i) -> bool:
 	var within := t.x >= 0 and t.x < _grid_w and t.y >= 0 and t.y < _grid_h
-	if not within: return true
+	if not within:
+		return true
 
-	if _tilemap.has_method("is_water_tile") and _tilemap.is_water_tile(t): return true
-	if _tilemap.has_method("get_structure_at_tile") and _tilemap.get_structure_at_tile(t) != null: return true
+	if _tilemap.has_method("is_water_tile") and _tilemap.is_water_tile(t):
+		return true
+	if _tilemap.has_method("get_structure_at_tile") and _tilemap.get_structure_at_tile(t) != null:
+		return true
 
 	var water_id := int(_tilemap.get("water_tile_id") if _tilemap.has_method("get") else -9999)
-	if water_id != -9999 and _tilemap.get_cell_source_id(0, t) == water_id: return true
+	if water_id != -9999 and _tilemap.get_cell_source_id(0, t) == water_id:
+		return true
 
 	return false
 

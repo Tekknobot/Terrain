@@ -1,8 +1,8 @@
-# File: PlayerDiabloController.gd
+# File: PlayerController.gd
 # Attach to: your player prefab root (e.g., "S3")
 extends Node2D
 
-@export var tilemap_path: NodePath = ^"../../TileMap"
+@export var tilemap_path: NodePath = ^"../../TileMap"  # optional direct path
 @export var move_speed: float = 220.0
 @export var stop_radius_px: float = 6.0
 @export var y_offset: float = -8.0
@@ -16,8 +16,8 @@ extends Node2D
 @export var move_anim_name: String = "move"
 @export var sfx_node_path: NodePath = ^"SFX"
 
-# --- Z-ORDER: tune if your feet aren’t exactly at global_position.y
-@export var z_bias: int = 0  # add a small bias if needed
+# Z-order bias if your feet aren’t exactly at global_position.y
+@export var z_bias: int = 0
 
 var _tilemap: TileMap
 var _sprite: AnimatedSprite2D
@@ -32,17 +32,60 @@ var _have_target := false
 var _attack_target: Node = null
 var _cooldown_left: float = 0.0
 
+# ─────────────────────────────────────────────────────────────
+# RESOLVERS
+# ─────────────────────────────────────────────────────────────
+func _dfs_find_tilemap(n: Node) -> TileMap:
+	if n is TileMap:
+		return n
+	for c in n.get_children():
+		var r := _dfs_find_tilemap(c)
+		if r != null:
+			return r
+	return null
+
+func _resolve_tilemap() -> TileMap:
+	# 1) Try the exported path
+	if tilemap_path != NodePath():
+		var t := get_node_or_null(tilemap_path) as TileMap
+		if t != null:
+			return t
+
+	# 2) Try by name under the current scene
+	var root := get_tree().current_scene
+	if root != null:
+		var by_name := root.find_child("TileMap", true, false)
+		if by_name is TileMap:
+			return by_name
+
+		# 3) DFS under current scene
+		var found := _dfs_find_tilemap(root)
+		if found != null:
+			return found
+
+	# 4) Fallback: scan direct children of the tree root
+	var tree_root := get_tree().get_root()
+	for n in tree_root.get_children():
+		if n is TileMap:
+			return n
+
+	return null
+
+# ─────────────────────────────────────────────────────────────
+# LIFECYCLE
+# ─────────────────────────────────────────────────────────────
 func _ready() -> void:
-	_tilemap = get_node_or_null(tilemap_path) as TileMap
+	_tilemap = _resolve_tilemap()
 	if _tilemap == null:
-		push_error("PlayerDiabloController: TileMap not found. Set 'tilemap_path'.")
+		push_error("PlayerDiabloController: TileMap not found (path and auto-discovery failed).")
 		return
+
 	_sprite = get_node_or_null(sprite_node_path) as AnimatedSprite2D
 	_sfx    = get_node_or_null(sfx_node_path) as AudioStreamPlayer2D
 	if _tilemap.tile_set and _tilemap.tile_set.tile_size != Vector2i.ZERO:
 		_tile_size = _tilemap.tile_set.tile_size
 
-	# --- Z-ORDER: use world z-sorting so we layer against structures anywhere in the scene
+	# world z-sorting so we layer correctly with structures/units
 	z_as_relative = false
 	_update_z()
 
@@ -79,7 +122,7 @@ func _physics_process(delta: float) -> void:
 		if _manhattan(my_tile, tgt_tile) <= click_to_attack_distance_tiles:
 			_path.clear()
 			_do_attack(_attack_target)
-			_update_z() # --- Z-ORDER
+			_update_z()
 			return
 		else:
 			if _path.is_empty() or _path.back() != tgt_tile:
@@ -90,22 +133,28 @@ func _physics_process(delta: float) -> void:
 	else:
 		_play_anim_safe(idle_anim_name)
 
-	# --- Z-ORDER: keep it updated even when idle
 	_update_z()
 
+# ─────────────────────────────────────────────────────────────
+# INPUT HELPERS
+# ─────────────────────────────────────────────────────────────
 func _pick_clicked_enemy(mouse_world: Vector2) -> Node:
 	if enemy_group_name == "" or not get_tree().has_group(enemy_group_name):
 		return null
 	var best: Node = null
 	var best_d2 := INF
 	for e in get_tree().get_nodes_in_group(enemy_group_name):
-		if not is_instance_valid(e): continue
+		if not is_instance_valid(e):
+			continue
 		var d2 = e.global_position.distance_squared_to(mouse_world)
 		if d2 < best_d2 and d2 <= float(_tile_size.x * _tile_size.x) * 0.6:
 			best = e
 			best_d2 = d2
 	return best
 
+# ─────────────────────────────────────────────────────────────
+# MOVEMENT
+# ─────────────────────────────────────────────────────────────
 func _issue_move_order(goal_tile: Vector2i) -> void:
 	var start_tile := _world_to_tile(global_position)
 	if start_tile == goal_tile:
@@ -115,7 +164,8 @@ func _issue_move_order(goal_tile: Vector2i) -> void:
 	_path = _astar.get_id_path(start_tile, goal_tile)
 	if _path.size() > 0 and typeof(_path[0]) != TYPE_VECTOR2I:
 		var tmp: Array[Vector2i] = []
-		for p in _path: tmp.append(Vector2i(p))
+		for p in _path:
+			tmp.append(Vector2i(p))
 		_path = tmp
 	if not _path.is_empty():
 		_play_anim_safe(move_anim_name)
@@ -132,7 +182,7 @@ func _move_along_path(delta: float) -> void:
 		_path.remove_at(0)
 		if _path.is_empty():
 			_play_anim_safe(idle_anim_name)
-		_update_z() # --- Z-ORDER at each waypoint
+		_update_z()
 		return
 	# DEFAULT FACES LEFT → flip only when moving to the RIGHT
 	if _sprite:
@@ -141,13 +191,15 @@ func _move_along_path(delta: float) -> void:
 	if step.length() > dist:
 		step = dir
 	global_position += step
-	_update_z() # --- Z-ORDER while moving
+	_update_z()
 
+# ─────────────────────────────────────────────────────────────
+# ATTACK
+# ─────────────────────────────────────────────────────────────
 func _do_attack(target: Node) -> void:
 	if _cooldown_left > 0.0:
 		return
 	_cooldown_left = attack_cooldown
-	# DEFAULT FACES LEFT → flip if target is to the RIGHT
 	if _sprite and is_instance_valid(target):
 		_sprite.flip_h = target.global_position.x > global_position.x
 	_play_anim_safe(attack_anim_name)
@@ -160,6 +212,9 @@ func _do_attack(target: Node) -> void:
 		elif target.has_method("apply_damage"):
 			target.apply_damage(attack_damage)
 
+# ─────────────────────────────────────────────────────────────
+# PATHFINDING GRID
+# ─────────────────────────────────────────────────────────────
 func _build_astar_from_tilemap() -> void:
 	_grid_w = int(_tilemap.get("grid_width") if _tilemap.has_method("get") else 0)
 	_grid_h = int(_tilemap.get("grid_height") if _tilemap.has_method("get") else 0)
@@ -182,7 +237,8 @@ func _build_astar_from_tilemap() -> void:
 
 func _is_blocked_tile(t: Vector2i) -> bool:
 	var within := t.x >= 0 and t.x < _grid_w and t.y >= 0 and t.y < _grid_h
-	if not within: return true
+	if not within:
+		return true
 	if _tilemap.has_method("is_water_tile") and _tilemap.is_water_tile(t):
 		return true
 	if _tilemap.has_method("get_structure_at_tile") and _tilemap.get_structure_at_tile(t) != null:
@@ -192,6 +248,9 @@ func _is_blocked_tile(t: Vector2i) -> bool:
 		return true
 	return false
 
+# ─────────────────────────────────────────────────────────────
+# TILE/WORLD & UTILS
+# ─────────────────────────────────────────────────────────────
 func _world_to_tile(world_pos: Vector2) -> Vector2i:
 	var local := _tilemap.to_local(world_pos)
 	return _tilemap.local_to_map(local)
@@ -215,7 +274,8 @@ func _find_nearest_walkable(start: Vector2i) -> Vector2i:
 			var n = cur + d
 			if n.x < 0 or n.x >= _grid_w or n.y < 0 or n.y >= _grid_h:
 				continue
-			if seen.has(n): continue
+			if seen.has(n):
+				continue
 			seen[n] = true
 			if not _is_blocked_tile(n):
 				return n
@@ -229,9 +289,7 @@ func _play_anim_safe(name: String) -> void:
 		if _sprite.animation != name:
 			_sprite.play(name)
 
-# --- Z-ORDER helper ---
+# Z-ORDER helper
 func _update_z() -> void:
-	# Use world-space Y for consistent layering vs. structures & other units.
-	# If your “feet” aren’t exactly at global_position.y, tweak z_bias.
 	z_as_relative = false
 	z_index = int(global_position.y) + z_bias
