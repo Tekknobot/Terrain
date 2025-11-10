@@ -2,14 +2,19 @@
 extends Node
 
 @export var board_map_path: NodePath
-@export var show_highlights: bool = true            # controls tile markers (on/off)
+@export var show_highlights: bool = true            # controls move tile markers (on/off)
 @export var allow_select_any_color: bool = false
 @export var ai_plays_white: bool = false
 @export var ai_plays_black: bool = true
 
 # Move tile overlay settings
-@export var move_layer: int = 1                     # overlay layer to paint moves on
+@export var move_layer: int = 1                     # overlay layer to paint legal moves on
 @export var move_tile_id: int = 5                   # tile ID for "legal move" marker
+
+# Check / Checkmate overlay settings
+@export var check_layer: int = 2                    # overlay layer to paint check / mate indicators
+@export var check_tile_id_check: int = 4            # white tile under king when in check
+@export var check_tile_id_mate: int = 3             # red tile under king when checkmated
 
 # Motion / animation
 @export var move_duration: float = 0.35             # seconds
@@ -31,6 +36,7 @@ func _ready() -> void:
 	board_map = get_node(board_map_path) as TileMap
 	await get_tree().process_frame
 	rebuild_board()
+	_update_check_indicators()
 	_maybe_ai_move() # if AI starts as white
 
 # ---------------------------------------------------------------------
@@ -67,6 +73,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	rebuild_board()
+	_update_check_indicators()
 
 	var tile: Vector2i = _mouse_to_tile(mb.position)
 	if not _in_bounds(tile):
@@ -101,7 +108,7 @@ func _input(event: InputEvent) -> void:
 	# Attempt move
 	for m in legal_for_selected:
 		if m == tile:
-			await _perform_move(selected_piece, tile)  # now async
+			await _perform_move(selected_piece, tile)  # animated
 			_clear_selection()
 			await get_tree().process_frame
 			_maybe_ai_move()
@@ -118,6 +125,7 @@ func _clear_selection() -> void:
 	selected_piece = null
 	legal_for_selected = []
 	_clear_move_tiles()
+	# keep check indicators; they reflect game state
 
 # ---------------------------------------------------------------------
 # COORDINATES & CONVERSIONS (offset-aware)
@@ -385,7 +393,7 @@ func _revert_board_move(from: Vector2i, to: Vector2i, captured: Node) -> void:
 	board[to.y][to.x] = captured
 
 # ---------------------------------------------------------------------
-# PERFORM MOVE (SCENE + STATE)  — now animated + plays "move"
+# PERFORM MOVE (SCENE + STATE) — animated + plays "move"
 # ---------------------------------------------------------------------
 func _perform_move(p: Node, to: Vector2i) -> void:
 	await _perform_move_impl(p, to)
@@ -435,6 +443,7 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 	current_turn = _opponent(current_turn)
 
 	rebuild_board()
+	_update_check_indicators()
 	is_animating = false
 
 # Try to play a "move" animation on common node types
@@ -448,7 +457,6 @@ func _try_play_move_anim(p: Node) -> void:
 			return
 	# AnimatedSprite2D or anything with play("move")
 	if p.has_method("play"):
-		# Some sprites need setting the current animation name first
 		if p.has_method("set_animation"):
 			p.call("set_animation", "move")
 		p.call("play", "move")
@@ -465,8 +473,45 @@ func _configure_tween_ease(t: Tween) -> void:
 		"back_in_out":
 			t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN_OUT)
 		_:
-			# default: sine in/out
 			t.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+# ---------------------------------------------------------------------
+# CHECK / CHECKMATE INDICATORS
+# ---------------------------------------------------------------------
+func _update_check_indicators() -> void:
+	_clear_check_tiles()
+
+	# White status
+	var w_king: Vector2i = _find_king("white")
+	if _in_bounds(w_king):
+		var w_in_check: bool = square_attacked_by(w_king, "black")
+		if w_in_check:
+			var w_mate: bool = _no_legal_moves("white")
+			var w_tile_id := check_tile_id_check
+			if w_mate:
+				w_tile_id = check_tile_id_mate
+			board_map.set_cell(check_layer, w_king, w_tile_id, Vector2i.ZERO)
+
+	# Black status
+	var b_king: Vector2i = _find_king("black")
+	if _in_bounds(b_king):
+		var b_in_check: bool = square_attacked_by(b_king, "white")
+		if b_in_check:
+			var b_mate: bool = _no_legal_moves("black")
+			var b_tile_id := check_tile_id_check
+			if b_mate:
+				b_tile_id = check_tile_id_mate
+			board_map.set_cell(check_layer, b_king, b_tile_id, Vector2i.ZERO)
+
+func _no_legal_moves(color: String) -> bool:
+	for y in range(8):
+		for x in range(8):
+			var n: Node = board[y][x] as Node
+			if n != null and _effective_color(n) == color:
+				var ms: Array[Vector2i] = legal_moves_for(n)
+				if ms.size() > 0:
+					return false
+	return true
 
 # ---------------------------------------------------------------------
 # AI (simple greedy: prefer capture of highest value; else random legal)
@@ -481,6 +526,7 @@ func _maybe_ai_move() -> void:
 
 	await get_tree().process_frame
 	rebuild_board()
+	_update_check_indicators()
 
 	# Gather all legal moves for current_turn
 	var moves: Array = [] # Array[Dictionary]
@@ -558,10 +604,9 @@ func _opponent(color: String) -> String:
 	return "white"
 
 # ---------------------------------------------------------------------
-# MOVE TILE OVERLAY (instead of highlight nodes)
+# OVERLAYS
 # ---------------------------------------------------------------------
 func _clear_move_tiles() -> void:
-	# wipe overlay layer
 	for y in range(8):
 		for x in range(8):
 			board_map.set_cell(move_layer, Vector2i(x, y), -1)
@@ -572,3 +617,8 @@ func _paint_move_tiles() -> void:
 		return
 	for t in legal_for_selected:
 		board_map.set_cell(move_layer, t, move_tile_id, Vector2i.ZERO)
+
+func _clear_check_tiles() -> void:
+	for y in range(8):
+		for x in range(8):
+			board_map.set_cell(check_layer, Vector2i(x, y), -1)
