@@ -10,16 +10,16 @@ signal state_changed(snapshot: Dictionary)
 @export var ai_plays_black: bool = true
 
 # Move tile overlay settings
-@export var move_layer: int = 1                     # overlay layer to paint legal moves on
+@export var move_layer: int = 2                     # overlay layer to paint legal moves on
 @export var move_tile_id: int = 5                   # tile ID for "legal move" marker
 
 # Check / Checkmate overlay settings
-@export var check_layer: int = 2                    # overlay layer to paint check / mate indicators
+@export var check_layer: int = 3                    # overlay layer to paint check / mate indicators
 @export var check_tile_id_check: int = 4            # white tile under king when in check
 @export var check_tile_id_mate: int = 3             # red tile under king when checkmated
 
 # Threat overlay (pieces that are currently capturable by the opponent)
-@export var threat_layer: int = 3                   # layer to paint "under attack" indicators
+@export var threat_layer: int = 1                   # layer to paint "under attack" indicators
 @export var threat_tile_id: int = 3                 # typically a red tile; reuse your atlas as needed
 
 # Motion / animation
@@ -538,6 +538,11 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 
 	await tween.finished
 
+	# Play "default" animation if available
+	_try_play_default_anim(p)
+	if was_castle and rook_moved != null:
+		_try_play_default_anim(rook_moved)
+
 	# Now lock in the tile_pos & remove captured piece (if still alive)
 	_set_piece_tile_pos(p, to)
 	if was_castle and rook_moved != null:
@@ -586,10 +591,10 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 # Try to play a "move" animation on common node types
 func _try_play_move_anim(p: Node) -> void:
 	# AnimationPlayer child named "AnimationPlayer"
-	var ap := p.get_node_or_null("AnimationPlayer")
-	if ap is AnimationPlayer:
-		var apc := ap as AnimationPlayer
-		if apc.has_animation("move"):
+	var ap := p.get_node_or_null("AnimatedSprite2D")
+	if ap is AnimatedSprite2D:
+		var apc := ap as AnimatedSprite2D
+		if apc:
 			apc.play("move")
 			return
 	# AnimatedSprite2D or anything with play("move")
@@ -597,6 +602,16 @@ func _try_play_move_anim(p: Node) -> void:
 		if p.has_method("set_animation"):
 			p.call("set_animation", "move")
 		p.call("play", "move")
+
+# Try to play a "move" animation on common node types
+func _try_play_default_anim(p: Node) -> void:
+	# AnimationPlayer child named "AnimationPlayer"
+	var ap := p.get_node_or_null("AnimatedSprite2D")
+	if ap is AnimatedSprite2D:
+		var apc := ap as AnimatedSprite2D
+		if apc:
+			apc.play("default")
+			return
 
 # Configure tween easing from string
 func _configure_tween_ease(t: Tween) -> void:
