@@ -217,5 +217,7 @@ cursor_tile_id = 0
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("32_dqai5")
 board_map_path = NodePath("../TileMap")
+white_queen_scene = ExtResource("22_ph65w")
+black_queen_scene = ExtResource("28_qgk8b")
 move_duration = 0.85
 explosion_scene = ExtResource("33_1kk3k")

@@ -9,6 +9,9 @@ signal state_changed(snapshot: Dictionary)
 @export var ai_plays_white: bool = false
 @export var ai_plays_black: bool = true
 
+@export var white_queen_scene: PackedScene
+@export var black_queen_scene: PackedScene
+
 # Move tile overlay settings
 @export var move_layer: int = 2                     # overlay layer to paint legal moves on
 @export var move_tile_id: int = 5                   # tile ID for "legal move" marker
@@ -46,7 +49,6 @@ func _ready() -> void:
 	await get_tree().process_frame
 	rebuild_board()
 	_update_all_indicators()
-	_emit_snapshot()
 	_maybe_ai_move() # if AI starts as white
 
 # ---------------------------------------------------------------------
@@ -68,8 +70,6 @@ func rebuild_board() -> void:
 		var t: Vector2i = _get_piece_tile_pos(p)
 		if _in_bounds(t):
 			board[t.y][t.x] = p
-	
-	_emit_snapshot()
 
 # ---------------------------------------------------------------------
 # INPUT
@@ -148,7 +148,6 @@ func _clear_selection() -> void:
 	legal_for_selected = []
 	_clear_move_tiles()
 	# keep indicators; they reflect game state
-	_emit_snapshot()
 
 # ---------------------------------------------------------------------
 # COORDINATES & CONVERSIONS (offset-aware)
@@ -571,16 +570,23 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 		_capture_piece(captured)
 
 
-	# Promotion (auto-queen)
+	# Promotion (visual swap to queen)
 	var typ: String = _effective_type(p)
 	var col: String = _effective_color(p)
 	var promote_row: int = (0 if col == "white" else 7)
+	var promoted_old: Node = null
+	var promoted_new: Node = null
+
 	if typ == "pawn" and to.y == promote_row:
 		did_promote = true
 		promoted_from = "pawn"
-		p.set_meta("piece_type", "queen")
-		if p.has_method("set"):
-			p.set("piece_type", "queen")
+
+		# Keep a handle to the pawn before replacing
+		promoted_old = p
+		# Swap visuals; this returns the new queen node (or the same pawn if scenes not set)
+		var q := _promote_piece_visual(p, col)
+		p = q  # from now on, 'p' is the queen node
+		promoted_new = q
 
 	# Update movement flags (for castling rules)
 	_set_has_moved(p, true)
@@ -589,7 +595,7 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 
 	# Rich history for undo
 	move_history.append({
-		"piece": p,
+		"piece": p,                      # this is the current (possibly queen) node
 		"from": from,
 		"to": to,
 		"captured": captured,
@@ -598,7 +604,9 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 		"rook_from": rook_from,
 		"rook_to": rook_to,
 		"did_promote": did_promote,
-		"promoted_from": promoted_from,
+		"promoted_from": promoted_from,  # "pawn" if promoted
+		"promoted_old": promoted_old,    # the original pawn node (may be null)
+		"promoted_new": promoted_new,    # the spawned queen node (may equal p or null)
 		"piece_had_moved": piece_had_moved
 	})
 
@@ -607,7 +615,6 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 	rebuild_board()
 	_update_all_indicators()
 	is_animating = false
-	_emit_snapshot()
 
 # Try to play a "move" animation on common node types
 func _try_play_move_anim(p: Node) -> void:
@@ -690,7 +697,6 @@ func _configure_tween_ease(t: Tween) -> void:
 func _update_all_indicators() -> void:
 	_update_check_indicators()
 	_update_threat_indicators()
-	_emit_snapshot()
 
 func _update_check_indicators() -> void:
 	_clear_check_tiles()
@@ -930,11 +936,23 @@ func undo_last_move() -> void:
 		_restore_captured_piece(captured)
 		_set_piece_tile_pos(captured, to)
 
-	# Revert promotion
-	if did_promote and promoted_from != "":
-		p.set_meta("piece_type", promoted_from)
-		if p.has_method("set"):
-			p.set("piece_type", promoted_from)
+	# Revert promotion (swap queen back to original pawn visual)
+	if did_promote:
+		var promoted_old: Node = last.get("promoted_old", null)
+		var promoted_new: Node = last.get("promoted_new", null)
+
+		# Remove the promoted queen visual if it exists and is different
+		if promoted_new != null and is_instance_valid(promoted_new) and promoted_new != p:
+			# If queen is still around, free it (it was the mover 'p' before we reset)
+			if promoted_new.is_inside_tree():
+				promoted_new.queue_free()
+
+		# Bring back the pawn at the destination square (where it stood after the move)
+		_restore_promoted_pawn(promoted_old, to)
+
+		# Ensure board array reflects the pawn now (we then move it back via _revert_board_move above)
+		board[to.y][to.x] = promoted_old
+		p = promoted_old  # for any further state
 
 	# Restore has_moved for moving piece
 	_set_has_moved(p, piece_had_moved)
@@ -946,7 +964,6 @@ func undo_last_move() -> void:
 	_update_all_indicators()
 
 	is_animating = false
-	_emit_snapshot()
 
 func get_state_snapshot() -> Dictionary:
 	# Build a simple, read-only description of the board
@@ -1006,5 +1023,75 @@ func get_state_snapshot() -> Dictionary:
 		"threats": threats
 	}
 
-func _emit_snapshot() -> void:
-	emit_signal("state_changed", get_state_snapshot())
+func _promote_piece_visual(old_pawn: Node, color: String) -> Node:
+	var scene: PackedScene = null
+	if color == "white":
+		scene = white_queen_scene
+	else:
+		scene = black_queen_scene
+	if scene == null:
+		# No visuals provided; fall back to meta-only
+		old_pawn.set_meta("piece_type", "queen")
+		if old_pawn.has_method("set"):
+			old_pawn.set("piece_type", "queen")
+		return old_pawn
+
+	# Instantiate queen at same tile/position
+	var tile := _get_piece_tile_pos(old_pawn)
+	var queen := scene.instantiate()
+
+	# Common metadata (so your logic keeps working)
+	queen.set_meta("piece_color", color)
+	queen.set_meta("piece_type", "queen")
+	queen.set_meta("has_moved", true)
+	queen.set_meta("tile_pos", tile)
+	if queen.has_method("set"):
+		queen.set("piece_color", color)
+		queen.set("piece_type", "queen")
+	if queen.has_method("set_tile_pos"):
+		queen.call("set_tile_pos", tile)
+
+	# Place visually
+	var gp := _tile_to_global_center(tile)
+	var off: Vector2 = Vector2.ZERO
+	var of = board_map.get("piece_pixel_offset")
+	if typeof(of) == TYPE_VECTOR2:
+		off = of as Vector2
+	gp += off
+	if queen is Node2D:
+		(queen as Node2D).global_position = gp
+
+	# Group + parenting
+	queen.add_to_group("Pieces")
+	add_child(queen)
+
+	# Park old pawn in Graveyard (soft-capture so we can undo)
+	_capture_piece(old_pawn)
+
+	# Swap on board array
+	board[tile.y][tile.x] = queen
+
+	return queen
+
+
+func _restore_promoted_pawn(old_pawn: Node, dst_tile: Vector2i) -> void:
+	if old_pawn == null or not is_instance_valid(old_pawn):
+		return
+	_restore_captured_piece(old_pawn)
+	_set_piece_tile_pos(old_pawn, dst_tile)
+
+	# Visual snap
+	var gp := _tile_to_global_center(dst_tile)
+	var off: Vector2 = Vector2.ZERO
+	var of = board_map.get("piece_pixel_offset")
+	if typeof(of) == TYPE_VECTOR2:
+		off = of as Vector2
+	if old_pawn is Node2D:
+		(old_pawn as Node2D).global_position = gp + off
+
+	# Ensure meta back to pawn
+	old_pawn.set_meta("piece_type", "pawn")
+	if old_pawn.has_method("set"):
+		old_pawn.set("piece_type", "pawn")
+
+	# Board array will be corrected by _revert_board_move/ rebuild_board
