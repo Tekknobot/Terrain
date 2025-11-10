@@ -52,6 +52,17 @@ const SLOT_LABELS := [
 @export var tint_black_pieces: bool = true                   # toggle tinting
 
 # ------------------------------------------------------------
+# CURSOR (Tile overlay that is over tiles but below piece nodes)
+# ------------------------------------------------------------
+@export_group("Cursor")
+@export var cursor_enabled: bool = true
+@export var cursor_layer: int = 4           # must be > the board's base layer (0) and < any piece nodes (children draw above)
+@export var cursor_tile_id: int = 12        # choose a tile from your TileSet to use as the cursor texture
+@export var hide_cursor_when_outside: bool = true
+
+var _cursor_last: Vector2i = Vector2i(-9999, -9999)
+
+# ------------------------------------------------------------
 # LIFECYCLE
 # ------------------------------------------------------------
 func _ready() -> void:
@@ -62,6 +73,12 @@ func _ready() -> void:
 	clear_map()
 	_generate_map()
 
+func _process(_dt: float) -> void:
+	if not cursor_enabled:
+		_clear_cursor()
+		return
+	_update_cursor_tile()
+
 # Quick regenerate (e.g., from a button)
 func regenerate() -> void:
 	clear_map()
@@ -71,10 +88,14 @@ func regenerate() -> void:
 # CORE GENERATION
 # ------------------------------------------------------------
 func clear_map() -> void:
-	# Clear all tiles
+	# Clear all tiles (board + any overlays you might have placed previously)
 	for x in range(grid_width):
 		for y in range(grid_height):
 			set_cell(0, Vector2i(x, y), -1)
+			# also clear the cursor layer if it's within range
+			set_cell(cursor_layer, Vector2i(x, y), -1)
+	_cursor_last = Vector2i(-9999, -9999)
+
 	# Remove existing pieces
 	for p in get_tree().get_nodes_in_group("Pieces"):
 		if is_instance_valid(p):
@@ -276,3 +297,43 @@ func _type_from_back_file(i: int) -> String:
 	if i == 3:
 		return "queen"
 	return "king"  # i == 4
+
+# ------------------------------------------------------------
+# CURSOR HELPERS
+# ------------------------------------------------------------
+func _clear_cursor() -> void:
+	if _cursor_last.x >= 0:
+		set_cell(cursor_layer, _cursor_last, -1)
+		_cursor_last = Vector2i(-9999, -9999)
+
+func _update_cursor_tile() -> void:
+	# 1) Mouse in screen space
+	var mouse_screen := get_viewport().get_mouse_position()
+
+	# 2) Screen -> world(canvas) -> this TileMap's local
+	var canvas_xform: Transform2D = get_viewport().get_canvas_transform()
+	var world: Vector2 = canvas_xform.affine_inverse() * mouse_screen
+	var local: Vector2 = get_global_transform().affine_inverse() * world
+
+	# 3) Compensate your piece_pixel_offset (to match selection math)
+	var off = get("piece_pixel_offset")
+	if typeof(off) == TYPE_VECTOR2:
+		local -= (off as Vector2)
+
+	# 4) Snap to tile
+	var t: Vector2i = local_to_map(local)
+	var in_bounds := t.x >= 0 and t.x < grid_width and t.y >= 0 and t.y < grid_height
+
+	# 5) Clear previous
+	if _cursor_last.x >= 0:
+		set_cell(cursor_layer, _cursor_last, -1)
+
+	# 6) Paint if inside (or keep hidden if outside and hiding is enabled)
+	if in_bounds:
+		set_cell(cursor_layer, t, cursor_tile_id, Vector2i.ZERO)
+		_cursor_last = t
+	else:
+		_cursor_last = Vector2i(-9999, -9999)
+		if not hide_cursor_when_outside:
+			# Optional: keep the last tile visible (do nothing)
+			pass

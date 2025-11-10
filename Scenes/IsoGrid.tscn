@@ -1,4 +1,4 @@
-[gd_scene load_steps=52 format=3 uid="uid://cjslm3njvyox0"]
+[gd_scene load_steps=51 format=3 uid="uid://cjslm3njvyox0"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_v5osp"]
 [ext_resource type="Texture2D" uid="uid://56t0bjdw3rny" path="res://Sprites/Tiles_UI/tile_hover_black.png" id="2_3ylvv"]
@@ -31,7 +31,6 @@
 [ext_resource type="PackedScene" uid="uid://dw3hurgcrpccs" path="res://Scenes/Meks_Scenes/CPU II/R3.scn" id="29_jryh1"]
 [ext_resource type="PackedScene" uid="uid://np4hkb4ffi1g" path="res://Scenes/Meks_Scenes/CPU II/S3.scn" id="30_1kk3k"]
 [ext_resource type="Script" uid="uid://dftphuql1wug4" path="res://Scripts II/TurnManager.gd" id="32_dqai5"]
-[ext_resource type="Script" uid="uid://c6rlej6psypf7" path="res://Scripts II/Cursor2D.gd" id="33_1kk3k"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://Scenes/VFX/StarNight.tscn" id="41_4ydyc"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ryqp4"]
@@ -204,9 +203,11 @@ layer_0/modulate = Color(0.491583, 0.491583, 0.491583, 1)
 layer_1/name = "Layer1"
 layer_2/name = "Layer2"
 layer_3/name = "Layer3"
+layer_4/name = "Layer4"
 script = ExtResource("18_qnxxh")
 white_piece_slots = Array[PackedScene]([ExtResource("28_jo5i0"), ExtResource("20_a8src"), ExtResource("21_0c513"), ExtResource("22_ph65w"), ExtResource("23_jo5i0"), ExtResource("21_0c513"), ExtResource("20_a8src"), ExtResource("28_jo5i0"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5")])
 black_piece_slots = Array[PackedScene]([ExtResource("25_7no8q"), ExtResource("26_dqai5"), ExtResource("27_1kk3k"), ExtResource("28_qgk8b"), ExtResource("29_jryh1"), ExtResource("27_1kk3k"), ExtResource("26_dqai5"), ExtResource("25_7no8q"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k")])
+cursor_tile_id = 0
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
 
@@ -216,8 +217,3 @@ black_piece_slots = Array[PackedScene]([ExtResource("25_7no8q"), ExtResource("26
 script = ExtResource("32_dqai5")
 board_map_path = NodePath("../TileMap")
 move_duration = 0.85
-
-[node name="Cursor" type="Node2D" parent="."]
-script = ExtResource("33_1kk3k")
-tilemap_path = NodePath("../TileMap")
-cursor_texture = ExtResource("1_v5osp")
