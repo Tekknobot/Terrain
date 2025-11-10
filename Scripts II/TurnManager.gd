@@ -1,6 +1,8 @@
 # TurnManager.gd
 extends Node
 
+signal state_changed(snapshot: Dictionary)
+
 @export var board_map_path: NodePath
 @export var show_highlights: bool = true            # controls move tile markers (on/off)
 @export var allow_select_any_color: bool = false
@@ -41,6 +43,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	rebuild_board()
 	_update_all_indicators()
+	_emit_snapshot()
 	_maybe_ai_move() # if AI starts as white
 
 # ---------------------------------------------------------------------
@@ -62,6 +65,8 @@ func rebuild_board() -> void:
 		var t: Vector2i = _get_piece_tile_pos(p)
 		if _in_bounds(t):
 			board[t.y][t.x] = p
+	
+	_emit_snapshot()
 
 # ---------------------------------------------------------------------
 # INPUT
@@ -140,6 +145,7 @@ func _clear_selection() -> void:
 	legal_for_selected = []
 	_clear_move_tiles()
 	# keep indicators; they reflect game state
+	_emit_snapshot()
 
 # ---------------------------------------------------------------------
 # COORDINATES & CONVERSIONS (offset-aware)
@@ -575,6 +581,7 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 	rebuild_board()
 	_update_all_indicators()
 	is_animating = false
+	_emit_snapshot()
 
 # Try to play a "move" animation on common node types
 func _try_play_move_anim(p: Node) -> void:
@@ -611,6 +618,7 @@ func _configure_tween_ease(t: Tween) -> void:
 func _update_all_indicators() -> void:
 	_update_check_indicators()
 	_update_threat_indicators()
+	_emit_snapshot()
 
 func _update_check_indicators() -> void:
 	_clear_check_tiles()
@@ -745,6 +753,7 @@ func _piece_value(t: String) -> int:
 		_:
 			return 0
 
+
 # ---------------------------------------------------------------------
 # UTILS
 # ---------------------------------------------------------------------
@@ -865,3 +874,65 @@ func undo_last_move() -> void:
 	_update_all_indicators()
 
 	is_animating = false
+	_emit_snapshot()
+
+func get_state_snapshot() -> Dictionary:
+	# Build a simple, read-only description of the board
+	var pieces: Array = []
+	for y in range(8):
+		for x in range(8):
+			var n: Node = board[y][x] as Node
+			if n == null:
+				continue
+			pieces.append({
+				"pos": Vector2i(x, y),
+				"color": _effective_color(n),
+				"type": _effective_type(n),
+				"has_moved": _get_has_moved(n)
+			})
+
+	# Which kings are in check?
+	var w_king: Vector2i = _find_king("white")
+	var b_king: Vector2i = _find_king("black")
+
+	var white_in_check: bool = false
+	if _in_bounds(w_king) and square_attacked_by(w_king, "black"):
+		white_in_check = true
+
+	var black_in_check: bool = false
+	if _in_bounds(b_king) and square_attacked_by(b_king, "white"):
+		black_in_check = true
+
+	# Threatened squares (any square where the occupying piece can be captured now)
+	var threats: Array[Vector2i] = []
+	for y2 in range(8):
+		for x2 in range(8):
+			var n2: Node = board[y2][x2] as Node
+			if n2 == null:
+				continue
+			var col := _effective_color(n2)
+			if col == "":
+				continue
+			var here := Vector2i(x2, y2)
+			if square_attacked_by(here, _opponent(col)):
+				threats.append(here)
+
+	# Selected tile (avoid ternary)
+	var selected_val = null
+	if selected_piece != null:
+		selected_val = _get_piece_tile_pos(selected_piece)
+
+	return {
+		"current_turn": current_turn,
+		"pieces": pieces,
+		"selected": selected_val,
+		"legal_for_selected": legal_for_selected.duplicate(true),
+		"white_king": w_king,
+		"black_king": b_king,
+		"white_in_check": white_in_check,
+		"black_in_check": black_in_check,
+		"threats": threats
+	}
+
+func _emit_snapshot() -> void:
+	emit_signal("state_changed", get_state_snapshot())

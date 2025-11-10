@@ -8,3 +8,4 @@ res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
 res://Scripts II/TurnManager.gd
 res://Scripts II/MapGen.gd
+res://Scripts II/MiniMap.gd
