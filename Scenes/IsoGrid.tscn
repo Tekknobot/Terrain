@@ -22,14 +22,14 @@
 [ext_resource type="PackedScene" uid="uid://c16edah1b6lh1" path="res://Scenes/Meks_Scenes/AVATARS/R1.scn" id="21_0c513"]
 [ext_resource type="PackedScene" uid="uid://dqh62w0b146qi" path="res://Scenes/Meks_Scenes/AVATARS/R2.scn" id="22_ph65w"]
 [ext_resource type="PackedScene" uid="uid://bwrrjfut3yepe" path="res://Scenes/Meks_Scenes/AVATARS/R3.scn" id="23_jo5i0"]
-[ext_resource type="PackedScene" uid="uid://driiwkipw4qx3" path="res://Scenes/Meks_Scenes/AVATARS/S2.scn" id="24_qrsv1"]
+[ext_resource type="PackedScene" uid="uid://sdh1hcmrf4kc" path="res://Scenes/Meks_Scenes/AVATARS/S3.scn" id="24_dqai5"]
 [ext_resource type="PackedScene" uid="uid://cdgmcddvf8k4k" path="res://Scenes/Meks_Scenes/CPU II/M1.scn" id="25_7no8q"]
 [ext_resource type="PackedScene" uid="uid://ed4qkkrk0vqo" path="res://Scenes/Meks_Scenes/CPU II/M2.scn" id="26_dqai5"]
 [ext_resource type="PackedScene" uid="uid://cdqedw03khtl5" path="res://Scenes/Meks_Scenes/CPU II/R1.scn" id="27_1kk3k"]
 [ext_resource type="PackedScene" uid="uid://c2xvfkwdxs0xp" path="res://Scenes/Meks_Scenes/AVATARS/M1.scn" id="28_jo5i0"]
 [ext_resource type="PackedScene" uid="uid://cuiflgspey5jw" path="res://Scenes/Meks_Scenes/CPU II/R2.scn" id="28_qgk8b"]
 [ext_resource type="PackedScene" uid="uid://dw3hurgcrpccs" path="res://Scenes/Meks_Scenes/CPU II/R3.scn" id="29_jryh1"]
-[ext_resource type="PackedScene" uid="uid://coyahap3jshja" path="res://Scenes/Meks_Scenes/CPU II/S2.scn" id="30_6gea1"]
+[ext_resource type="PackedScene" uid="uid://np4hkb4ffi1g" path="res://Scenes/Meks_Scenes/CPU II/S3.scn" id="30_1kk3k"]
 [ext_resource type="Script" uid="uid://dftphuql1wug4" path="res://Scripts II/TurnManager.gd" id="32_dqai5"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://Scenes/VFX/StarNight.tscn" id="41_4ydyc"]
 
@@ -204,8 +204,8 @@ layer_1/name = "Layer1"
 layer_2/name = "Layer2"
 layer_3/name = "Layer3"
 script = ExtResource("18_qnxxh")
-white_piece_slots = Array[PackedScene]([ExtResource("28_jo5i0"), ExtResource("20_a8src"), ExtResource("21_0c513"), ExtResource("22_ph65w"), ExtResource("23_jo5i0"), ExtResource("21_0c513"), ExtResource("20_a8src"), ExtResource("28_jo5i0"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1")])
-black_piece_slots = Array[PackedScene]([ExtResource("25_7no8q"), ExtResource("26_dqai5"), ExtResource("27_1kk3k"), ExtResource("28_qgk8b"), ExtResource("29_jryh1"), ExtResource("27_1kk3k"), ExtResource("26_dqai5"), ExtResource("25_7no8q"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1")])
+white_piece_slots = Array[PackedScene]([ExtResource("28_jo5i0"), ExtResource("20_a8src"), ExtResource("21_0c513"), ExtResource("22_ph65w"), ExtResource("23_jo5i0"), ExtResource("21_0c513"), ExtResource("20_a8src"), ExtResource("28_jo5i0"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5"), ExtResource("24_dqai5")])
+black_piece_slots = Array[PackedScene]([ExtResource("25_7no8q"), ExtResource("26_dqai5"), ExtResource("27_1kk3k"), ExtResource("28_qgk8b"), ExtResource("29_jryh1"), ExtResource("27_1kk3k"), ExtResource("26_dqai5"), ExtResource("25_7no8q"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k"), ExtResource("30_1kk3k")])
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
 

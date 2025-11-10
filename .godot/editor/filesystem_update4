@@ -6,6 +6,5 @@ res://Textures/in_water.gdshader
 res://Textures/pixel_effect.gdshader
 res://Textures/Popup.gdshader
 res://Textures/tile_fade.gdshader
+res://Scenes/Meks_Scenes/AVATARS/S3.scn
 res://Scripts II/TurnManager.gd
-res://Scripts II/MapGen.gd
-res://Scripts II/MiniMap.gd
