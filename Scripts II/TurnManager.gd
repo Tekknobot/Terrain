@@ -26,6 +26,9 @@ signal state_changed(snapshot: Dictionary)
 @export var move_duration: float = 0.35             # seconds
 @export var move_ease: String = "sine_in_out"       # "sine_in_out","cubic_in_out","quad_in_out", etc.
 
+@export var explosion_scene: PackedScene          # assign a particles/spriteFX PackedScene here
+@export var attack_hit_delay: float = 0.12        # small pause between attack anim and capture
+
 var board_map: TileMap
 var board: Array                                    # 8x8 array (Variant for simplicity)
 var current_turn: String = "white"
@@ -538,7 +541,24 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 
 	await tween.finished
 
-	# Play "default" animation if available
+	# If we are capturing, play an attack FIRST and show an explosion at the victim,
+	# then do the actual capture; otherwise just return to "default".
+	if captured != null and is_instance_valid(captured):
+		# Attack animation on the mover
+		_try_play_attack_anim(p)
+
+		# Explosion at the capture square (use victim's current global position if possible)
+		var blast_pos := _tile_to_global_center(to) + pixel_offset
+		if captured is Node2D:
+			blast_pos = (captured as Node2D).global_position
+		_spawn_explosion_at(blast_pos)
+
+		# Small hit delay so the effect/anim reads before the piece disappears
+		var delay = max(attack_hit_delay, 0.0)
+		if delay > 0.0:
+			await get_tree().create_timer(delay).timeout
+
+	# After the hit pause (if any), switch back to default anim(s)
 	_try_play_default_anim(p)
 	if was_castle and rook_moved != null:
 		_try_play_default_anim(rook_moved)
@@ -549,6 +569,7 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 		_set_piece_tile_pos(rook_moved, rook_to)
 	if captured != null and is_instance_valid(captured):
 		_capture_piece(captured)
+
 
 	# Promotion (auto-queen)
 	var typ: String = _effective_type(p)
@@ -612,6 +633,42 @@ func _try_play_default_anim(p: Node) -> void:
 		if apc:
 			apc.play("default")
 			return
+
+func _try_play_attack_anim(p: Node) -> void:
+	# Tries common node setups: AnimatedSprite2D or anything with play("attack")
+	var ap := p.get_node_or_null("AnimatedSprite2D")
+	if ap is AnimatedSprite2D:
+		var apc := ap as AnimatedSprite2D
+		if apc:
+			apc.play("attack")
+			return
+	if p.has_method("play"):
+		if p.has_method("set_animation"):
+			p.call("set_animation", "attack")
+		p.call("play", "attack")
+
+func _spawn_explosion_at(pos: Vector2) -> void:
+	if explosion_scene == null:
+		return
+	var e := explosion_scene.instantiate()
+	if e is Node2D:
+		(e as Node2D).global_position = pos
+	add_child(e)
+
+	# Kick it off if it exposes common methods/props
+	if e.has_method("restart"):
+		e.call("restart")
+	elif e.has_method("play"):
+		e.call("play")
+	if e.has_method("set_emitting"):    # for (GPU/CPU)Particles2D
+		e.call("set_emitting", true)
+
+	# Auto-cleanup after ~1s (tune if your FX lasts longer)
+	var t := get_tree().create_timer(1.0)
+	t.timeout.connect(func ():
+		if is_instance_valid(e):
+			e.queue_free()
+	)
 
 # Configure tween easing from string
 func _configure_tween_ease(t: Tween) -> void:

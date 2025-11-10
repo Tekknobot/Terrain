@@ -1,4 +1,4 @@
-[gd_scene load_steps=51 format=3 uid="uid://cjslm3njvyox0"]
+[gd_scene load_steps=52 format=3 uid="uid://cjslm3njvyox0"]
 
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_v5osp"]
 [ext_resource type="Texture2D" uid="uid://56t0bjdw3rny" path="res://Sprites/Tiles_UI/tile_hover_black.png" id="2_3ylvv"]
@@ -31,6 +31,7 @@
 [ext_resource type="PackedScene" uid="uid://dw3hurgcrpccs" path="res://Scenes/Meks_Scenes/CPU II/R3.scn" id="29_jryh1"]
 [ext_resource type="PackedScene" uid="uid://np4hkb4ffi1g" path="res://Scenes/Meks_Scenes/CPU II/S3.scn" id="30_1kk3k"]
 [ext_resource type="Script" uid="uid://dftphuql1wug4" path="res://Scripts II/TurnManager.gd" id="32_dqai5"]
+[ext_resource type="PackedScene" uid="uid://bofv1wx4so130" path="res://Scenes/VFX/Explosion.tscn" id="33_1kk3k"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://Scenes/VFX/StarNight.tscn" id="41_4ydyc"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ryqp4"]
@@ -217,3 +218,4 @@ cursor_tile_id = 0
 script = ExtResource("32_dqai5")
 board_map_path = NodePath("../TileMap")
 move_duration = 0.85
+explosion_scene = ExtResource("33_1kk3k")
