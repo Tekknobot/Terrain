@@ -217,6 +217,7 @@ func _center_main_camera() -> void:
 	var center_tile := Vector2i(grid_width >> 1, grid_height >> 1)
 	var center_world := to_global(map_to_local(center_tile))
 	cam.global_position = center_world
+	cam.global_position.y -= 24
 
 # ------------------------------------------------------------
 # BOARD QUERIES (for interaction / movement later)

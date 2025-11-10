@@ -2,7 +2,7 @@
 extends Node
 
 @export var board_map_path: NodePath
-@export var show_highlights: bool = true            # now controls tile markers (on/off)
+@export var show_highlights: bool = true            # controls tile markers (on/off)
 @export var allow_select_any_color: bool = false
 @export var ai_plays_white: bool = false
 @export var ai_plays_black: bool = true
@@ -11,12 +11,18 @@ extends Node
 @export var move_layer: int = 1                     # overlay layer to paint moves on
 @export var move_tile_id: int = 5                   # tile ID for "legal move" marker
 
+# Motion / animation
+@export var move_duration: float = 0.35             # seconds
+@export var move_ease: String = "sine_in_out"       # "sine_in_out","cubic_in_out","quad_in_out", etc.
+
 var board_map: TileMap
 var board: Array                                    # 8x8 array (Variant for simplicity)
 var current_turn: String = "white"
 var selected_piece: Node = null
 var legal_for_selected: Array[Vector2i] = []
 var move_history: Array = []
+
+var is_animating: bool = false
 
 func _ready() -> void:
 	if board_map_path == NodePath(""):
@@ -48,8 +54,9 @@ func rebuild_board() -> void:
 # INPUT
 # ---------------------------------------------------------------------
 func _input(event: InputEvent) -> void:
-	if _ai_controls(current_turn):
-		return  # human input blocked on AI side
+	# Block during animation or when AI controls this side
+	if is_animating or _ai_controls(current_turn):
+		return
 
 	if not (event is InputEventMouseButton):
 		return
@@ -67,7 +74,6 @@ func _input(event: InputEvent) -> void:
 		return
 
 	var there: Node = board[tile.y][tile.x] as Node
-	# Debug print of clicked contents
 	if show_highlights:
 		if there == null:
 			print("Clicked tile: ", tile, " -> (empty)")
@@ -95,7 +101,7 @@ func _input(event: InputEvent) -> void:
 	# Attempt move
 	for m in legal_for_selected:
 		if m == tile:
-			_perform_move(selected_piece, tile)
+			await _perform_move(selected_piece, tile)  # now async
 			_clear_selection()
 			await get_tree().process_frame
 			_maybe_ai_move()
@@ -379,33 +385,47 @@ func _revert_board_move(from: Vector2i, to: Vector2i, captured: Node) -> void:
 	board[to.y][to.x] = captured
 
 # ---------------------------------------------------------------------
-# PERFORM MOVE (SCENE + STATE)
+# PERFORM MOVE (SCENE + STATE)  — now animated + plays "move"
 # ---------------------------------------------------------------------
 func _perform_move(p: Node, to: Vector2i) -> void:
+	await _perform_move_impl(p, to)
+
+func _perform_move_impl(p: Node, to: Vector2i) -> void:
+	is_animating = true
+	_clear_move_tiles()
+
 	var from: Vector2i = _get_piece_tile_pos(p)
-
 	var captured: Node = board[to.y][to.x] as Node
+
+	# Update board state first (rules remain correct during animation)
 	_apply_board_move(from, to)
-	if captured != null and is_instance_valid(captured):
-		captured.queue_free()
 
-	_set_piece_tile_pos(p, to)
-
-	var world_center: Vector2 = _tile_to_global_center(to)
+	# Compute destination position (+ pixel offset, same as spawn)
+	var world_end: Vector2 = _tile_to_global_center(to)
 	var pixel_offset: Vector2 = Vector2.ZERO
 	var off = board_map.get("piece_pixel_offset")
 	if typeof(off) == TYPE_VECTOR2:
 		pixel_offset = off as Vector2
-	p.global_position = world_center + pixel_offset
+	world_end += pixel_offset
+
+	# Play "move" animation if available
+	_try_play_move_anim(p)
+
+	# Tween the piece to the destination
+	var tween := get_tree().create_tween()
+	_configure_tween_ease(tween)
+	tween.tween_property(p, "global_position", world_end, max(0.0, move_duration))
+	await tween.finished
+
+	# Now lock in the tile_pos & remove captured piece (if still alive)
+	_set_piece_tile_pos(p, to)
+	if captured != null and is_instance_valid(captured):
+		captured.queue_free()
 
 	# Promotion (auto-queen)
 	var typ: String = _effective_type(p)
 	var col: String = _effective_color(p)
-	var promote_row: int = 0
-	if col == "white":
-		promote_row = 0
-	else:
-		promote_row = 7
+	var promote_row: int = (0 if col == "white" else 7)
 	if typ == "pawn" and to.y == promote_row:
 		p.set_meta("piece_type", "queen")
 		if p.has_method("set"):
@@ -415,11 +435,38 @@ func _perform_move(p: Node, to: Vector2i) -> void:
 	current_turn = _opponent(current_turn)
 
 	rebuild_board()
+	is_animating = false
 
-func _ai_controls(color: String) -> bool:
-	if color == "white":
-		return ai_plays_white
-	return ai_plays_black
+# Try to play a "move" animation on common node types
+func _try_play_move_anim(p: Node) -> void:
+	# AnimationPlayer child named "AnimationPlayer"
+	var ap := p.get_node_or_null("AnimationPlayer")
+	if ap is AnimationPlayer:
+		var apc := ap as AnimationPlayer
+		if apc.has_animation("move"):
+			apc.play("move")
+			return
+	# AnimatedSprite2D or anything with play("move")
+	if p.has_method("play"):
+		# Some sprites need setting the current animation name first
+		if p.has_method("set_animation"):
+			p.call("set_animation", "move")
+		p.call("play", "move")
+
+# Configure tween easing from string
+func _configure_tween_ease(t: Tween) -> void:
+	match move_ease.to_lower():
+		"cubic_in_out":
+			t.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		"quad_in_out":
+			t.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+		"expo_in_out":
+			t.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN_OUT)
+		"back_in_out":
+			t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN_OUT)
+		_:
+			# default: sine in/out
+			t.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 # ---------------------------------------------------------------------
 # AI (simple greedy: prefer capture of highest value; else random legal)
@@ -428,6 +475,9 @@ func _maybe_ai_move() -> void:
 	# Only act if AI controls the side to play
 	if not _ai_controls(current_turn):
 		return
+	# Wait if an animation is still going
+	while is_animating:
+		await get_tree().process_frame
 
 	await get_tree().process_frame
 	rebuild_board()
@@ -467,15 +517,20 @@ func _maybe_ai_move() -> void:
 	var idx: int = randi() % best.size()
 	var choice: Dictionary = best[idx]
 
-	# Perform the AI move
+	# Perform the AI move (animated)
 	var piece: Node = choice["piece"]
 	var to: Vector2i = choice["to"]
-	_perform_move(piece, to)
+	await _perform_move_impl(piece, to)
 
 	# If both sides are AI, schedule the opponent's move next frame
 	if _ai_controls(current_turn):
 		await get_tree().process_frame
 		_maybe_ai_move()
+
+func _ai_controls(color: String) -> bool:
+	if color == "white":
+		return ai_plays_white
+	return ai_plays_black
 
 func _piece_value(t: String) -> int:
 	match t:
