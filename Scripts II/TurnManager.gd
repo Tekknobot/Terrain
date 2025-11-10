@@ -1,19 +1,22 @@
 # TurnManager.gd
 extends Node
 
-@export var board_map_path: NodePath          # assign your TileMap (with MapGen.gd) in the Inspector
-@export var show_highlights: bool = true
-@export var allow_select_any_color: bool = false   # DEBUG: let you pick black on white's turn, etc.
+@export var board_map_path: NodePath
+@export var show_highlights: bool = true            # now controls tile markers (on/off)
+@export var allow_select_any_color: bool = false
+@export var ai_plays_white: bool = false
+@export var ai_plays_black: bool = true
+
+# Move tile overlay settings
+@export var move_layer: int = 1                     # overlay layer to paint moves on
+@export var move_tile_id: int = 5                   # tile ID for "legal move" marker
 
 var board_map: TileMap
-var board: Array                               # 8x8 of Nodes or null
+var board: Array                                    # 8x8 array (Variant for simplicity)
 var current_turn: String = "white"
 var selected_piece: Node = null
 var legal_for_selected: Array[Vector2i] = []
 var move_history: Array = []
-
-# --- simple highlight overlay ---
-var highlight_nodes: Array = []  # Node2D dots
 
 func _ready() -> void:
 	if board_map_path == NodePath(""):
@@ -22,6 +25,7 @@ func _ready() -> void:
 	board_map = get_node(board_map_path) as TileMap
 	await get_tree().process_frame
 	rebuild_board()
+	_maybe_ai_move() # if AI starts as white
 
 # ---------------------------------------------------------------------
 # BOARD BUILD / SYNC
@@ -33,11 +37,10 @@ func rebuild_board() -> void:
 		for x in range(8):
 			row.append(null)
 		board.append(row)
-
 	for p in get_tree().get_nodes_in_group("Pieces"):
 		if not is_instance_valid(p):
 			continue
-		var t := _get_piece_tile_pos(p)
+		var t: Vector2i = _get_piece_tile_pos(p)
 		if _in_bounds(t):
 			board[t.y][t.x] = p
 
@@ -45,6 +48,9 @@ func rebuild_board() -> void:
 # INPUT
 # ---------------------------------------------------------------------
 func _input(event: InputEvent) -> void:
+	if _ai_controls(current_turn):
+		return  # human input blocked on AI side
+
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
@@ -55,43 +61,44 @@ func _input(event: InputEvent) -> void:
 
 	rebuild_board()
 
-	var tile := _mouse_to_tile(mb.position)
+	var tile: Vector2i = _mouse_to_tile(mb.position)
 	if not _in_bounds(tile):
 		_clear_selection()
 		return
 
-	# --- debug: show what lives on that tile ---
-	var there = board[tile.y][tile.x]
+	var there: Node = board[tile.y][tile.x] as Node
+	# Debug print of clicked contents
 	if show_highlights:
 		if there == null:
 			print("Clicked tile: ", tile, " -> (empty)")
 		else:
-			print("Clicked tile: ", tile, " -> ", _get_piece_color(there), " ", _get_piece_type(there))
+			print("Clicked tile: ", tile, " -> ", _effective_color(there), " ", _effective_type(there))
 
-	# selection flow
-	var clicked_piece = there
+	var clicked_piece: Node = there
 
 	if selected_piece == null:
 		if clicked_piece != null and _can_select(clicked_piece):
 			selected_piece = clicked_piece
 			legal_for_selected = legal_moves_for(selected_piece)
-			_redraw_highlights()
+			_paint_move_tiles()
 		else:
 			_clear_selection()
 		return
 
-	# clicking own piece switches selection (or any color if debug-allowed)
+	# Switch selection to another selectable piece
 	if clicked_piece != null and _can_select(clicked_piece):
 		selected_piece = clicked_piece
 		legal_for_selected = legal_moves_for(selected_piece)
-		_redraw_highlights()
+		_paint_move_tiles()
 		return
 
-	# attempt move
+	# Attempt move
 	for m in legal_for_selected:
 		if m == tile:
 			_perform_move(selected_piece, tile)
 			_clear_selection()
+			await get_tree().process_frame
+			_maybe_ai_move()
 			return
 
 	_clear_selection()
@@ -99,25 +106,30 @@ func _input(event: InputEvent) -> void:
 func _can_select(p: Node) -> bool:
 	if allow_select_any_color:
 		return true
-	return _get_piece_color(p) == current_turn
+	return _effective_color(p) == current_turn
 
 func _clear_selection() -> void:
 	selected_piece = null
 	legal_for_selected = []
-	_redraw_highlights()
+	_clear_move_tiles()
 
 # ---------------------------------------------------------------------
-# COORDINATES & CONVERSIONS
+# COORDINATES & CONVERSIONS (offset-aware)
 # ---------------------------------------------------------------------
-# screen (viewport) -> world (canvas) -> local (TileMap) -> tile (map)
 func _mouse_to_tile(screen_pos: Vector2) -> Vector2i:
-	# 1) Screen → World using the canvas transform
+	# 1) Screen -> World (canvas)
 	var canvas_xform: Transform2D = board_map.get_viewport().get_canvas_transform()
 	var world: Vector2 = canvas_xform.affine_inverse() * screen_pos
-	# 2) World → TileMap local using the node's global transform (no canvas)
+	# 2) World -> TileMap local
 	var to_local: Transform2D = board_map.get_global_transform().affine_inverse()
 	var local: Vector2 = to_local * world
-	# 3) Local → Tile (map coords)
+	# 3) Compensate the same offset used when placing sprites
+	var offset: Vector2 = Vector2.ZERO
+	var off = board_map.get("piece_pixel_offset")
+	if typeof(off) == TYPE_VECTOR2:
+		offset = off as Vector2
+	local -= offset
+	# 4) Local -> tile
 	return board_map.local_to_map(local)
 
 func _tile_to_global_center(tile: Vector2i) -> Vector2:
@@ -128,14 +140,14 @@ func _in_bounds(t: Vector2i) -> bool:
 	return t.x >= 0 and t.x < 8 and t.y >= 0 and t.y < 8
 
 # ---------------------------------------------------------------------
-# PIECE META HELPERS
+# PIECE META HELPERS (+ robust fallbacks)
 # ---------------------------------------------------------------------
 func _get_piece_tile_pos(p: Node) -> Vector2i:
 	var v = p.get("tile_pos")
 	if typeof(v) == TYPE_VECTOR2I:
-		return v
+		return v as Vector2i
 	if p.has_meta("tile_pos"):
-		return p.get_meta("tile_pos")
+		return p.get_meta("tile_pos") as Vector2i
 	return Vector2i(-9999, -9999)
 
 func _set_piece_tile_pos(p: Node, t: Vector2i) -> void:
@@ -147,153 +159,182 @@ func _get_piece_color(p: Node) -> String:
 	if p.has_method("get"):
 		var c = p.get("piece_color")
 		if typeof(c) == TYPE_STRING:
-			return c
+			return c as String
 	if p.has_meta("piece_color"):
 		var cm = p.get_meta("piece_color")
 		if typeof(cm) == TYPE_STRING:
-			return cm
+			return cm as String
 	return ""
 
 func _get_piece_type(p: Node) -> String:
 	if p.has_method("get"):
 		var t = p.get("piece_type")
 		if typeof(t) == TYPE_STRING:
-			return t.to_lower()
+			return (t as String).to_lower()
 	if p.has_meta("piece_type"):
 		var tm = p.get_meta("piece_type")
 		if typeof(tm) == TYPE_STRING:
-			return tm.to_lower()
+			return (tm as String).to_lower()
 	return ""
 
+# Fallbacks if metadata is missing
+func _effective_color(p: Node) -> String:
+	var c: String = _get_piece_color(p)
+	if c != "":
+		return c
+	var pos: Vector2i = _get_piece_tile_pos(p)
+	if not _in_bounds(pos):
+		return ""
+	if pos.y >= 6:
+		return "white"
+	if pos.y <= 1:
+		return "black"
+	return ""
+
+func _effective_type(p: Node) -> String:
+	var t: String = _get_piece_type(p)
+	if t != "":
+		return t
+	var pos: Vector2i = _get_piece_tile_pos(p)
+	if not _in_bounds(pos):
+		return ""
+	if pos.y == 6 or pos.y == 1:
+		return "pawn"
+	return ""  # back rank unknown unless set by MapGen
+
 # ---------------------------------------------------------------------
-# MOVE GENERATION (pseudo-legal)
+# MOVE GENERATION (pseudo-legal -> legal)
 # ---------------------------------------------------------------------
 func pseudo_moves_for(p: Node) -> Array[Vector2i]:
-	var t := _get_piece_type(p)
-	var pos := _get_piece_tile_pos(p)
-	var col := _get_piece_color(p)
+	var t: String = _effective_type(p)
+	var pos: Vector2i = _get_piece_tile_pos(p)
+	var col: String = _effective_color(p)
 	var out: Array[Vector2i] = []
 
 	if t == "rook":
-		_line(out, pos, Vector2i(1,0), col); _line(out, pos, Vector2i(-1,0), col)
-		_line(out, pos, Vector2i(0,1), col); _line(out, pos, Vector2i(0,-1), col)
+		_line(out, pos, Vector2i(1, 0), col); _line(out, pos, Vector2i(-1, 0), col)
+		_line(out, pos, Vector2i(0, 1), col); _line(out, pos, Vector2i(0, -1), col)
 	elif t == "bishop":
-		_line(out, pos, Vector2i(1,1), col); _line(out, pos, Vector2i(-1,1), col)
-		_line(out, pos, Vector2i(1,-1), col); _line(out, pos, Vector2i(-1,-1), col)
+		_line(out, pos, Vector2i(1, 1), col); _line(out, pos, Vector2i(-1, 1), col)
+		_line(out, pos, Vector2i(1, -1), col); _line(out, pos, Vector2i(-1, -1), col)
 	elif t == "queen":
-		_line(out, pos, Vector2i(1,0), col); _line(out, pos, Vector2i(-1,0), col)
-		_line(out, pos, Vector2i(0,1), col); _line(out, pos, Vector2i(0,-1), col)
-		_line(out, pos, Vector2i(1,1), col); _line(out, pos, Vector2i(-1,1), col)
-		_line(out, pos, Vector2i(1,-1), col); _line(out, pos, Vector2i(-1,-1), col)
+		_line(out, pos, Vector2i(1, 0), col); _line(out, pos, Vector2i(-1, 0), col)
+		_line(out, pos, Vector2i(0, 1), col); _line(out, pos, Vector2i(0, -1), col)
+		_line(out, pos, Vector2i(1, 1), col); _line(out, pos, Vector2i(-1, 1), col)
+		_line(out, pos, Vector2i(1, -1), col); _line(out, pos, Vector2i(-1, -1), col)
 	elif t == "knight":
-		var js := [Vector2i(1,2), Vector2i(2,1), Vector2i(-1,2), Vector2i(-2,1),
-				   Vector2i(1,-2), Vector2i(2,-1), Vector2i(-1,-2), Vector2i(-2,-1)]
+		var js: Array[Vector2i] = [
+			Vector2i(1, 2), Vector2i(2, 1), Vector2i(-1, 2), Vector2i(-2, 1),
+			Vector2i(1, -2), Vector2i(2, -1), Vector2i(-1, -2), Vector2i(-2, -1)
+		]
 		for j in js:
-			var q = pos + j
+			var q: Vector2i = pos + j
 			if _in_bounds(q):
-				var occ = board[q.y][q.x]
-				if occ == null or _get_piece_color(occ) != col:
+				var occ: Node = board[q.y][q.x] as Node
+				if occ == null or _effective_color(occ) != col:
 					out.append(q)
 	elif t == "king":
-		for dx in [-1,0,1]:
-			for dy in [-1,0,1]:
+		for dx in [-1, 0, 1]:
+			for dy in [-1, 0, 1]:
 				if dx == 0 and dy == 0:
 					continue
-				var q := pos + Vector2i(dx, dy)
+				var q: Vector2i = pos + Vector2i(dx, dy)
 				if _in_bounds(q):
-					var occ2 = board[q.y][q.x]
-					if occ2 == null or _get_piece_color(occ2) != col:
+					var occ2: Node = board[q.y][q.x] as Node
+					if occ2 == null or _effective_color(occ2) != col:
 						out.append(q)
 	elif t == "pawn":
-		var dir := 1
+		var dir: int = 1
 		if col == "white":
 			dir = -1
-		var one := pos + Vector2i(0, dir)
+		var one: Vector2i = pos + Vector2i(0, dir)
 		if _in_bounds(one) and board[one.y][one.x] == null:
 			out.append(one)
-			var start_y := 1
+			var start_y: int = 1
 			if col == "white":
 				start_y = 6
 			if pos.y == start_y:
-				var two := pos + Vector2i(0, dir * 2)
+				var two: Vector2i = pos + Vector2i(0, dir * 2)
 				if _in_bounds(two) and board[two.y][two.x] == null:
 					out.append(two)
 		for dx in [-1, 1]:
-			var c := pos + Vector2i(dx, dir)
+			var c: Vector2i = pos + Vector2i(dx, dir)
 			if _in_bounds(c):
-				var occ3 = board[c.y][c.x]
-				if occ3 != null and _get_piece_color(occ3) != col:
+				var occ3: Node = board[c.y][c.x] as Node
+				if occ3 != null and _effective_color(occ3) != col:
 					out.append(c)
 	return out
 
-func _line(out: Array, start: Vector2i, d: Vector2i, my_color: String) -> void:
-	var p := start + d
+func _line(out: Array[Vector2i], start: Vector2i, d: Vector2i, my_color: String) -> void:
+	var p: Vector2i = start + d
 	while _in_bounds(p):
-		var occ = board[p.y][p.x]
+		var occ: Node = board[p.y][p.x] as Node
 		if occ == null:
 			out.append(p)
 		else:
-			if _get_piece_color(occ) != my_color:
+			if _effective_color(occ) != my_color:
 				out.append(p) # capture square
 			break
 		p += d
 
-# ---------------------------------------------------------------------
-# ATTACKS & KING SAFETY
-# ---------------------------------------------------------------------
 func square_attacked_by(square: Vector2i, attacker_color: String) -> bool:
-	var kjs := [
+	# knights
+	var kjs: Array[Vector2i] = [
 		Vector2i(1, 2), Vector2i(2, 1), Vector2i(-1, 2), Vector2i(-2, 1),
 		Vector2i(1, -2), Vector2i(2, -1), Vector2i(-1, -2), Vector2i(-2, -1)
 	]
 	for j in kjs:
-		var p = square + j
+		var p: Vector2i = square + j
 		if _in_bounds(p):
-			var n = board[p.y][p.x]
-			if n != null and _get_piece_color(n) == attacker_color and _get_piece_type(n) == "knight":
+			var n: Node = board[p.y][p.x] as Node
+			if n != null and _effective_color(n) == attacker_color and _effective_type(n) == "knight":
 				return true
 
+	# king
 	for dx in [-1, 0, 1]:
 		for dy in [-1, 0, 1]:
 			if dx == 0 and dy == 0:
 				continue
-			var k := square + Vector2i(dx, dy)
+			var k: Vector2i = square + Vector2i(dx, dy)
 			if _in_bounds(k):
-				var n2 = board[k.y][k.x]
-				if n2 != null and _get_piece_color(n2) == attacker_color and _get_piece_type(n2) == "king":
+				var n2: Node = board[k.y][k.x] as Node
+				if n2 != null and _effective_color(n2) == attacker_color and _effective_type(n2) == "king":
 					return true
 
-	var pawn_dir := 1
+	# pawns
+	var pawn_dir: int = 1
 	if attacker_color == "white":
 		pawn_dir = -1
 	for dx2 in [-1, 1]:
-		var pc := square + Vector2i(dx2, -pawn_dir)
+		var pc: Vector2i = square + Vector2i(dx2, -pawn_dir)
 		if _in_bounds(pc):
-			var n3 = board[pc.y][pc.x]
-			if n3 != null and _get_piece_color(n3) == attacker_color and _get_piece_type(n3) == "pawn":
+			var n3: Node = board[pc.y][pc.x] as Node
+			if n3 != null and _effective_color(n3) == attacker_color and _effective_type(n3) == "pawn":
 				return true
 
-	var orth := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	# rooks/queens (orthogonal)
+	var orth: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 	for d in orth:
-		var p2 = square + d
+		var p2: Vector2i = square + d
 		while _in_bounds(p2):
-			var occ = board[p2.y][p2.x]
+			var occ: Node = board[p2.y][p2.x] as Node
 			if occ != null:
-				if _get_piece_color(occ) == attacker_color:
-					var typ := _get_piece_type(occ)
+				if _effective_color(occ) == attacker_color:
+					var typ: String = _effective_type(occ)
 					if typ == "rook" or typ == "queen":
 						return true
 				break
 			p2 += d
 
-	var diag := [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]
+	# bishops/queens (diagonals)
+	var diag: Array[Vector2i] = [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]
 	for d2 in diag:
-		var p3 = square + d2
+		var p3: Vector2i = square + d2
 		while _in_bounds(p3):
-			var occ2 = board[p3.y][p3.x]
+			var occ2: Node = board[p3.y][p3.x] as Node
 			if occ2 != null:
-				if _get_piece_color(occ2) == attacker_color:
-					var typ2 := _get_piece_type(occ2)
+				if _effective_color(occ2) == attacker_color:
+					var typ2: String = _effective_type(occ2)
 					if typ2 == "bishop" or typ2 == "queen":
 						return true
 				break
@@ -304,20 +345,21 @@ func square_attacked_by(square: Vector2i, attacker_color: String) -> bool:
 func _find_king(color: String) -> Vector2i:
 	for y in range(8):
 		for x in range(8):
-			var n = board[y][x]
-			if n != null and _get_piece_color(n) == color and _get_piece_type(n) == "king":
-				return Vector2i(x,y)
-	return Vector2i(-1,-1)
+			var n: Node = board[y][x] as Node
+			if n != null and _effective_color(n) == color and _effective_type(n) == "king":
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
 
 func legal_moves_for(p: Node) -> Array[Vector2i]:
-	var pseudo := pseudo_moves_for(p)
+	var pseudo: Array[Vector2i] = pseudo_moves_for(p)
 	var legal: Array[Vector2i] = []
-	var from := _get_piece_tile_pos(p)
+	var from: Vector2i = _get_piece_tile_pos(p)
+	var my_col: String = _effective_color(p)
 	for to in pseudo:
-		var captured = board[to.y][to.x]
+		var captured: Node = board[to.y][to.x] as Node
 		_apply_board_move(from, to)
-		var kpos := _find_king(_get_piece_color(p))
-		var in_check := square_attacked_by(kpos, _opponent(_get_piece_color(p)))
+		var kpos: Vector2i = _find_king(my_col)
+		var in_check: bool = square_attacked_by(kpos, _opponent(my_col))
 		_revert_board_move(from, to, captured)
 		if not in_check:
 			legal.append(to)
@@ -327,12 +369,12 @@ func legal_moves_for(p: Node) -> Array[Vector2i]:
 # APPLY / REVERT MOVES ON THE BOARD ARRAY
 # ---------------------------------------------------------------------
 func _apply_board_move(from: Vector2i, to: Vector2i) -> void:
-	var piece = board[from.y][from.x]
+	var piece: Node = board[from.y][from.x] as Node
 	board[to.y][to.x] = piece
 	board[from.y][from.x] = null
 
 func _revert_board_move(from: Vector2i, to: Vector2i, captured: Node) -> void:
-	var piece = board[to.y][to.x]
+	var piece: Node = board[to.y][to.x] as Node
 	board[from.y][from.x] = piece
 	board[to.y][to.x] = captured
 
@@ -340,81 +382,138 @@ func _revert_board_move(from: Vector2i, to: Vector2i, captured: Node) -> void:
 # PERFORM MOVE (SCENE + STATE)
 # ---------------------------------------------------------------------
 func _perform_move(p: Node, to: Vector2i) -> void:
-	var from := _get_piece_tile_pos(p)
+	var from: Vector2i = _get_piece_tile_pos(p)
 
-	var captured = board[to.y][to.x]
+	var captured: Node = board[to.y][to.x] as Node
 	_apply_board_move(from, to)
 	if captured != null and is_instance_valid(captured):
 		captured.queue_free()
 
 	_set_piece_tile_pos(p, to)
 
-	var world_center := _tile_to_global_center(to)
-	var pixel_offset := Vector2.ZERO
+	var world_center: Vector2 = _tile_to_global_center(to)
+	var pixel_offset: Vector2 = Vector2.ZERO
 	var off = board_map.get("piece_pixel_offset")
 	if typeof(off) == TYPE_VECTOR2:
-		pixel_offset = off
+		pixel_offset = off as Vector2
 	p.global_position = world_center + pixel_offset
 
-	var typ := _get_piece_type(p)
-	var col := _get_piece_color(p)
-	var promote_row := 0
+	# Promotion (auto-queen)
+	var typ: String = _effective_type(p)
+	var col: String = _effective_color(p)
+	var promote_row: int = 0
 	if col == "white":
 		promote_row = 0
 	else:
 		promote_row = 7
 	if typ == "pawn" and to.y == promote_row:
+		p.set_meta("piece_type", "queen")
 		if p.has_method("set"):
 			p.set("piece_type", "queen")
-		else:
-			p.set_meta("piece_type", "queen")
 
-	move_history.append({"from": from, "to": to})
+	move_history.append({"from": from, "to": to, "captured": captured})
 	current_turn = _opponent(current_turn)
 
 	rebuild_board()
-	var opp := current_turn
-	if _no_legal_moves(opp):
-		var king_pos := _find_king(opp)
-		var is_check := square_attacked_by(king_pos, _opponent(opp))
-		if is_check:
-			print("Checkmate! ", _opponent(opp), " wins.")
-		else:
-			print("Stalemate.")
 
-func _no_legal_moves(color: String) -> bool:
+func _ai_controls(color: String) -> bool:
+	if color == "white":
+		return ai_plays_white
+	return ai_plays_black
+
+# ---------------------------------------------------------------------
+# AI (simple greedy: prefer capture of highest value; else random legal)
+# ---------------------------------------------------------------------
+func _maybe_ai_move() -> void:
+	# Only act if AI controls the side to play
+	if not _ai_controls(current_turn):
+		return
+
+	await get_tree().process_frame
+	rebuild_board()
+
+	# Gather all legal moves for current_turn
+	var moves: Array = [] # Array[Dictionary]
 	for y in range(8):
 		for x in range(8):
-			var n = board[y][x]
-			if n != null and _get_piece_color(n) == color:
-				var ms := legal_moves_for(n)
-				if ms.size() > 0:
-					return false
-	return true
+			var n: Node = board[y][x] as Node
+			if n == null:
+				continue
+			if _effective_color(n) != current_turn:
+				continue
+			var from: Vector2i = Vector2i(x, y)
+			var ms: Array[Vector2i] = legal_moves_for(n)
+			for to in ms:
+				var cap: Node = board[to.y][to.x] as Node
+				var score: int = 0
+				if cap != null:
+					score = _piece_value(_effective_type(cap))
+				moves.append({"piece": n, "from": from, "to": to, "captured": cap, "score": score})
 
+	if moves.is_empty():
+		return
+
+	var best_score: int = -99999
+	for m in moves:
+		var s: int = m["score"]
+		if s > best_score:
+			best_score = s
+
+	var best: Array = []
+	for m in moves:
+		if m["score"] == best_score:
+			best.append(m)
+
+	var idx: int = randi() % best.size()
+	var choice: Dictionary = best[idx]
+
+	# Perform the AI move
+	var piece: Node = choice["piece"]
+	var to: Vector2i = choice["to"]
+	_perform_move(piece, to)
+
+	# If both sides are AI, schedule the opponent's move next frame
+	if _ai_controls(current_turn):
+		await get_tree().process_frame
+		_maybe_ai_move()
+
+func _piece_value(t: String) -> int:
+	match t:
+		"king":
+			return 10000
+		"queen":
+			return 900
+		"rook":
+			return 500
+		"bishop":
+			return 330
+		"knight":
+			return 320
+		"pawn":
+			return 100
+		_:
+			return 0
+
+# ---------------------------------------------------------------------
+# UTILS
+# ---------------------------------------------------------------------
 func _opponent(color: String) -> String:
 	if color == "white":
 		return "black"
 	return "white"
 
 # ---------------------------------------------------------------------
-# DEBUG HIGHLIGHTS
+# MOVE TILE OVERLAY (instead of highlight nodes)
 # ---------------------------------------------------------------------
-func _redraw_highlights() -> void:
-	# clear old dots
-	for n in highlight_nodes:
-		if is_instance_valid(n):
-			n.queue_free()
-	highlight_nodes.clear()
+func _clear_move_tiles() -> void:
+	# wipe overlay layer
+	for y in range(8):
+		for x in range(8):
+			board_map.set_cell(move_layer, Vector2i(x, y), -1)
 
+func _paint_move_tiles() -> void:
+	_clear_move_tiles()
 	if not show_highlights or selected_piece == null:
 		return
-
-	# small dots at legal targets
 	for t in legal_for_selected:
-		var dot := Node2D.new()
-		dot.position = _tile_to_global_center(t)
-		add_child(dot)
-		highlight_nodes.append(dot)
-		dot.draw.connect(func():
-			dot.draw_circle(Vector2.ZERO, 6.0, Color(1, 1, 0, 0.6)))
+		board_map.set_cell(move_layer, t, move_tile_id, Vector2i.ZERO)

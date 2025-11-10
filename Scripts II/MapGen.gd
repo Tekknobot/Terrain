@@ -116,20 +116,20 @@ func _paint_chess_board() -> void:
 # PIECE SPAWNING
 # ------------------------------------------------------------
 func _spawn_chess_pieces() -> void:
-	# Define starting ranks each time (in case grid values changed elsewhere)
+	# Define starting ranks each time (in case grid values changed)
 	var white_back_y := grid_height - 1  # 7
 	var white_pawn_y := grid_height - 2  # 6
 	var black_back_y := 0
 	var black_pawn_y := 1
 
-	# back rank (WHITE)
+	# --- WHITE back rank ---
 	for i in range(8):
 		var s: PackedScene = null
 		if i < white_piece_slots.size():
 			s = white_piece_slots[i]
 		_place_piece_with_type(s, Vector2i(i, white_back_y), "white", _type_from_back_file(i))
 
-	# pawns (WHITE)
+	# --- WHITE pawns ---
 	for i in range(8):
 		var s2: PackedScene = null
 		var idx := i + 8
@@ -137,14 +137,14 @@ func _spawn_chess_pieces() -> void:
 			s2 = white_piece_slots[idx]
 		_place_piece_with_type(s2, Vector2i(i, white_pawn_y), "white", "pawn")
 
-	# back rank (BLACK)
+	# --- BLACK back rank ---
 	for i in range(8):
 		var sb: PackedScene = null
 		if i < black_piece_slots.size():
 			sb = black_piece_slots[i]
 		_place_piece_with_type(sb, Vector2i(i, black_back_y), "black", _type_from_back_file(i))
 
-	# pawns (BLACK)
+	# --- BLACK pawns ---
 	for i in range(8):
 		var sb2: PackedScene = null
 		var idx2 := i + 8
@@ -159,19 +159,21 @@ func _place_piece_with_type(scene: PackedScene, tile: Vector2i, color: String, p
 		return
 
 	var node := scene.instantiate()
+
+	# --- ALWAYS set tile_pos meta + optional property ---
 	node.set_meta("tile_pos", tile)
 	if node.has_method("set_tile_pos"):
 		node.set_tile_pos(tile)
 
-	# set color/type (both property or meta)
+	# --- ALWAYS set color/type metadata (so TurnManager can read them) ---
+	node.set_meta("piece_color", color)
+	node.set_meta("piece_type", piece_type)
+	# Optionally set script properties if your piece scenes expose them
 	if node.has_method("set"):
 		node.set("piece_color", color)
 		node.set("piece_type", piece_type)
-	else:
-		node.set_meta("piece_color", color)
-		node.set_meta("piece_type", piece_type)
 
-	# orientation: white faces right, black faces left
+	# --- Orientation: white faces right; black faces left (default) ---
 	if node is Node2D:
 		var n2d := node as Node2D
 		var sx := n2d.scale.x
@@ -182,11 +184,11 @@ func _place_piece_with_type(scene: PackedScene, tile: Vector2i, color: String, p
 			if sx < 0:
 				n2d.scale.x = -sx
 
-	# tint black
+	# --- Tint black pieces if desired ---
 	if tint_black_pieces and node is CanvasItem and color == "black":
 		(node as CanvasItem).modulate = black_piece_tint
 
-	# center + offset
+	# --- Center on tile + pixel offset (matches TurnManager selection math) ---
 	var local_center := map_to_local(tile)
 	node.global_position = to_global(local_center + piece_pixel_offset)
 
