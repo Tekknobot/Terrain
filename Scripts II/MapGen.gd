@@ -13,6 +13,20 @@ extends TileMap
 
 @export_group("") # close group
 
+const TILE_WATER := 6
+const TILE_DIRT := 7
+const TILE_GRASS := 8
+const TILE_SNOW := 9
+const TILE_SANDSTONE := 10
+const TILE_ICE := 11
+
+func _no_water(id: int, fallback: int) -> int:
+	# If someone sets an export to water, force a safe fallback.
+	if id == TILE_WATER:
+		return fallback
+	else:
+		return id
+
 # Slot order per side:
 # 0..7  -> back rank a..h = [R, N, B, Q, K, B, N, R]
 # 8..15 -> pawns a..h
@@ -119,18 +133,20 @@ func _paint_chess_board() -> void:
 	grid_width = 8
 	grid_height = 8
 
+	# Choose light/dark ensuring no water (6)
+	var light_id := _no_water(light_square_tile_id, TILE_GRASS)       # default to grass (8)
+	var dark_id  := _no_water(dark_square_tile_id,  TILE_SANDSTONE)   # default to sandstone (10)
+
 	# Clear first
 	for x in range(grid_width):
 		for y in range(grid_height):
 			set_cell(0, Vector2i(x, y), -1)
 
-	# Checker pattern: (x+y) even = light, odd = dark
+	# Checker pattern
 	for x in range(8):
 		for y in range(8):
 			var is_light := ((x + y) % 2) == 0
-			var tid := light_square_tile_id
-			if not is_light:
-				tid = dark_square_tile_id
+			var tid := light_id if is_light else dark_id
 			set_cell(0, Vector2i(x, y), tid, Vector2i.ZERO)
 
 # ------------------------------------------------------------
