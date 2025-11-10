@@ -3,73 +3,67 @@
 extends TileMap
 
 # ------------------------------------------------------------
-# CONSTANTS (tile sources used for special road/overlay IDs)
+# CHESS PIECE SLOTS (assign your PackedScenes in the Inspector)
 # ------------------------------------------------------------
-const INTERSECTION     := 12
-const DOWN_RIGHT_ROAD  := 14
-const DOWN_LEFT_ROAD   := 13
+@export_group("Chess — White")
+@export var white_piece_slots: Array[PackedScene] = []  # size 16: [R,N,B,Q,K,B,N,R, 8x Pawns a..h]
 
-# ------------------------------------------------------------
-# EXPORTS — grid, noise thresholds, tile sources
-# ------------------------------------------------------------
-@export var grid_width:  int = 10
-@export var grid_height: int = 20
+@export_group("Chess — Black")
+@export var black_piece_slots: Array[PackedScene] = []  # size 16: [R,N,B,Q,K,B,N,R, 8x Pawns a..h]
 
-# Noise thresholds → controls biome bands
-@export var water_threshold     := -0.6
-@export var sandstone_threshold :=  0.0
-@export var dirt_threshold      :=  0.2
-@export var grass_threshold     :=  0.4
-@export var snow_threshold      :=  0.6
-@export var ice_fraction: float = 0.5   # 0..1 → how much of the snow band becomes ice
+@export_group("") # close group
 
-# Source IDs in your TileSet
-@export var water_tile_id     := 6
-@export var sandstone_tile_id := 10
-@export var dirt_tile_id      := 7
-@export var grass_tile_id     := 8
-@export var snow_tile_id      := 9
-@export var ice_tile_id       := 11
-
-# Road generation toggles
-@export var generate_roads: bool = true
-@export var min_road_pairs: int = 1     # each "pair" = 1 horizontal + 1 vertical
-@export var max_road_pairs: int = 3
-@export var road_gap:       int = 1     # spacing between parallel roads
-
-# Structures
-@export var structure_scenes: Array[PackedScene] = []
-@export var max_structures: int = 10   # will be recalculated (base + per-road bonus)
-@export var spawn_on_all_sandstone: bool = true
-
-# Optional: quick regenerate on scene run
-@export var clear_before_gen: bool = true
+# Slot order per side:
+# 0..7  -> back rank a..h = [R, N, B, Q, K, B, N, R]
+# 8..15 -> pawns a..h
+const CHESS_BACK_ORDER := ["R","N","B","Q","K","B","N","R"]
+const SLOT_LABELS := [
+	"Back a (Rook)",    # 0
+	"Back b (Knight)",  # 1
+	"Back c (Bishop)",  # 2
+	"Back d (Queen)",   # 3
+	"Back e (King)",    # 4
+	"Back f (Bishop)",  # 5
+	"Back g (Knight)",  # 6
+	"Back h (Rook)",    # 7
+	"Pawn a",           # 8
+	"Pawn b",           # 9
+	"Pawn c",           # 10
+	"Pawn d",           # 11
+	"Pawn e",           # 12
+	"Pawn f",           # 13
+	"Pawn g",           # 14
+	"Pawn h"            # 15
+]
 
 # ------------------------------------------------------------
-# INTERNALS
+# BOARD CONFIG
 # ------------------------------------------------------------
-var noise := FastNoiseLite.new()
-var _rng := RandomNumberGenerator.new()
-var _road_count := 0
+@export var grid_width:  int = 8   # chessboard is 8x8
+@export var grid_height: int = 8
 
+# Assign these to your TileSet’s light/dark square source IDs
+@export var light_square_tile_id: int = 7
+@export var dark_square_tile_id: int = 10
+
+# Piece visuals/orientation & positioning
+@export var piece_pixel_offset: Vector2 = Vector2(0, -8)     # adjust if your art baseline shifts
+@export var black_piece_tint: Color = Color8(255, 110, 255, 255)
+@export var tint_black_pieces: bool = true                   # toggle tinting
+
+# ------------------------------------------------------------
+# LIFECYCLE
+# ------------------------------------------------------------
 func _ready() -> void:
-	# ✅ Force full opacity on this TileMap
+	# Ensure full opacity
 	modulate = Color(1, 1, 1, 1)
 	self_modulate = Color(1, 1, 1, 1)
 
-	_setup_noise()
-	if clear_before_gen:
-		clear_map()
+	clear_map()
 	_generate_map()
 
-# ------------------------------------------------------------
-# PUBLIC: regenerate the map (call from buttons, etc.)
-# ------------------------------------------------------------
-func regenerate(seed: int = -1) -> void:
-	if seed != -1:
-		noise.seed = seed
-	else:
-		noise.seed = randi()
+# Quick regenerate (e.g., from a button)
+func regenerate() -> void:
 	clear_map()
 	_generate_map()
 
@@ -77,346 +71,205 @@ func regenerate(seed: int = -1) -> void:
 # CORE GENERATION
 # ------------------------------------------------------------
 func clear_map() -> void:
+	# Clear all tiles
 	for x in range(grid_width):
 		for y in range(grid_height):
 			set_cell(0, Vector2i(x, y), -1)
-	# also remove any existing structures
-	for s in get_tree().get_nodes_in_group("Structures"):
-		if is_instance_valid(s):
-			s.queue_free()
+	# Remove existing pieces
+	for p in get_tree().get_nodes_in_group("Pieces"):
+		if is_instance_valid(p):
+			p.queue_free()
 
 func _generate_map() -> void:
-	# Paint terrain instantly
-	for x in range(grid_width):
-		for y in range(grid_height):
-			var n := noise.get_noise_2d(x, y)
-			var tile_id := _pick_tile_from_noise(n)
-			set_cell(0, Vector2i(x, y), tile_id, Vector2i.ZERO)
+	_paint_chess_board()
+	_spawn_chess_pieces()
 
-	if generate_roads:
-		_generate_roads()
-
-	# Spawn structures last so placement respects terrain/roads
-	spawn_structures()
-
-	# keep fully opaque just in case
+	# visuals/camera
 	modulate = Color(1, 1, 1, 1)
 	self_modulate = Color(1, 1, 1, 1)
 	visible = true
+	_center_main_camera()
 
 # ------------------------------------------------------------
-# NOISE
+# BOARD PAINTER
 # ------------------------------------------------------------
-func _setup_noise() -> void:
-	noise.seed = randi()
-	noise.frequency = 0.08
-	noise.fractal_octaves = 4
-	noise.fractal_gain = 0.4
-	noise.fractal_lacunarity = 2.0
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
-	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+func _paint_chess_board() -> void:
+	# Enforce 8x8 for chess
+	grid_width = 8
+	grid_height = 8
 
-func _pick_tile_from_noise(n: float) -> int:
-	if n < water_threshold:
-		return water_tile_id
-	elif n < sandstone_threshold:
-		return sandstone_tile_id
-	elif n < dirt_threshold:
-		return dirt_tile_id
-	elif n < grass_threshold:
-		return grass_tile_id
+	# Clear first
+	for x in range(grid_width):
+		for y in range(grid_height):
+			set_cell(0, Vector2i(x, y), -1)
 
-	# shrink the snow band by ice_fraction
-	var effective_snow_threshold := 1.0 - ice_fraction * (1.0 - snow_threshold)
-	if n < effective_snow_threshold:
-		return snow_tile_id
-	return ice_tile_id
+	# Checker pattern: (x+y) even = light, odd = dark
+	for x in range(8):
+		for y in range(8):
+			var is_light := ((x + y) % 2) == 0
+			var tid := light_square_tile_id
+			if not is_light:
+				tid = dark_square_tile_id
+			set_cell(0, Vector2i(x, y), tid, Vector2i.ZERO)
 
 # ------------------------------------------------------------
-# ROADS
+# PIECE SPAWNING
 # ------------------------------------------------------------
-func _generate_roads() -> void:
-	_road_count = 0
-	var used_h: Array[int] = []
-	var used_v: Array[int] = []
-	var pairs = clamp(_rng.randi_range(min_road_pairs, max_road_pairs), 0, 64)
+func _spawn_chess_pieces() -> void:
+	# Define starting ranks each time (in case grid values changed elsewhere)
+	var white_back_y := grid_height - 1  # 7
+	var white_pawn_y := grid_height - 2  # 6
+	var black_back_y := 0
+	var black_pawn_y := 1
 
-	for i in range(pairs):
-		# Horizontal road (→) at random row with spacing
-		var hy := _unique_index_with_gap(grid_height, used_h, road_gap)
-		_draw_road(Vector2i(0, hy), Vector2i(1, 0), DOWN_RIGHT_ROAD)
-		_road_count += 1
+	# back rank (WHITE)
+	for i in range(8):
+		var s: PackedScene = null
+		if i < white_piece_slots.size():
+			s = white_piece_slots[i]
+		_place_piece_with_type(s, Vector2i(i, white_back_y), "white", _type_from_back_file(i))
 
-		# Vertical road (↓) at random column with spacing
-		var vx := _unique_index_with_gap(grid_width, used_v, road_gap)
-		_draw_road(Vector2i(vx, 0), Vector2i(0, 1), DOWN_LEFT_ROAD)
-		_road_count += 1
+	# pawns (WHITE)
+	for i in range(8):
+		var s2: PackedScene = null
+		var idx := i + 8
+		if idx < white_piece_slots.size():
+			s2 = white_piece_slots[idx]
+		_place_piece_with_type(s2, Vector2i(i, white_pawn_y), "white", "pawn")
 
-func _draw_road(start: Vector2i, dir: Vector2i, road_id: int) -> void:
-	var p := start
-	while p.x >= 0 and p.x < grid_width and p.y >= 0 and p.y < grid_height:
-		var current := get_cell_source_id(0, p)
-		if current == DOWN_LEFT_ROAD or current == DOWN_RIGHT_ROAD:
-			set_cell(0, p, INTERSECTION, Vector2i.ZERO)
+	# back rank (BLACK)
+	for i in range(8):
+		var sb: PackedScene = null
+		if i < black_piece_slots.size():
+			sb = black_piece_slots[i]
+		_place_piece_with_type(sb, Vector2i(i, black_back_y), "black", _type_from_back_file(i))
+
+	# pawns (BLACK)
+	for i in range(8):
+		var sb2: PackedScene = null
+		var idx2 := i + 8
+		if idx2 < black_piece_slots.size():
+			sb2 = black_piece_slots[idx2]
+		_place_piece_with_type(sb2, Vector2i(i, black_pawn_y), "black", "pawn")
+
+func _place_piece_with_type(scene: PackedScene, tile: Vector2i, color: String, piece_type: String) -> void:
+	if scene == null:
+		return
+	if is_tile_occupied(tile):
+		return
+
+	var node := scene.instantiate()
+	node.set_meta("tile_pos", tile)
+	if node.has_method("set_tile_pos"):
+		node.set_tile_pos(tile)
+
+	# set color/type (both property or meta)
+	if node.has_method("set"):
+		node.set("piece_color", color)
+		node.set("piece_type", piece_type)
+	else:
+		node.set_meta("piece_color", color)
+		node.set_meta("piece_type", piece_type)
+
+	# orientation: white faces right, black faces left
+	if node is Node2D:
+		var n2d := node as Node2D
+		var sx := n2d.scale.x
+		if color == "white":
+			if sx > 0:
+				n2d.scale.x = -sx
 		else:
-			set_cell(0, p, road_id, Vector2i.ZERO)
-		p += dir
+			if sx < 0:
+				n2d.scale.x = -sx
 
-func _unique_index_with_gap(limit: int, used: Array, gap: int) -> int:
-	# Try random picks first
-	for i in range(100):
-		var v := _rng.randi_range(0, limit - 1)
-		var ok := true
-		for u in used:
-			if abs(v - int(u)) <= gap:
-				ok = false; break
-		if ok:
-			used.append(v)
-			return v
+	# tint black
+	if tint_black_pieces and node is CanvasItem and color == "black":
+		(node as CanvasItem).modulate = black_piece_tint
 
-	# Deterministic fallback scan
-	for v in range(limit):
-		var ok := true
-		for u in used:
-			if abs(v - int(u)) <= gap:
-				ok = false; break
-		if ok:
-			used.append(v)
-			return v
+	# center + offset
+	var local_center := map_to_local(tile)
+	node.global_position = to_global(local_center + piece_pixel_offset)
 
-	# If we truly can't fit another with the gap, relax to unique-only
-	return _unique_index(limit, used)
-
-func _unique_index(limit: int, used: Array) -> int:
-	for i in range(50):
-		var v := _rng.randi_range(0, limit - 1)
-		if not used.has(v):
-			used.append(v)
-			return v
-	for v in range(limit):
-		if not used.has(v):
-			used.append(v)
-			return v
-	return 0
+	node.add_to_group("Pieces")
+	add_child(node)
 
 # ------------------------------------------------------------
-# STRUCTURES — placement rules & helpers
+# CAMERA
 # ------------------------------------------------------------
-func spawn_structures() -> void:
-	if structure_scenes.is_empty():
-		return
+func _center_main_camera() -> void:
+	var cam: Camera2D = get_viewport().get_camera_2d()
 
-	# If not forcing sandstone-only, fall back to your old behavior
-	if not spawn_on_all_sandstone:
-		_spawn_structures_original_style()
-		return
+	# Try some common fallbacks (no boolean `or` chaining)
+	if cam == null:
+		var node := get_node_or_null("../Camera2D")
+		if node == null:
+			node = get_node_or_null("../../Camera2D")
+		if node == null:
+			node = get_node_or_null("%Camera2D")
+		cam = node as Camera2D
 
-	var placed := 0
-	var scene_index := 0  # cycle through scenes for variety
+	if cam == null:
+		return  # No camera found
 
-	for y in range(grid_height):
-		for x in range(grid_width):
-			var pos := Vector2i(x, y)
-			var tile_id := get_cell_source_id(0, pos)
+	# Center on the middle tile
+	var center_tile := Vector2i(grid_width >> 1, grid_height >> 1)
+	var center_world := to_global(map_to_local(center_tile))
+	cam.global_position = center_world
 
-			# ONLY sandstone tiles
-			if tile_id != sandstone_tile_id:
-				continue
-
-			# No gaps: place on every sandstone tile (skip only if something already sits here)
-			if is_tile_occupied(pos):
-				continue
-
-			var scene := structure_scenes[scene_index % structure_scenes.size()]
-			scene_index += 1
-
-			var structure := scene.instantiate()
-			structure.set_meta("tile_pos", pos)
-			if structure.has_method("set_tile_pos"):
-				structure.set_tile_pos(pos)
-
-			structure.global_position = to_global(map_to_local(pos))
-			structure.add_to_group("Structures")
-
-			# Optional tint, fully opaque
-			var r_val := randf_range(0.4, 0.8)
-			var g_val := randf_range(0.4, 0.8)
-			var b_val := randf_range(0.4, 0.8)
-			structure.modulate = Color(r_val, g_val, b_val, 1.0)
-
-			# (Optional) world-space z sort so stacking looks correct
-			if structure.has_method("set"):
-				structure.set("z_as_relative", false)
-				structure.set("z_index", int(structure.global_position.y))
-
-			add_child(structure)
-			placed += 1
-
-	print("Sandstone structures placed (no gaps):", placed)
-
-func _spawn_structures_original_style() -> void:
-	var count := 0
-	var attempts := 0
-	var max_attempts := grid_width * grid_height * 5
-
-	var base := 3
-	var bonus_per_road := 2
-	max_structures = clamp(base + int(_road_count * bonus_per_road), 3, 12)
-
-	while count < max_structures and attempts < max_attempts:
-		attempts += 1
-		var x := _rng.randi_range(0, grid_width - 1)
-		var y := _rng.randi_range(0, grid_height - 1)
-		var pos := Vector2i(x, y)
-		var tile_id := get_cell_source_id(0, pos)
-
-		# allow sandstone; block only water/roads
-		if tile_id == water_tile_id \
-		or tile_id == INTERSECTION \
-		or tile_id == DOWN_RIGHT_ROAD \
-		or tile_id == DOWN_LEFT_ROAD:
-			continue
-		if _is_edge(pos, 1): continue
-		if _has_nearby_structure(pos, 1): continue
-		if is_tile_occupied(pos): continue
-
-		var fat_blocks := [pos, pos + Vector2i(1,0), pos + Vector2i(-1,0), pos + Vector2i(0,1), pos + Vector2i(0,-1)]
-		if not _zones_connected_with_block_area(fat_blocks): continue
-		if _would_create_wall(pos): continue
-
-		var scene_idx := _rng.randi_range(0, structure_scenes.size() - 1)
-		var structure := structure_scenes[scene_idx].instantiate()
-		structure.set_meta("tile_pos", pos)
-		if structure.has_method("set_tile_pos"):
-			structure.set_tile_pos(pos)
-		structure.global_position = to_global(map_to_local(pos))
-		structure.add_to_group("Structures")
-		var r_val := randf_range(0.4, 0.8)
-		var g_val := randf_range(0.4, 0.8)
-		var b_val := randf_range(0.4, 0.8)
-		structure.modulate = Color(r_val, g_val, b_val, 1.0)
-		add_child(structure)
-		count += 1
-
-# --- utility used by structure logic ---
+# ------------------------------------------------------------
+# BOARD QUERIES (for interaction / movement later)
+# ------------------------------------------------------------
 func is_within_bounds(tile: Vector2i) -> bool:
 	return tile.x >= 0 and tile.x < grid_width and tile.y >= 0 and tile.y < grid_height
 
-func is_water_tile(tile: Vector2i) -> bool:
-	return get_cell_source_id(0, tile) == water_tile_id
-
 func is_tile_occupied(tile: Vector2i) -> bool:
-	# occupied = any structure sits on the tile
-	return get_structure_at_tile(tile) != null
+	return get_piece_at_tile(tile) != null
 
-func _get_structure_tile_pos(s: Node) -> Vector2i:
-	# Prefer property if present, otherwise meta
-	var p = s.get("tile_pos")
-	if typeof(p) == TYPE_VECTOR2I:
-		return p
-	if s.has_meta("tile_pos"):
-		return s.get_meta("tile_pos")
-	return Vector2i(-9999, -9999)
-
-func get_structure_at_tile(tile: Vector2i) -> Node:
-	for s in get_tree().get_nodes_in_group("Structures"):
-		if not is_instance_valid(s): continue
-		if _get_structure_tile_pos(s) == tile:
-			return s
+func get_piece_at_tile(tile: Vector2i) -> Node:
+	for p in get_tree().get_nodes_in_group("Pieces"):
+		if not is_instance_valid(p):
+			continue
+		var tp := _get_piece_tile_pos(p)
+		if tp == tile:
+			return p
 	return null
 
-func _is_walkable_for_path(tile: Vector2i) -> bool:
-	# Used by connectivity checks: walkable if inside, not water, no structures
-	return is_within_bounds(tile) \
-		and not is_water_tile(tile) \
-		and get_structure_at_tile(tile) == null
+func _get_piece_tile_pos(p: Node) -> Vector2i:
+	var v = p.get("tile_pos")
+	if typeof(v) == TYPE_VECTOR2I:
+		return v
+	if p.has_meta("tile_pos"):
+		return p.get_meta("tile_pos")
+	return Vector2i(-9999, -9999)
 
-func get_neighbors(tile: Vector2i) -> Array[Vector2i]:
-	return [
-		tile + Vector2i(1, 0),
-		tile + Vector2i(-1, 0),
-		tile + Vector2i(0, 1),
-		tile + Vector2i(0, -1),
-	]
+# ------------------------------------------------------------
+# DEBUG (optional)
+# ------------------------------------------------------------
+func debug_print_piece_slot_mapping() -> void:
+	print("WHITE SLOTS:")
+	for i in range(16):
+		var name := "(empty)"
+		if i < white_piece_slots.size() and white_piece_slots[i] != null:
+			name = white_piece_slots[i].resource_path
+		print("  [", i, "] ", SLOT_LABELS[i], " -> ", name)
 
-func _is_edge(t: Vector2i, margin: int = 1) -> bool:
-	return t.x < margin or t.y < margin or t.x >= grid_width - margin or t.y >= grid_height - margin
+	print("BLACK SLOTS:")
+	for i in range(16):
+		var name_b := "(empty)"
+		if i < black_piece_slots.size() and black_piece_slots[i] != null:
+			name_b = black_piece_slots[i].resource_path
+		print("  [", i, "] ", SLOT_LABELS[i], " -> ", name_b)
 
-func _has_nearby_structure(center: Vector2i, radius: int = 1) -> bool:
-	for s in get_tree().get_nodes_in_group("Structures"):
-		if not is_instance_valid(s): continue
-		var st := _get_structure_tile_pos(s)
-		# Chebyshev distance ≤ radius (blocks diagonal touching)
-		var dx = abs(center.x - st.x)
-		var dy = abs(center.y - st.y)
-		if max(dx, dy) <= radius:
-			return true
-	return false
-
-# Treat an arbitrary set of tiles as extra blocked when validating connectivity.
-func _zones_connected_with_block_area(extra_blocks: Array[Vector2i]) -> bool:
-	var extra := {}
-	for b in extra_blocks:
-		extra[b] = true
-
-	var start := Vector2i(-1, -1)
-	var player_zone := Rect2i(0, grid_height - int(grid_height / 3), grid_width, int(grid_height / 3))
-	var enemy_zone  := Rect2i(0, 0, grid_width, int(grid_height / 3))
-
-	var enemy_targets: Array[Vector2i] = []
-	for y in range(enemy_zone.position.y, enemy_zone.position.y + enemy_zone.size.y):
-		for x in range(enemy_zone.position.x, enemy_zone.position.x + enemy_zone.size.x):
-			var t := Vector2i(x, y)
-			if extra.has(t): continue
-			if _is_walkable_for_path(t):
-				enemy_targets.append(t)
-
-	for y in range(player_zone.position.y, player_zone.position.y + player_zone.size.y):
-		for x in range(player_zone.position.x, player_zone.position.x + player_zone.size.x):
-			var t2 := Vector2i(x, y)
-			if extra.has(t2): continue
-			if _is_walkable_for_path(t2):
-				start = t2
-				break
-		if start != Vector2i(-1, -1):
-			break
-
-	if start == Vector2i(-1, -1) or enemy_targets.is_empty():
-		return true  # nothing meaningful to connect → treat as okay
-
-	# BFS from start to any enemy target, avoiding extra-blocked tiles
-	var q := [start]
-	var seen := { start: true }
-	while q.size() > 0:
-		var cur: Vector2i = q.pop_front()
-		if enemy_targets.has(cur):
-			return true
-		for n in get_neighbors(cur):
-			if extra.has(n): continue
-			if not seen.has(n) and _is_walkable_for_path(n):
-				seen[n] = true
-				q.append(n)
-
-	return false
-
-# Does adding a block at pos complete a full wall across a row/column?
-func _would_create_wall(pos: Vector2i) -> bool:
-	# Row check
-	var row_blocked := true
-	for x in range(grid_width):
-		var t := Vector2i(x, pos.y)
-		if t == pos:
-			continue
-		if _is_walkable_for_path(t):
-			row_blocked = false
-			break
-	# Column check
-	var col_blocked := true
-	for y in range(grid_height):
-		var t2 := Vector2i(pos.x, y)
-		if t2 == pos:
-			continue
-		if _is_walkable_for_path(t2):
-			col_blocked = false
-			break
-	return row_blocked or col_blocked
+# ------------------------------------------------------------
+# PIECE TYPE MAPPER
+# ------------------------------------------------------------
+func _type_from_back_file(i: int) -> String:
+	if i == 0 or i == 7:
+		return "rook"
+	if i == 1 or i == 6:
+		return "knight"
+	if i == 2 or i == 5:
+		return "bishop"
+	if i == 3:
+		return "queen"
+	return "king"  # i == 4

@@ -1,6 +1,5 @@
-[gd_scene load_steps=55 format=3 uid="uid://cjslm3njvyox0"]
+[gd_scene load_steps=51 format=3 uid="uid://cjslm3njvyox0"]
 
-[ext_resource type="Script" uid="uid://bdb3p0q7yvebm" path="res://Scripts II/Camera.gd" id="1_50wvn"]
 [ext_resource type="Texture2D" uid="uid://b3fmige5evt8r" path="res://Sprites/Tiles_UI/tile_hover.png" id="1_v5osp"]
 [ext_resource type="Texture2D" uid="uid://56t0bjdw3rny" path="res://Sprites/Tiles_UI/tile_hover_black.png" id="2_3ylvv"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://Sprites/Terrain/sandstone.png" id="3_v4kts"]
@@ -19,22 +18,19 @@
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://Sprites/Terrain/grass_default.png" id="16_nhkxx"]
 [ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://Sprites/Terrain/grass_snow.png" id="17_u1ka1"]
 [ext_resource type="Script" uid="uid://b3u4gcuw271vm" path="res://Scripts II/MapGen.gd" id="18_qnxxh"]
-[ext_resource type="Script" uid="uid://rsf733qntu7" path="res://Scripts II/Spawner.gd" id="27_ph65w"]
+[ext_resource type="PackedScene" uid="uid://ccd1o7t1bd6nf" path="res://Scenes/Meks_Scenes/AVATARS/M2.scn" id="20_a8src"]
+[ext_resource type="PackedScene" uid="uid://c16edah1b6lh1" path="res://Scenes/Meks_Scenes/AVATARS/R1.scn" id="21_0c513"]
+[ext_resource type="PackedScene" uid="uid://dqh62w0b146qi" path="res://Scenes/Meks_Scenes/AVATARS/R2.scn" id="22_ph65w"]
+[ext_resource type="PackedScene" uid="uid://bwrrjfut3yepe" path="res://Scenes/Meks_Scenes/AVATARS/R3.scn" id="23_jo5i0"]
+[ext_resource type="PackedScene" uid="uid://driiwkipw4qx3" path="res://Scenes/Meks_Scenes/AVATARS/S2.scn" id="24_qrsv1"]
+[ext_resource type="PackedScene" uid="uid://cdgmcddvf8k4k" path="res://Scenes/Meks_Scenes/CPU II/M1.scn" id="25_7no8q"]
+[ext_resource type="PackedScene" uid="uid://ed4qkkrk0vqo" path="res://Scenes/Meks_Scenes/CPU II/M2.scn" id="26_dqai5"]
+[ext_resource type="PackedScene" uid="uid://cdqedw03khtl5" path="res://Scenes/Meks_Scenes/CPU II/R1.scn" id="27_1kk3k"]
 [ext_resource type="PackedScene" uid="uid://c2xvfkwdxs0xp" path="res://Scenes/Meks_Scenes/AVATARS/M1.scn" id="28_jo5i0"]
-[ext_resource type="PackedScene" uid="uid://cdgmcddvf8k4k" path="res://Scenes/Meks_Scenes/CPU II/M1.scn" id="29_6gea1"]
-[ext_resource type="PackedScene" uid="uid://ed4qkkrk0vqo" path="res://Scenes/Meks_Scenes/CPU II/M2.scn" id="30_mxq66"]
-[ext_resource type="PackedScene" uid="uid://cdqedw03khtl5" path="res://Scenes/Meks_Scenes/CPU II/R1.scn" id="31_su57w"]
-[ext_resource type="PackedScene" uid="uid://cuiflgspey5jw" path="res://Scenes/Meks_Scenes/CPU II/R2.scn" id="32_irsdr"]
-[ext_resource type="PackedScene" uid="uid://dw3hurgcrpccs" path="res://Scenes/Meks_Scenes/CPU II/R3.scn" id="33_158w7"]
-[ext_resource type="PackedScene" uid="uid://bj5brjmdt3fsw" path="res://Scenes/Meks_Scenes/CPU II/R4.scn" id="34_v5osp"]
-[ext_resource type="PackedScene" uid="uid://coyahap3jshja" path="res://Scenes/Meks_Scenes/CPU II/S2.scn" id="35_3ylvv"]
-[ext_resource type="PackedScene" uid="uid://dx4l36fri7lqo" path="res://Scenes/Structures_Scenes/building_c3.scn" id="35_hv46v"]
-[ext_resource type="PackedScene" uid="uid://ta73ff7u5b2i" path="res://Scenes/Structures_Scenes/building_d.tscn" id="36_mmgiq"]
-[ext_resource type="PackedScene" uid="uid://np4hkb4ffi1g" path="res://Scenes/Meks_Scenes/CPU II/S3.scn" id="36_v4kts"]
-[ext_resource type="PackedScene" uid="uid://bjego6do1vtmm" path="res://Scenes/Structures_Scenes/building_e.tscn" id="37_bixtq"]
-[ext_resource type="PackedScene" uid="uid://b6reg1gechlys" path="res://Scenes/Structures_Scenes/district.tscn" id="38_ylwe2"]
-[ext_resource type="PackedScene" uid="uid://bj4tbqwo8ei00" path="res://Scenes/Structures_Scenes/stadium.tscn" id="39_vqr6d"]
-[ext_resource type="PackedScene" uid="uid://dumfkfxnng3od" path="res://Scenes/Structures_Scenes/tower.tscn" id="40_rt7o2"]
+[ext_resource type="PackedScene" uid="uid://cuiflgspey5jw" path="res://Scenes/Meks_Scenes/CPU II/R2.scn" id="28_qgk8b"]
+[ext_resource type="PackedScene" uid="uid://dw3hurgcrpccs" path="res://Scenes/Meks_Scenes/CPU II/R3.scn" id="29_jryh1"]
+[ext_resource type="PackedScene" uid="uid://coyahap3jshja" path="res://Scenes/Meks_Scenes/CPU II/S2.scn" id="30_6gea1"]
+[ext_resource type="Script" uid="uid://dftphuql1wug4" path="res://Scripts II/TurnManager.gd" id="32_dqai5"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://Scenes/VFX/StarNight.tscn" id="41_4ydyc"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ryqp4"]
@@ -195,8 +191,8 @@ sources/16 = SubResource("TileSetAtlasSource_vljq6")
 [node name="IsoGrid" type="Node2D"]
 
 [node name="Camera" type="Camera2D" parent="."]
+zoom = Vector2(2, 2)
 limit_enabled = false
-script = ExtResource("1_50wvn")
 
 [node name="TileMap" type="TileMap" parent="."]
 modulate = Color(1, 1, 1, 0)
@@ -207,21 +203,14 @@ layer_0/modulate = Color(0.491583, 0.491583, 0.491583, 1)
 layer_1/name = "Layer1"
 layer_2/name = "Layer2"
 script = ExtResource("18_qnxxh")
-grid_width = 32
-grid_height = 32
-min_road_pairs = 4
-max_road_pairs = 8
-road_gap = 2
-structure_scenes = Array[PackedScene]([ExtResource("35_hv46v"), ExtResource("38_ylwe2"), ExtResource("39_vqr6d"), ExtResource("40_rt7o2"), ExtResource("36_mmgiq"), ExtResource("37_bixtq")])
-max_structures = 32
+white_piece_slots = Array[PackedScene]([ExtResource("28_jo5i0"), ExtResource("20_a8src"), ExtResource("21_0c513"), ExtResource("22_ph65w"), ExtResource("23_jo5i0"), ExtResource("21_0c513"), ExtResource("20_a8src"), ExtResource("28_jo5i0"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1"), ExtResource("24_qrsv1")])
+black_piece_slots = Array[PackedScene]([ExtResource("25_7no8q"), ExtResource("26_dqai5"), ExtResource("27_1kk3k"), ExtResource("28_qgk8b"), ExtResource("29_jryh1"), ExtResource("27_1kk3k"), ExtResource("26_dqai5"), ExtResource("25_7no8q"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1"), ExtResource("30_6gea1")])
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="TileMap"]
 
 [node name="StarryNight" parent="TileMap" instance=ExtResource("41_4ydyc")]
 
-[node name="Spawner" type="Node2D" parent="."]
-script = ExtResource("27_ph65w")
-player_prefabs = Array[PackedScene]([ExtResource("28_jo5i0")])
-enemy_prefabs = Array[PackedScene]([ExtResource("29_6gea1"), ExtResource("30_mxq66"), ExtResource("31_su57w"), ExtResource("32_irsdr"), ExtResource("33_158w7"), ExtResource("34_v5osp"), ExtResource("35_3ylvv"), ExtResource("36_v4kts")])
-require_structures_ready = true
-auto_spawn_on_ready = true
+[node name="TurnManager" type="Node2D" parent="."]
+script = ExtResource("32_dqai5")
+board_map_path = NodePath("../TileMap")
+show_highlights = true

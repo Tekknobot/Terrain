@@ -1,186 +1,137 @@
-# File: Spawner.gd
-# Attach to: IsoGrid/Spawner (Node or Node2D)
-extends Node
+# CameraFollowPlayers.gd (Godot 4, warnings-as-errors safe)
+extends Camera2D
 
-# --- references ---
+# ── What to follow ───────────────────────────────────────────
+enum TargetMode { FIRST, NEAREST, CENTROID }
+@export var target_mode: TargetMode = TargetMode.CENTROID
+@export var y_offset: float = -8.0           # keep consistent with Spawner.gd
+
+# ── Smoothing ────────────────────────────────────────────────
+@export var smooth_speed: float = 7.5        # higher = snappier
+@export var deadzone: float = 4.0            # pixels before camera starts moving
+
+# ── Zoom to fit multiple players (optional) ─────────────────
+@export var zoom_to_fit: bool = false
+@export var fit_padding: Vector2 = Vector2(120, 80)   # px padding around players
+@export var min_zoom: float = 0.75                    # smaller = zoom out more
+@export var max_zoom: float = 1.5
+
+# ── World limits from a TileMap (optional but recommended) ──
 @export var tilemap_path: NodePath = ^"../TileMap"
 
-# --- prefabs ---
-@export var player_prefabs: Array[PackedScene] = []
-@export var enemy_prefabs: Array[PackedScene] = []
-
-# --- counts (defaults; you can call spawn_* with explicit numbers too) ---
-@export var player_count: int = 1
-@export var enemy_count: int = 5
-
-# --- placement rules ---
-@export var avoid_roads: bool = true
-@export var edge_margin: int = 1                 # keep N tiles from the outer border
-@export var max_attempts_per_unit: int = 300
-
-# y offset used by your sprites (so feet sit on the tile nicely)
-@export var y_offset: float = -8.0
-
-# Road IDs (match MapGen.gd constants)
-@export var road_ids: PackedInt32Array = [13, 14, 12]  # DOWN_LEFT_ROAD, DOWN_RIGHT_ROAD, INTERSECTION
-
 var _tilemap: TileMap
+var _retarget_timer: float = 0.0
+@export var retarget_interval: float = 0.2
 
 func _ready() -> void:
+	# Godot 4: use make_current() (no 'current' property)
+	make_current()
 	_tilemap = get_node_or_null(tilemap_path) as TileMap
+	_update_camera_limits_from_tilemap()
+
+func _process(delta: float) -> void:
+	_retarget_timer -= delta
+	if _retarget_timer <= 0.0:
+		_retarget_timer = retarget_interval
+		_update_camera_limits_from_tilemap()  # in case map changes
+
+	var target: Vector2 = _compute_target_position()
+	# Deadzone: move only if we’re outside a small radius
+	if global_position.distance_to(target) > deadzone:
+		var t: float = clamp(smooth_speed * delta, 0.0, 1.0)
+		global_position = global_position.lerp(target, t)
+
+	if zoom_to_fit:
+		_update_zoom_to_fit()
+
+# Always returns a Vector2 (no nulls/Variants)
+func _compute_target_position() -> Vector2:
+	var players: Array = get_tree().get_nodes_in_group("Player")
+	if players.is_empty():
+		return global_position
+
+	match target_mode:
+		TargetMode.FIRST:
+			var n: Node = players[0]
+			if n is Node2D:
+				return (n as Node2D).global_position + Vector2(0.0, y_offset)
+
+		TargetMode.NEAREST:
+			var best: Node2D = null
+			var best_d2: float = INF
+			for p in players:
+				if p is Node2D:
+					var pos: Vector2 = (p as Node2D).global_position + Vector2(0.0, y_offset)
+					var d2: float = global_position.distance_squared_to(pos)
+					if d2 < best_d2:
+						best_d2 = d2
+						best = p
+			if best != null:
+				return best.global_position + Vector2(0.0, y_offset)
+
+		TargetMode.CENTROID:
+			var sum: Vector2 = Vector2.ZERO
+			var count: int = 0
+			for p in players:
+				if p is Node2D:
+					sum += (p as Node2D).global_position + Vector2(0.0, y_offset)
+					count += 1
+			if count > 0:
+				return sum / float(count)
+
+	# Fallback
+	return global_position
+
+func _players_bounds() -> Rect2:
+	var rect_set: bool = false
+	var r: Rect2 = Rect2()
+	for p in get_tree().get_nodes_in_group("Player"):
+		if not (p is Node2D):
+			continue
+		var pos: Vector2 = (p as Node2D).global_position + Vector2(0.0, y_offset)
+		if not rect_set:
+			r = Rect2(pos, Vector2.ZERO)
+			rect_set = true
+		else:
+			r = r.expand(pos)
+	return r
+
+func _update_zoom_to_fit() -> void:
+	var r: Rect2 = _players_bounds()
+	if r.size == Vector2.ZERO:
+		return
+
+	var screen_size: Vector2 = get_viewport_rect().size
+	var pad: Vector2 = fit_padding
+	var desired: Vector2 = r.size + pad * 2.0
+	if desired.x <= 1.0 or desired.y <= 1.0:
+		return
+
+	var zx: float = desired.x / screen_size.x
+	var zy: float = desired.y / screen_size.y
+	var target_zoom: float = max(zx, zy)
+	target_zoom = clamp(target_zoom, min_zoom, max_zoom)
+
+	# Smooth zoom a bit
+	var z: float = lerp(zoom.x, target_zoom, 0.1)
+	zoom = Vector2(z, z)
+
+func _update_camera_limits_from_tilemap() -> void:
 	if _tilemap == null:
-		push_error("Spawner: TileMap not found at tilemap_path.")
-		return
-	# Example auto-spawn (comment out if you want manual control):
-	# spawn_players(player_count)
-	# spawn_enemies(enemy_count)
-
-# ─────────────────────────────────────────────────────────────
-# Public API (spawns ANYWHERE open; no zones)
-# ─────────────────────────────────────────────────────────────
-func spawn_players(count: int = -1) -> void:
-	if count <= 0: count = max(1, player_count)
-	if player_prefabs.is_empty(): return
-
-	var idx := 0
-	for i in range(count):
-		var tile := _find_open_tile_anywhere()
-		if tile == Vector2i(-1, -1): break
-		var scene := player_prefabs[idx % player_prefabs.size()]
-		idx += 1
-		_spawn_unit(scene, tile, true)
-
-func spawn_enemies(count: int = -1) -> void:
-	if count <= 0: count = max(1, enemy_count)
-	if enemy_prefabs.is_empty(): return
-
-	var idx := 0
-	for i in range(count):
-		var tile := _find_open_tile_anywhere()
-		if tile == Vector2i(-1, -1): break
-		var scene := enemy_prefabs[idx % enemy_prefabs.size()]
-		idx += 1
-		_spawn_unit(scene, tile, false)
-
-func spawn_wave(players: int, enemies: int) -> void:
-	spawn_players(players)
-	spawn_enemies(enemies)
-
-# ─────────────────────────────────────────────────────────────
-# Core spawn
-# ─────────────────────────────────────────────────────────────
-func _spawn_unit(scene: PackedScene, tile: Vector2i, is_player: bool) -> void:
-	var u := scene.instantiate() as Node2D
-	if u == null:
+		limit_left = -1000000
+		limit_right = 1000000
+		limit_top = -1000000
+		limit_bottom = 1000000
 		return
 
-	var world_center := _tile_to_world_center(tile)
-	u.global_position = world_center + Vector2(0, y_offset)
+	var used: Rect2i = _tilemap.get_used_rect()
+	if used.size == Vector2i.ZERO:
+		return
 
-	u.add_to_group("Units")
-	if is_player:
-		u.add_to_group("Player")
-	else:
-		u.add_to_group("Enemies")
+	var top_left_world: Vector2 = _tilemap.to_global(_tilemap.map_to_local(used.position))
+	var bottom_right_world: Vector2 = _tilemap.to_global(_tilemap.map_to_local(used.position + used.size))
 
-	u.set_meta("tile_pos", tile)
-
-	# World-space z sort
-	if u.has_method("set"):
-		u.set("z_as_relative", false)
-		u.set("z_index", int(u.global_position.y))
-
-	add_child(u)
-
-# ─────────────────────────────────────────────────────────────
-# Tile selection (ANYWHERE)
-# ─────────────────────────────────────────────────────────────
-func _find_open_tile_anywhere() -> Vector2i:
-	var gw := _grid_w()
-	var gh := _grid_h()
-
-	# Random attempts first
-	for _i in range(max_attempts_per_unit):
-		var rx := randi_range(edge_margin, gw - 1 - edge_margin)
-		var ry := randi_range(edge_margin, gh - 1 - edge_margin)
-		var t := Vector2i(rx, ry)
-		if _is_open_tile(t):
-			return t
-
-	# Deterministic scan fallback
-	for y in range(edge_margin, gh - edge_margin):
-		for x in range(edge_margin, gw - edge_margin):
-			var t := Vector2i(x, y)
-			if _is_open_tile(t):
-				return t
-
-	return Vector2i(-1, -1)
-
-func _is_open_tile(t: Vector2i) -> bool:
-	if not _within_bounds(t): return false
-	if _is_water(t): return false
-
-	if avoid_roads:
-		var id := _tile_id(t)
-		if road_ids.has(id): return false
-
-	if _get_structure_at(t) != null: return false
-
-	# Check units already placed
-	for u in get_tree().get_nodes_in_group("Units"):
-		if not (u is Node2D): continue
-		var utile := _world_to_tile((u as Node2D).global_position - Vector2(0, y_offset))
-		if utile == t:
-			return false
-
-	return true
-
-# ─────────────────────────────────────────────────────────────
-# Map helpers
-# ─────────────────────────────────────────────────────────────
-func _grid_w() -> int:
-	var gw: int = 0
-	if _tilemap.has_method("get"):
-		var v = _tilemap.get("grid_width")
-		if typeof(v) == TYPE_INT: gw = v
-	if gw <= 0:
-		var used := _tilemap.get_used_rect()
-		gw = max(used.size.x, 1)
-	return gw
-
-func _grid_h() -> int:
-	var gh: int = 0
-	if _tilemap.has_method("get"):
-		var v = _tilemap.get("grid_height")
-		if typeof(v) == TYPE_INT: gh = v
-	if gh <= 0:
-		var used := _tilemap.get_used_rect()
-		gh = max(used.size.y, 1)
-	return gh
-
-func _within_bounds(t: Vector2i) -> bool:
-	return t.x >= 0 and t.x < _grid_w() and t.y >= 0 and t.y < _grid_h()
-
-func _tile_id(t: Vector2i) -> int:
-	return _tilemap.get_cell_source_id(0, t)
-
-func _is_water(t: Vector2i) -> bool:
-	if _tilemap.has_method("is_water_tile"):
-		return _tilemap.is_water_tile(t)
-	var wid := int(_tilemap.get("water_tile_id") if _tilemap.has_method("get") else -9999)
-	return (wid != -9999 and _tile_id(t) == wid)
-
-func _get_structure_at(t: Vector2i) -> Node:
-	if _tilemap.has_method("get_structure_at_tile"):
-		return _tilemap.get_structure_at_tile(t)
-	for s in get_tree().get_nodes_in_group("Structures"):
-		if is_instance_valid(s) and s.has_meta("tile_pos") and s.get_meta("tile_pos") == t:
-			return s
-	return null
-
-func _tile_to_world_center(t: Vector2i) -> Vector2:
-	return _tilemap.to_global(_tilemap.map_to_local(t))
-
-func _world_to_tile(world_pos: Vector2) -> Vector2i:
-	var local := _tilemap.to_local(world_pos)
-	return _tilemap.local_to_map(local)
+	limit_left = int(floor(min(top_left_world.x, bottom_right_world.x)))
+	limit_right = int(ceil(max(top_left_world.x, bottom_right_world.x)))
+	limit_top = int(floor(min(top_left_world.y, bottom_right_world.y)))
+	limit_bottom = int(ceil(max(top_left_world.y, bottom_right_world.y)))
