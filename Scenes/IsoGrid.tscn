@@ -213,3 +213,14 @@ black_piece_slots = Array[PackedScene]([ExtResource("25_7no8q"), ExtResource("26
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("32_dqai5")
 board_map_path = NodePath("../TileMap")
+show_highlights = null
+allow_select_any_color = null
+ai_plays_white = null
+ai_plays_black = null
+move_layer = null
+move_tile_id = null
+check_layer = null
+check_tile_id_check = null
+check_tile_id_mate = null
+move_duration = null
+move_ease = null

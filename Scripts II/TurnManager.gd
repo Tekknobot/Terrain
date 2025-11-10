@@ -16,6 +16,10 @@ extends Node
 @export var check_tile_id_check: int = 4            # white tile under king when in check
 @export var check_tile_id_mate: int = 3             # red tile under king when checkmated
 
+# Threat overlay (pieces that are currently capturable by the opponent)
+@export var threat_layer: int = 3                   # layer to paint "under attack" indicators
+@export var threat_tile_id: int = 3                 # typically a red tile; reuse your atlas as needed
+
 # Motion / animation
 @export var move_duration: float = 0.35             # seconds
 @export var move_ease: String = "sine_in_out"       # "sine_in_out","cubic_in_out","quad_in_out", etc.
@@ -36,7 +40,7 @@ func _ready() -> void:
 	board_map = get_node(board_map_path) as TileMap
 	await get_tree().process_frame
 	rebuild_board()
-	_update_check_indicators()
+	_update_all_indicators()
 	_maybe_ai_move() # if AI starts as white
 
 # ---------------------------------------------------------------------
@@ -52,6 +56,9 @@ func rebuild_board() -> void:
 	for p in get_tree().get_nodes_in_group("Pieces"):
 		if not is_instance_valid(p):
 			continue
+		# skip soft-captured pieces (parked in Graveyard)
+		if p.get_meta("captured", false):
+			continue
 		var t: Vector2i = _get_piece_tile_pos(p)
 		if _in_bounds(t):
 			board[t.y][t.x] = p
@@ -64,6 +71,13 @@ func _input(event: InputEvent) -> void:
 	if is_animating or _ai_controls(current_turn):
 		return
 
+	# Optional: simple undo keybind (Ctrl/Cmd + Z)
+	if event is InputEventKey and event.pressed and not event.echo:
+		var key := (event as InputEventKey).physical_keycode
+		if key == KEY_Z and (Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META)):
+			undo_last_move()
+			return
+
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
@@ -73,7 +87,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	rebuild_board()
-	_update_check_indicators()
+	_update_all_indicators()
 
 	var tile: Vector2i = _mouse_to_tile(mb.position)
 	if not _in_bounds(tile):
@@ -125,7 +139,7 @@ func _clear_selection() -> void:
 	selected_piece = null
 	legal_for_selected = []
 	_clear_move_tiles()
-	# keep check indicators; they reflect game state
+	# keep indicators; they reflect game state
 
 # ---------------------------------------------------------------------
 # COORDINATES & CONVERSIONS (offset-aware)
@@ -216,6 +230,20 @@ func _effective_type(p: Node) -> String:
 		return "pawn"
 	return ""  # back rank unknown unless set by MapGen
 
+# Track whether a piece has moved at least once (for castling + undo)
+func _get_has_moved(p: Node) -> bool:
+	if p.has_method("get"):
+		var v = p.get("has_moved")
+		if typeof(v) == TYPE_BOOL: return v
+	if p.has_meta("has_moved"):
+		return bool(p.get_meta("has_moved"))
+	return false
+
+func _set_has_moved(p: Node, v: bool) -> void:
+	p.set_meta("has_moved", v)
+	if p.has_method("set"):
+		p.set("has_moved", v)
+
 # ---------------------------------------------------------------------
 # MOVE GENERATION (pseudo-legal -> legal)
 # ---------------------------------------------------------------------
@@ -248,15 +276,35 @@ func pseudo_moves_for(p: Node) -> Array[Vector2i]:
 				if occ == null or _effective_color(occ) != col:
 					out.append(q)
 	elif t == "king":
+		# normal king steps
 		for dx in [-1, 0, 1]:
 			for dy in [-1, 0, 1]:
-				if dx == 0 and dy == 0:
-					continue
+				if dx == 0 and dy == 0: continue
 				var q: Vector2i = pos + Vector2i(dx, dy)
 				if _in_bounds(q):
 					var occ2: Node = board[q.y][q.x] as Node
 					if occ2 == null or _effective_color(occ2) != col:
 						out.append(q)
+
+		# castling candidates (added as pseudo; filtered to legal later)
+		# x: 0..7, home rank: y=7 for white, y=0 for black (white pawns at y=6)
+		var home_y: int = 0
+		if col == "white":
+			home_y = 7
+
+		var king_home := Vector2i(4, home_y)
+		if pos == king_home and not _get_has_moved(p):
+			# kingside: rook at x=7, squares 5 and 6 empty
+			var rook_k := board[home_y][7] as Node
+			if rook_k != null and _effective_type(rook_k) == "rook" and _effective_color(rook_k) == col and not _get_has_moved(rook_k):
+				if board[home_y][5] == null and board[home_y][6] == null:
+					out.append(Vector2i(6, home_y))
+			# queenside: rook at x=0, squares 1..3 empty
+			var rook_q := board[home_y][0] as Node
+			if rook_q != null and _effective_type(rook_q) == "rook" and _effective_color(rook_q) == col and not _get_has_moved(rook_q):
+				if board[home_y][1] == null and board[home_y][2] == null and board[home_y][3] == null:
+					out.append(Vector2i(2, home_y))
+
 	elif t == "pawn":
 		var dir: int = 1
 		if col == "white":
@@ -315,7 +363,7 @@ func square_attacked_by(square: Vector2i, attacker_color: String) -> bool:
 				if n2 != null and _effective_color(n2) == attacker_color and _effective_type(n2) == "king":
 					return true
 
-	# pawns
+	# pawns (they attack forward-diagonally)
 	var pawn_dir: int = 1
 	if attacker_color == "white":
 		pawn_dir = -1
@@ -364,12 +412,34 @@ func _find_king(color: String) -> Vector2i:
 				return Vector2i(x, y)
 	return Vector2i(-1, -1)
 
+func _is_castle_move(piece: Node, from: Vector2i, to: Vector2i) -> bool:
+	return _effective_type(piece) == "king" and abs(to.x - from.x) == 2 and from.y == to.y
+
+func _castle_path_safe(color: String, from: Vector2i, to: Vector2i) -> bool:
+	var dir: int = -1
+	if to.x > from.x:
+		dir = 1
+
+	# squares the king occupies or passes through (from, from+dir, to)
+	var squares := [from, from + Vector2i(dir, 0), to]
+	for s in squares:
+		if square_attacked_by(s, _opponent(color)):
+			return false
+	return true
+
 func legal_moves_for(p: Node) -> Array[Vector2i]:
 	var pseudo: Array[Vector2i] = pseudo_moves_for(p)
 	var legal: Array[Vector2i] = []
 	var from: Vector2i = _get_piece_tile_pos(p)
 	var my_col: String = _effective_color(p)
 	for to in pseudo:
+		# Special: castling path safety pre-check
+		var is_castle := _is_castle_move(p, from, to)
+		if is_castle:
+			# king cannot castle out of/through/into check
+			if square_attacked_by(from, _opponent(my_col)) or not _castle_path_safe(my_col, from, to):
+				continue
+
 		var captured: Node = board[to.y][to.x] as Node
 		_apply_board_move(from, to)
 		var kpos: Vector2i = _find_king(my_col)
@@ -405,8 +475,33 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 	var from: Vector2i = _get_piece_tile_pos(p)
 	var captured: Node = board[to.y][to.x] as Node
 
+	# For history/undo
+	var did_promote: bool = false
+	var promoted_from: String = ""
+	var was_castle: bool = false
+	var rook_moved: Node = null
+	var rook_from := Vector2i(-1, -1)
+	var rook_to := Vector2i(-1, -1)
+	var piece_had_moved := _get_has_moved(p)
+
 	# Update board state first (rules remain correct during animation)
 	_apply_board_move(from, to)
+
+	# Detect castling and prepare rook move in board state (keeps logic consistent during tween)
+	if _is_castle_move(p, from, to):
+		was_castle = true
+		var home_y := from.y
+		if to.x == 6:
+			# kingside: rook 7->5
+			rook_from = Vector2i(7, home_y)
+			rook_to = Vector2i(5, home_y)
+		else:
+			# queenside: rook 0->3
+			rook_from = Vector2i(0, home_y)
+			rook_to = Vector2i(3, home_y)
+		rook_moved = board[rook_from.y][rook_from.x] as Node
+		if rook_moved != null:
+			_apply_board_move(rook_from, rook_to)
 
 	# Compute destination position (+ pixel offset, same as spawn)
 	var world_end: Vector2 = _tile_to_global_center(to)
@@ -418,32 +513,67 @@ func _perform_move_impl(p: Node, to: Vector2i) -> void:
 
 	# Play "move" animation if available
 	_try_play_move_anim(p)
+	if was_castle and rook_moved != null:
+		_try_play_move_anim(rook_moved)
 
-	# Tween the piece to the destination
+	# Tween the piece (and rook if castling)
 	var tween := get_tree().create_tween()
 	_configure_tween_ease(tween)
 	tween.tween_property(p, "global_position", world_end, max(0.0, move_duration))
+
+	if was_castle and rook_moved != null:
+		var r_end := _tile_to_global_center(rook_to)
+		var roff: Vector2 = Vector2.ZERO
+		var ro = board_map.get("piece_pixel_offset")
+		if typeof(ro) == TYPE_VECTOR2:
+			roff = ro as Vector2
+		r_end += roff
+		tween.tween_property(rook_moved, "global_position", r_end, max(0.0, move_duration))
+
 	await tween.finished
 
 	# Now lock in the tile_pos & remove captured piece (if still alive)
 	_set_piece_tile_pos(p, to)
+	if was_castle and rook_moved != null:
+		_set_piece_tile_pos(rook_moved, rook_to)
 	if captured != null and is_instance_valid(captured):
-		captured.queue_free()
+		_capture_piece(captured)
 
 	# Promotion (auto-queen)
 	var typ: String = _effective_type(p)
 	var col: String = _effective_color(p)
 	var promote_row: int = (0 if col == "white" else 7)
 	if typ == "pawn" and to.y == promote_row:
+		did_promote = true
+		promoted_from = "pawn"
 		p.set_meta("piece_type", "queen")
 		if p.has_method("set"):
 			p.set("piece_type", "queen")
 
-	move_history.append({"from": from, "to": to, "captured": captured})
+	# Update movement flags (for castling rules)
+	_set_has_moved(p, true)
+	if was_castle and rook_moved != null:
+		_set_has_moved(rook_moved, true)
+
+	# Rich history for undo
+	move_history.append({
+		"piece": p,
+		"from": from,
+		"to": to,
+		"captured": captured,
+		"was_castle": was_castle,
+		"rook": rook_moved,
+		"rook_from": rook_from,
+		"rook_to": rook_to,
+		"did_promote": did_promote,
+		"promoted_from": promoted_from,
+		"piece_had_moved": piece_had_moved
+	})
+
 	current_turn = _opponent(current_turn)
 
 	rebuild_board()
-	_update_check_indicators()
+	_update_all_indicators()
 	is_animating = false
 
 # Try to play a "move" animation on common node types
@@ -476,8 +606,12 @@ func _configure_tween_ease(t: Tween) -> void:
 			t.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 # ---------------------------------------------------------------------
-# CHECK / CHECKMATE INDICATORS
+# CHECK / THREAT INDICATORS
 # ---------------------------------------------------------------------
+func _update_all_indicators() -> void:
+	_update_check_indicators()
+	_update_threat_indicators()
+
 func _update_check_indicators() -> void:
 	_clear_check_tiles()
 
@@ -503,6 +637,22 @@ func _update_check_indicators() -> void:
 				b_tile_id = check_tile_id_mate
 			board_map.set_cell(check_layer, b_king, b_tile_id, Vector2i.ZERO)
 
+func _update_threat_indicators() -> void:
+	# Show red tile under any piece that is currently capturable by its opponent.
+	# (This is independent from "in check".)
+	_clear_threat_tiles()
+	for y in range(8):
+		for x in range(8):
+			var n: Node = board[y][x] as Node
+			if n == null:
+				continue
+			var col := _effective_color(n)
+			if col == "":
+				continue
+			var here := Vector2i(x, y)
+			if square_attacked_by(here, _opponent(col)):
+				board_map.set_cell(threat_layer, here, threat_tile_id, Vector2i.ZERO)
+
 func _no_legal_moves(color: String) -> bool:
 	for y in range(8):
 		for x in range(8):
@@ -526,7 +676,7 @@ func _maybe_ai_move() -> void:
 
 	await get_tree().process_frame
 	rebuild_board()
-	_update_check_indicators()
+	_update_all_indicators()
 
 	# Gather all legal moves for current_turn
 	var moves: Array = [] # Array[Dictionary]
@@ -622,3 +772,96 @@ func _clear_check_tiles() -> void:
 	for y in range(8):
 		for x in range(8):
 			board_map.set_cell(check_layer, Vector2i(x, y), -1)
+
+func _clear_threat_tiles() -> void:
+	for y in range(8):
+		for x in range(8):
+			board_map.set_cell(threat_layer, Vector2i(x, y), -1)
+
+# ---------------------------------------------------------------------
+# CAPTURE / RESTORE (soft-capture to enable undo)
+# ---------------------------------------------------------------------
+func _capture_piece(p: Node) -> void:
+	if p == null or not is_instance_valid(p): return
+	p.visible = false
+	p.remove_from_group("Pieces") # avoid being considered on rebuild_board
+	# park it under us or a dedicated Graveyard
+	var gy: Node = get_node_or_null("Graveyard")
+	if gy == null: gy = self
+	p.reparent(gy)
+	# mark captured for clarity
+	p.set_meta("captured", true)
+
+func _restore_captured_piece(p: Node) -> void:
+	if p == null: return
+	# restore membership
+	if not p.is_in_group("Pieces"):
+		p.add_to_group("Pieces")
+	p.visible = true
+	p.set_meta("captured", false)
+	# parents don't matter as long as it's in group; up to you to reparent back if desired
+
+# ---------------------------------------------------------------------
+# UNDO — fully recovers pieces, promotions, castling, and has_moved
+# ---------------------------------------------------------------------
+func undo_last_move() -> void:
+	if move_history.is_empty(): return
+
+	is_animating = true
+	_clear_move_tiles()
+
+	var last = move_history.pop_back()
+	var p: Node = last.get("piece", null)
+	var from: Vector2i = last.get("from", Vector2i(-1,-1))
+	var to: Vector2i = last.get("to", Vector2i(-1,-1))
+	var captured: Node = last.get("captured", null)
+	var was_castle: bool = last.get("was_castle", false)
+	var rook_moved: Node = last.get("rook", null)
+	var rook_from: Vector2i = last.get("rook_from", Vector2i(-1,-1))
+	var rook_to: Vector2i = last.get("rook_to", Vector2i(-1,-1))
+	var did_promote: bool = last.get("did_promote", false)
+	var promoted_from: String = last.get("promoted_from", "")
+	var piece_had_moved: bool = last.get("piece_had_moved", false)
+
+	# Revert board positions (king back; captured back onto 'to')
+	_revert_board_move(from, to, captured)
+
+	# If castling, slide rook back in board array
+	if was_castle and rook_moved != null:
+		_revert_board_move(rook_from, rook_to, null)
+
+	# Visually snap nodes back
+	var start_pos := _tile_to_global_center(from)
+	var off: Vector2 = Vector2.ZERO
+	var of = board_map.get("piece_pixel_offset")
+	if typeof(of) == TYPE_VECTOR2: off = of as Vector2
+	p.global_position = start_pos + off
+	_set_piece_tile_pos(p, from)
+
+	if was_castle and rook_moved != null:
+		var rpos := _tile_to_global_center(rook_from)
+		rook_moved.global_position = rpos + off
+		_set_piece_tile_pos(rook_moved, rook_from)
+		_set_has_moved(rook_moved, false) # rook hadn’t moved before the castle
+
+	# Restore captured piece (if any)
+	if captured != null:
+		_restore_captured_piece(captured)
+		_set_piece_tile_pos(captured, to)
+
+	# Revert promotion
+	if did_promote and promoted_from != "":
+		p.set_meta("piece_type", promoted_from)
+		if p.has_method("set"):
+			p.set("piece_type", promoted_from)
+
+	# Restore has_moved for moving piece
+	_set_has_moved(p, piece_had_moved)
+
+	# Switch turn back
+	current_turn = _opponent(current_turn)
+
+	rebuild_board()
+	_update_all_indicators()
+
+	is_animating = false
