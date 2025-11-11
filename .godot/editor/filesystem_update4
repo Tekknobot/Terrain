@@ -13,3 +13,12 @@ res://Scenes/Meks_Scenes/AVATARS/S3.scn
 res://Scripts II/Pawn.gd
 res://Scenes/Projectile_Scenes/Projectile.tscn
 res://Scenes/Projectile_Scenes/Projectile2.tscn
+res://Scripts II/MapGen.gd
+res://Scripts II/Enemy.gd
+res://Scripts II/TDDirector.gd
+res://Scripts II/BuildManager.gd
+res://Scenes/Human_Scenes/Soldier2.scn
+res://Scripts II/NPCSoldier.gd
+res://Scenes/Human_Scenes/Soldier.scn
+res://Scripts/NPCSoldier.gd
+res://Scripts II/TurnManagerTD.gd
