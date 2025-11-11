@@ -11,6 +11,11 @@ extends Node2D
 # When true, we clamp the effective delay so all shots launch before the earliest possible hit.
 # Effective delay = min(inter_shot_delay, (projectile_travel_time - 0.01) / max(1, shots-1))
 
+# --- impact explosion (new) ---
+@export var explosion_scene: PackedScene        # optional: prefab to spawn on hit
+@export var explosion_z_index: int = 9100
+@export var explosion_ttl: float = 0.7          # fallback lifetime if prefab has no built-in cleanup
+
 # --- projectile visuals ---
 @export var projectile_scene: PackedScene            # Node2D root (Sprite2D/AnimatedSprite2D/Particles2D)
 @export var projectile_z_index: int = 9000
@@ -115,26 +120,81 @@ func _fire_one(target: Node) -> Tween:
 	if dir.length() > 0.001:
 		p2d.rotation = dir.angle()
 
-	# Build a single tween chain: fly -> flash target -> cleanup
+	# Build a single tween chain: fly -> spawn explosion -> flash target (self_modulate) -> cleanup projectile
 	var tw := get_tree().create_tween()
 	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
 	# flight
 	tw.tween_property(p2d, "global_position", end_pos, max(projectile_travel_time, 0.05))
 
-	# flash (only if target is still valid and has visuals)
+	# explosion at impact (if provided)
+	if explosion_scene != null:
+		tw.tween_callback(Callable(self, "_spawn_explosion").bind(end_pos))
+
+	# flash (use self_modulate so existing modulate color/alpha remain untouched)
 	if target is CanvasItem:
 		var ci := target as CanvasItem
-		var original := ci.modulate
+		var original_self := ci.self_modulate
+		var on_col := Color(
+			original_self.r * flash_color.r,
+			original_self.g * flash_color.g,
+			original_self.b * flash_color.b,
+			original_self.a * flash_color.a
+		)
 		for _i in range(flash_times):
-			tw.tween_property(ci, "modulate", flash_color, max(flash_interval, 0.01))
-			tw.tween_property(ci, "modulate", original, max(flash_interval, 0.01))
+			tw.tween_property(ci, "self_modulate", on_col, max(flash_interval, 0.01))
+			tw.tween_property(ci, "self_modulate", original_self, max(flash_interval, 0.01))
 		# ensure restoration
-		tw.tween_property(ci, "modulate", original, 0.0)
+		tw.tween_property(ci, "self_modulate", original_self, 0.0)
 
 	# cleanup projectile at the end
 	tw.tween_callback(Callable(self, "_cleanup_projectile").bind(p2d))
 
 	return tw
+
+func _spawn_explosion(world_pos: Vector2) -> void:
+	if explosion_scene == null:
+		return
+	var fx := explosion_scene.instantiate()
+	var parent_for_fx: Node = (tile_map if tile_map != null else self.get_parent())
+	parent_for_fx.add_child(fx)
+
+	if fx is Node2D:
+		var n2d := fx as Node2D
+		n2d.top_level = true
+		n2d.z_index = explosion_z_index
+		n2d.global_position = world_pos
+
+	# Try to respect common node types for auto-cleanup; fall back to TTL timer
+	var cleaned := false
+
+	if fx is GPUParticles2D:
+		var p := fx as GPUParticles2D
+		p.emitting = true
+		# If one_shot is true, we can time cleanup using its lifetime.
+		var ttl := (p.lifetime + p.preprocess)
+		if ttl <= 0.0:
+			ttl = explosion_ttl
+		get_tree().create_timer(ttl).timeout.connect(func(): if is_instance_valid(fx): fx.queue_free())
+		cleaned = true
+	elif fx is CPUParticles2D:
+		var p2 := fx as CPUParticles2D
+		p2.emitting = true
+		var ttl2 := p2.lifetime
+		if ttl2 <= 0.0:
+			ttl2 = explosion_ttl
+		get_tree().create_timer(ttl2).timeout.connect(func(): if is_instance_valid(fx): fx.queue_free())
+		cleaned = true
+	elif fx.has_node("AnimationPlayer"):
+		var ap := fx.get_node("AnimationPlayer") as AnimationPlayer
+		if ap != null:
+			ap.play() # default animation
+			ap.animation_finished.connect(func(_name): if is_instance_valid(fx): fx.queue_free())
+			cleaned = true
+
+	if not cleaned:
+		# generic fallback
+		get_tree().create_timer(max(0.05, explosion_ttl)).timeout.connect(func(): if is_instance_valid(fx): fx.queue_free())
 
 func _cleanup_projectile(p2d: Node2D) -> void:
 	if is_instance_valid(p2d):
