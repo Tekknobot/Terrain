@@ -1095,3 +1095,9 @@ func _restore_promoted_pawn(old_pawn: Node, dst_tile: Vector2i) -> void:
 		old_pawn.set("piece_type", "pawn")
 
 	# Board array will be corrected by _revert_board_move/ rebuild_board
+
+# Public helper so other nodes (like Pawn.gd) can query occupants quickly.
+func get_piece_at_tile(tile: Vector2i) -> Node:
+	if tile.x < 0 or tile.x >= 8 or tile.y < 0 or tile.y >= 8:
+		return null
+	return board[tile.y][tile.x] as Node

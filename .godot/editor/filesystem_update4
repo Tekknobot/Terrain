@@ -1,0 +1,15 @@
+res://Scenes/IsoGrid.tscn
+res://Textures/EnemyTint.gdshader
+res://Textures/level_up.gdshader
+res://Textures/flash.gdshader
+res://Textures/in_water.gdshader
+res://Textures/pixel_effect.gdshader
+res://Textures/Popup.gdshader
+res://Textures/tile_fade.gdshader
+res://Scripts II/SimUndo.gd
+res://Scripts II/TurnManager.gd
+res://Scenes/Meks_Scenes/AVATARS/M1.scn
+res://Scenes/Meks_Scenes/AVATARS/S3.scn
+res://Scripts II/Pawn.gd
+res://Scenes/Projectile_Scenes/Projectile.tscn
+res://Scenes/Projectile_Scenes/Projectile2.tscn

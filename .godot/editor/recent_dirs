@@ -1,6 +1,7 @@
+res://Scenes/Projectile_Scenes
+res://Scripts II
 res://Scenes/Meks_Scenes/CPU II
 res://Scenes/Meks_Scenes/AVATARS
-res://Scripts II
 res://Scenes
 /Users/machome/Godot/_Builds/Mek VS Mek/WEB
 /Users/machome/Godot
@@ -19,6 +20,5 @@ res://Textures
 /Users/machome/Godot/_Builds/Mek VS Mek
 res://Scenes/VFX
 res://Sprites/Drops
-res://Prefabs
 /Users/machome/Godot/_Builds/Mek VS Mek/macOS
 /Users/machome/Godot/_Builds/Mek VS Mek/Windows
